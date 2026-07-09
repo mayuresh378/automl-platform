@@ -1,18 +1,28 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Microchip, Cpu, MemoryStick, HardDrive } from 'lucide-react';
-import { systemMetrics } from '../lib/mockData';
+import { api } from '../lib/api';
 
-const ICONS = { gpu: Microchip, cpu: Cpu, memory: MemoryStick, storage: HardDrive };
-
+const ICONS: Record<string, React.FC<any>> = { gpu: Microchip, cpu: Cpu, memory: MemoryStick, storage: HardDrive };
 const barColor = (v: number) => (v > 80 ? 'bg-danger' : v > 60 ? 'bg-warning' : 'bg-primary');
 
 export function MetricGrid() {
-  const entries = Object.entries(systemMetrics) as Array<[keyof typeof systemMetrics, typeof systemMetrics['gpu']]>;
+  const [metrics, setMetrics] = useState<any>({});
+
+  useEffect(() => {
+    api.monitoring.metrics().then(setMetrics).catch(() => {});
+    const id = setInterval(() => api.monitoring.metrics().then(setMetrics).catch(() => {}), 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  const entries = Object.entries(metrics) as Array<[string, { label: string; value: number; detail: string }]>;
+
+  if (entries.length === 0) return null;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {entries.map(([key, metric], i) => {
-        const Icon = ICONS[key];
+        const Icon = ICONS[key] || Microchip;
         return (
           <motion.div
             key={key}

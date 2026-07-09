@@ -1,0 +1,148 @@
+[
+  {
+    "id": "exp_20260709162445",
+    "name": "featurized_cleaned_iris-RandomForest",
+    "model": "RandomForest",
+    "task_type": "regression",
+    "cv_score": 0.9726,
+    "metrics": {
+      "mse": 0.0794,
+      "rmse": 0.2818,
+      "mae": 0.2217,
+      "r2": 0.9769
+    },
+    "dataset": "featurized_cleaned_iris.csv",
+    "target": "petal_length",
+    "training_time": 0.98,
+    "total_time": 1.62,
+    "runAt": "2026-07-09T16:24:45.398932",
+    "status": "success"
+  },
+  {
+    "id": "exp_20260709162351",
+    "name": "iris-LogisticRegression",
+    "model": "LogisticRegression",
+    "task_type": "classification",
+    "cv_score": 0.9583,
+    "metrics": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "confusion_matrix": [
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          0,
+          10
+        ]
+      ]
+    },
+    "dataset": "iris.csv",
+    "target": "species",
+    "training_time": 0.08,
+    "total_time": 2.86,
+    "runAt": "2026-07-09T16:23:51.345243",
+    "status": "success"
+  },
+  {
+    "id": "exp_20260709162342",
+    "name": "iris-SVR",
+    "model": "SVR",
+    "task_type": "regression",
+    "cv_score": 0.8338,
+    "metrics": {
+      "mse": 0.0838,
+      "rmse": 0.2896,
+      "mae": 0.224,
+      "r2": 0.8785
+    },
+    "dataset": "iris.csv",
+    "target": "sepal_length",
+    "training_time": 0.1,
+    "total_time": 5.05,
+    "runAt": "2026-07-09T16:23:42.573972",
+    "status": "success"
+  },
+  {
+    "id": "exp_20260709161749",
+    "name": "iris-LogisticRegression",
+    "model": "LogisticRegression",
+    "task_type": "classification",
+    "cv_score": 0.9583,
+    "metrics": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "confusion_matrix": [
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          0,
+          10
+        ]
+      ]
+    },
+    "dataset": "iris.csv",
+    "target": "species",
+    "training_time": 5.08,
+    "total_time": 9.38,
+    "runAt": "2026-07-09T16:17:49.606921",
+    "status": "success"
+  },
+  {
+    "id": "exp_20260709161545",
+    "name": "iris-LogisticRegression",
+    "model": "LogisticRegression",
+    "task_type": "classification",
+    "cv_score": 0.9583,
+    "metrics": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "confusion_matrix": [
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          0,
+          10
+        ]
+      ]
+    },
+    "dataset": "iris.csv",
+    "target": "species",
+    "training_time": 4.38,
+    "total_time": 7.31,
+    "runAt": "2026-07-09T16:15:45.005724",
+    "status": "success"
+  }
+]

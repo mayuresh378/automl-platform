@@ -1,0 +1,122 @@
+{
+  "task_type": "regression",
+  "n_classes": null,
+  "feature_names": [
+    "sepal_width",
+    "petal_length",
+    "petal_width",
+    "species_setosa",
+    "species_versicolor",
+    "species_virginica"
+  ],
+  "label_map": null,
+  "best_params": {
+    "kernel": "linear",
+    "gamma": "scale",
+    "C": 1
+  },
+  "cv_score": 0.8338,
+  "metrics": {
+    "mse": 0.0838,
+    "rmse": 0.2896,
+    "mae": 0.224,
+    "r2": 0.8785
+  },
+  "feature_importance": [
+    {
+      "feature": "petal_length",
+      "importance": 1.3559
+    },
+    {
+      "feature": "species_setosa",
+      "importance": 0.3709
+    },
+    {
+      "feature": "species_virginica",
+      "importance": 0.2896
+    },
+    {
+      "feature": "petal_width",
+      "importance": 0.2822
+    },
+    {
+      "feature": "sepal_width",
+      "importance": 0.241
+    },
+    {
+      "feature": "species_versicolor",
+      "importance": 0.0813
+    }
+  ],
+  "training_time": 0.1,
+  "test_size": 30,
+  "train_size": 120,
+  "total_results": [
+    {
+      "name": "SVR",
+      "cv_score": 0.8338,
+      "metrics": {
+        "mse": 0.0838,
+        "rmse": 0.2896,
+        "mae": 0.224,
+        "r2": 0.8785
+      },
+      "training_time": 0.1
+    },
+    {
+      "name": "RandomForest",
+      "cv_score": 0.8351,
+      "metrics": {
+        "mse": 0.0897,
+        "rmse": 0.2994,
+        "mae": 0.2488,
+        "r2": 0.8701
+      },
+      "training_time": 0.98
+    },
+    {
+      "name": "Lasso",
+      "cv_score": 0.836,
+      "metrics": {
+        "mse": 0.0913,
+        "rmse": 0.3021,
+        "mae": 0.2266,
+        "r2": 0.8678
+      },
+      "training_time": 0.04
+    },
+    {
+      "name": "Ridge",
+      "cv_score": 0.8372,
+      "metrics": {
+        "mse": 0.0913,
+        "rmse": 0.3022,
+        "mae": 0.227,
+        "r2": 0.8677
+      },
+      "training_time": 3.44
+    },
+    {
+      "name": "KNN",
+      "cv_score": 0.7873,
+      "metrics": {
+        "mse": 0.0962,
+        "rmse": 0.3102,
+        "mae": 0.2206,
+        "r2": 0.8606
+      },
+      "training_time": 0.09
+    },
+    {
+      "name": "GradientBoosting",
+      "cv_score": 0.8319,
+      "metrics": {
+        "mse": 0.1036,
+        "rmse": 0.3219,
+        "mae": 0.2519,
+        "r2": 0.8499
+      },
+      "training_time": 0.23
+    }
+  ]
+}

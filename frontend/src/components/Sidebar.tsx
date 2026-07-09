@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -61,8 +60,7 @@ const FOOTER_ITEMS: NavItem[] = [
 ];
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar } = useUIStore();
-  const [active, setActive] = useState('Dashboard');
+  const { sidebarCollapsed, toggleSidebar, activePage, setActivePage } = useUIStore();
 
   const groups = Array.from(new Set(NAV_ITEMS.map((n) => n.group)));
 
@@ -93,12 +91,12 @@ export function Sidebar() {
             )}
             <div className="space-y-0.5">
               {NAV_ITEMS.filter((n) => n.group === group).map((item) => {
-                const isActive = active === item.label;
+                const isActive = activePage === item.label;
                 const Icon = item.icon;
                 return (
                   <button
                     key={item.label}
-                    onClick={() => setActive(item.label)}
+                    onClick={() => setActivePage(item.label)}
                     title={sidebarCollapsed ? item.label : undefined}
                     className={cn(
                       'group relative w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',

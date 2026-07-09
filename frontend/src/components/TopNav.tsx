@@ -4,7 +4,7 @@ import { useUIStore } from '../store/useUIStore';
 import { cn } from '../lib/cn';
 
 export function TopNav() {
-  const { setCommandPaletteOpen } = useUIStore();
+  const { setCommandPaletteOpen, setActivePage } = useUIStore();
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -50,7 +50,8 @@ export function TopNav() {
           <Search className="h-4 w-4" />
         </button>
 
-        <button className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 transition-opacity shadow-glow-sm">
+        <button className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 transition-opacity shadow-glow-sm"
+          onClick={() => setActivePage('AI Assistant')}>
           <Sparkles className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Ask AI</span>
         </button>
@@ -78,8 +79,8 @@ export function TopNav() {
                 <div className="text-zinc-500 text-xs">Free plan</div>
               </div>
               <div className="my-1 border-t border-border" />
-              <div className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer">Profile settings</div>
-              <div className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer">Billing</div>
+              <div className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer" onClick={() => setActivePage('Settings')}>Profile settings</div>
+              <div className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer" onClick={() => setActivePage('Settings')}>Billing</div>
               <div className="px-2.5 py-1.5 text-danger rounded-lg hover:bg-white/[0.04] cursor-pointer">Sign out</div>
             </div>
           )}

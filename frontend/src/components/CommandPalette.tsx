@@ -4,15 +4,15 @@ import { Search, Upload, Cpu, FlaskConical, Rocket, FileText } from 'lucide-reac
 import { useUIStore } from '../store/useUIStore';
 
 const ACTIONS = [
-  { icon: Upload, label: 'Upload a new dataset', hint: 'Data' },
-  { icon: Cpu, label: 'Start a new training run', hint: 'Training' },
-  { icon: FlaskConical, label: 'Open recent experiments', hint: 'Experiments' },
-  { icon: Rocket, label: 'Deploy a model', hint: 'Deployment' },
-  { icon: FileText, label: 'Read the documentation', hint: 'Docs' },
+  { icon: Upload, label: 'Upload a new dataset', page: 'Datasets', hint: 'Data' },
+  { icon: Cpu, label: 'Start a new training run', page: 'Training', hint: 'Training' },
+  { icon: FlaskConical, label: 'Open recent experiments', page: 'Experiments', hint: 'Experiments' },
+  { icon: Rocket, label: 'Deploy a model', page: 'Deployment', hint: 'Deployment' },
+  { icon: FileText, label: 'Read the documentation', page: '', hint: 'Docs' },
 ];
 
 export function CommandPalette() {
-  const { commandPaletteOpen, setCommandPaletteOpen } = useUIStore();
+  const { commandPaletteOpen, setCommandPaletteOpen, setActivePage } = useUIStore();
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -28,6 +28,11 @@ export function CommandPalette() {
   }, [commandPaletteOpen, setCommandPaletteOpen]);
 
   const filtered = ACTIONS.filter((a) => a.label.toLowerCase().includes(query.toLowerCase()));
+
+  const handleAction = (page: string) => {
+    setCommandPaletteOpen(false);
+    if (page) setActivePage(page);
+  };
 
   return (
     <AnimatePresence>
@@ -67,7 +72,7 @@ export function CommandPalette() {
                 return (
                   <button
                     key={action.label}
-                    onClick={() => setCommandPaletteOpen(false)}
+                    onClick={() => handleAction(action.page)}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-white/[0.05] transition-colors"
                   >
                     <Icon className="h-4 w-4 text-zinc-500" />

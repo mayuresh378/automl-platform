@@ -1,0 +1,11 @@
+[
+  {
+    "id": "dep_20260709163257",
+    "model_name": "iris_LogisticRegression.pkl",
+    "endpoint_name": "my-api",
+    "endpoint_url": "http://127.0.0.1:8000/api/v1/predictions?model=iris_LogisticRegression.pkl",
+    "status": "Active",
+    "created_at": "2026-07-09T16:32:57.466918",
+    "requests_count": 0
+  }
+]

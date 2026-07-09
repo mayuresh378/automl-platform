@@ -1,38 +1,75 @@
 import os
+import json
 import joblib
 import pandas as pd
+import numpy as np
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "..", "models")
+
+
+def load_model_metadata(model_filename: str):
+    meta_path = os.path.join(MODELS_DIR, model_filename.replace(".pkl", "_meta.json"))
+    if os.path.exists(meta_path):
+        with open(meta_path) as f:
+            return json.load(f)
+    return None
+
 
 def make_prediction(model_filename: str, input_data: dict):
-    """
-    Loads a trained model and makes a prediction on fresh input data.
-    """
-    model_path = os.path.join("..", "models", model_filename)
-    
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file '{model_filename}' not found in models directory.")
-        
-    # 1. Load the serialized model weights
-    model = joblib.load(model_path)
-    
-    # 2. Convert input dictionary to a single-row Pandas DataFrame
+    pipeline_path = os.path.join(MODELS_DIR, model_filename)
+    if not os.path.exists(pipeline_path):
+        raise FileNotFoundError(f"Model '{model_filename}' not found in models directory.")
+
+    pipeline = joblib.load(pipeline_path)
+    metadata = load_model_metadata(model_filename)
+
     df_input = pd.DataFrame([input_data])
-    
-    # 3. Handle categorical encoding consistency
-    # (Note: In production, you would match the exact one-hot encoded column names 
-    # from training. For this prototype, we pass the data right into the model)
+
+    if metadata and "feature_names" in metadata:
+        expected_features = metadata["feature_names"]
+        missing = [f for f in expected_features if f not in df_input.columns]
+        extra = [f for f in df_input.columns if f not in expected_features]
+        if missing:
+            pass
+
     try:
-        prediction = model.predict(df_input)
-        
-        # If the model outputs probabilities (like classification), get confidence
-        if hasattr(model, "predict_proba"):
-            probabilities = model.predict_proba(df_input)[0]
-            confidence = float(max(probabilities))
-        else:
-            confidence = 1.0  # Default if probability isn't supported
-            
-        return {
-            "prediction": int(prediction[0]) if hasattr(prediction[0], 'item') else prediction[0],
-            "confidence": confidence
+        prediction = pipeline.predict(df_input)
+        task_type = metadata.get("task_type") if metadata else None
+
+        raw_pred = _format_prediction(prediction[0])
+        label_map = metadata.get("label_map") if metadata else None
+        if label_map is not None:
+            raw_pred = label_map.get(str(raw_pred), raw_pred)
+
+        result = {
+            "prediction": raw_pred,
+            "task_type": task_type,
         }
+
+        if hasattr(pipeline, "predict_proba") and task_type == "classification":
+            try:
+                proba = pipeline.predict_proba(df_input)
+                probs = proba[0].tolist()
+                result["probabilities"] = [round(p, 4) for p in probs]
+                result["confidence"] = round(float(max(probs)), 4)
+
+                if metadata and metadata.get("n_classes") == 2:
+                    classes = pipeline.classes_.tolist() if hasattr(pipeline, "classes_") else [0, 1]
+                    result["probability_map"] = {str(c): round(float(p), 4) for c, p in zip(classes, probs)}
+            except Exception:
+                pass
+
+        return result
     except Exception as e:
-        raise ValueError(f"Error alignment between input features and model requirements: {str(e)}")
+        raise ValueError(f"Prediction failed: {str(e)}")
+
+
+def _format_prediction(value):
+    if isinstance(value, (np.integer,)):
+        return int(value)
+    if isinstance(value, (np.floating,)):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value

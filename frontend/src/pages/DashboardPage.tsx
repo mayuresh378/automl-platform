@@ -1,23 +1,26 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Activity,
-  ArrowUpRight,
-  Sparkles,
-  BrainCircuit,
-  Clock3,
-} from 'lucide-react';
+import { Activity, ArrowUpRight, Sparkles, BrainCircuit, Clock3 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { api } from '../lib/api';
 
-const activityData = [
-  { month: 'Jan', value: 48 },
-  { month: 'Feb', value: 62 },
-  { month: 'Mar', value: 59 },
-  { month: 'Apr', value: 74 },
-  { month: 'May', value: 82 },
-  { month: 'Jun', value: 91 },
+const trendData = [
+  { month: 'Jan', value: 48 }, { month: 'Feb', value: 62 },
+  { month: 'Mar', value: 59 }, { month: 'Apr', value: 74 },
+  { month: 'May', value: 82 }, { month: 'Jun', value: 91 },
 ];
 
 function DashboardPage() {
+  const [datasets, setDatasets] = useState<any[]>([]);
+  const [experiments, setExperiments] = useState<any[]>([]);
+  const [models, setModels] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.datasets.list().then(r => setDatasets(r.datasets)).catch(() => {});
+    api.experiments.list().then(r => setExperiments(r.experiments)).catch(() => {});
+    api.models.list().then(r => setModels(r.models)).catch(() => {});
+  }, []);
+
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
       <section className="grid gap-6 xl:grid-cols-[1.6fr_0.8fr]">
@@ -33,9 +36,9 @@ function DashboardPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { label: 'Datasets', value: '24', trend: '+12%' },
-              { label: 'Models', value: '18', trend: '+7%' },
-              { label: 'Predictions', value: '842k', trend: '+24%' },
+              { label: 'Datasets', value: String(datasets.length), trend: `${datasets.length > 0 ? '+' : ''}${datasets.length}` },
+              { label: 'Models', value: String(models.length), trend: `${models.length > 0 ? '+' : ''}${models.length}` },
+              { label: 'Experiments', value: String(experiments.length), trend: `${experiments.length > 0 ? '+' : ''}${experiments.length}` },
             ].map((item) => (
               <div key={item.label} className="rounded-3xl border border-white/10 bg-[#121623]/70 p-4">
                 <p className="text-sm text-slate-400">{item.label}</p>
@@ -57,9 +60,15 @@ function DashboardPage() {
             <Sparkles className="h-5 w-5 text-accent" />
           </div>
           <div className="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 to-accent/10 p-4">
-            <p className="text-sm text-slate-300">A new feature set is ready for review and could improve accuracy by 6.3%.</p>
+            <p className="text-sm text-slate-300">
+              {datasets.length === 0
+                ? 'Upload a dataset to get started with AutoML training.'
+                : experiments.length === 0
+                  ? 'Start a training experiment on your datasets.'
+                  : 'Check your latest experiment results in the training page.'}
+            </p>
             <button className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20">
-              Review pipeline <ArrowUpRight className="h-4 w-4" />
+              Get started <ArrowUpRight className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -76,7 +85,7 @@ function DashboardPage() {
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={activityData}>
+              <AreaChart data={trendData}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#6366F1" stopOpacity={0.45} />
@@ -130,15 +139,18 @@ function DashboardPage() {
             <Clock3 className="h-5 w-5 text-slate-400" />
           </div>
           <div className="space-y-3">
-            {['Gradient Boosting — 84% accuracy', 'XGBoost — pending hyperparameter tuning', 'Random Forest — completed'].map((item, idx) => (
-              <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            {experiments.slice(0, 3).map((exp: any) => (
+              <div key={exp.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className={`h-2.5 w-2.5 rounded-full ${idx === 0 ? 'bg-emerald-400' : idx === 1 ? 'bg-amber-400' : 'bg-primary'}`} />
-                  <span className="text-sm text-slate-300">{item}</span>
+                  <div className={`h-2.5 w-2.5 rounded-full ${exp.status === 'success' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  <span className="text-sm text-slate-300">{exp.model} &mdash; {exp.accuracy} accuracy</span>
                 </div>
-                <span className="text-sm text-slate-500">{idx === 1 ? '12 min' : idx === 0 ? '4 min' : 'Done'}</span>
+                <span className="text-sm text-slate-500">{exp.runAt}</span>
               </div>
             ))}
+            {experiments.length === 0 && (
+              <p className="text-sm text-slate-500 text-center py-4">No experiments run yet</p>
+            )}
           </div>
         </div>
 
@@ -151,17 +163,16 @@ function DashboardPage() {
             <BrainCircuit className="h-5 w-5 text-accent" />
           </div>
           <div className="space-y-3">
-            {[
-              { name: 'Credit Risk', score: '0.94 AUC', state: 'Production' },
-              { name: 'Anomaly Detection', score: '0.91 F1', state: 'Staging' },
-            ].map((model) => (
-              <div key={model.name} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            {models.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-8">Train a model to see it here</p>
+            ) : models.slice(0, 2).map((m: any) => (
+              <div key={m.name} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-white">{model.name}</p>
-                    <p className="text-sm text-slate-400">{model.score}</p>
+                    <p className="font-medium text-white">{m.name}</p>
+                    <p className="text-sm text-slate-400">{m.size_kb} KB</p>
                   </div>
-                  <div className="rounded-full bg-emerald-500/10 px-3 py-1 text-sm text-emerald-400">{model.state}</div>
+                  <div className="rounded-full bg-emerald-500/10 px-3 py-1 text-sm text-emerald-400">Ready</div>
                 </div>
               </div>
             ))}
