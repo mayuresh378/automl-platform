@@ -1,0 +1,85 @@
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Search, Upload, Cpu, FlaskConical, Rocket, FileText } from 'lucide-react';
+import { useUIStore } from '../store/useUIStore';
+
+const ACTIONS = [
+  { icon: Upload, label: 'Upload a new dataset', hint: 'Data' },
+  { icon: Cpu, label: 'Start a new training run', hint: 'Training' },
+  { icon: FlaskConical, label: 'Open recent experiments', hint: 'Experiments' },
+  { icon: Rocket, label: 'Deploy a model', hint: 'Deployment' },
+  { icon: FileText, label: 'Read the documentation', hint: 'Docs' },
+];
+
+export function CommandPalette() {
+  const { commandPaletteOpen, setCommandPaletteOpen } = useUIStore();
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(!commandPaletteOpen);
+      }
+      if (e.key === 'Escape') setCommandPaletteOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [commandPaletteOpen, setCommandPaletteOpen]);
+
+  const filtered = ACTIONS.filter((a) => a.label.toLowerCase().includes(query.toLowerCase()));
+
+  return (
+    <AnimatePresence>
+      {commandPaletteOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-start justify-center pt-[14vh] bg-black/60 backdrop-blur-sm px-4"
+          onClick={() => setCommandPaletteOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border border-border-strong bg-card shadow-glow overflow-hidden"
+          >
+            <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
+              <Search className="h-4 w-4 text-zinc-500" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Type a command or search…"
+                className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 outline-none"
+              />
+              <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border-strong text-zinc-500">esc</kbd>
+            </div>
+            <div className="py-1.5 max-h-72 overflow-y-auto scrollbar-thin">
+              {filtered.length === 0 && (
+                <div className="px-4 py-6 text-center text-sm text-zinc-500">No matching commands.</div>
+              )}
+              {filtered.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.label}
+                    onClick={() => setCommandPaletteOpen(false)}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-white/[0.05] transition-colors"
+                  >
+                    <Icon className="h-4 w-4 text-zinc-500" />
+                    <span className="flex-1 text-left">{action.label}</span>
+                    <span className="text-xs text-zinc-600">{action.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
