@@ -1,7 +1,19 @@
+import { useAuthStore } from '../store/useAuthStore';
+
 const BASE = '/api/v1';
 
 async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const token = useAuthStore.getState().token;
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (init?.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
+  const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `Request failed: ${res.status}`);
@@ -10,6 +22,23 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  auth: {
+    login: (email: string, password: string) => {
+      const form = new FormData();
+      form.append('email', email);
+      form.append('password', password);
+      return fetchJSON<{ token: string; user: { id: string; email: string; name: string } }>(`${BASE}/auth/login`, { method: 'POST', body: form });
+    },
+    register: (email: string, password: string, name: string) => {
+      const form = new FormData();
+      form.append('email', email);
+      form.append('password', password);
+      form.append('name', name);
+      return fetchJSON<{ token: string; user: { id: string; email: string; name: string } }>(`${BASE}/auth/register`, { method: 'POST', body: form });
+    },
+    me: () => fetchJSON<{ user: { id: string; email: string; name: string } }>(`${BASE}/auth/me`),
+  },
+
   datasets: {
     list: () => fetchJSON<{ datasets: any[] }>(`${BASE}/datasets`),
     upload: (file: File) => {
@@ -81,5 +110,14 @@ export const api = {
 
   activity: {
     list: () => fetchJSON<{ activities: any[] }>(`${BASE}/activity`),
+  },
+
+  ai: {
+    chat: (question: string) => {
+      const form = new FormData();
+      form.append('question', question);
+      return fetchJSON<{ answer: string }>(`${BASE}/ai/chat`, { method: 'POST', body: form });
+    },
+    suggestions: () => fetchJSON<{ suggestions: string[] }>(`${BASE}/ai/suggestions`),
   },
 };

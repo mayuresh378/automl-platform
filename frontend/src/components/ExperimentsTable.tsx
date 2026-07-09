@@ -11,11 +11,6 @@ export function ExperimentsTable() {
     api.experiments.list().then(r => setExperiments(r.experiments.slice(0, 5))).catch(() => {});
   }, []);
 
-  const getMetric = (exp: any, key: string) => {
-    if (exp.metrics && exp.metrics[key] !== undefined) return exp.metrics[key];
-    return null;
-  };
-
   return (
     <div className="rounded-xl border border-border bg-card/60 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">

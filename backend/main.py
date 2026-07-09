@@ -1,5 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
 import pandas as pd
 import os
 import json
@@ -10,6 +11,10 @@ from train import run_automl_training
 from predict import make_prediction, load_model_metadata
 from cleaning import profile_dataset, clean_dataset
 from features import generate_features, suggest_features
+from ai_assistant import answer_question, list_datasets as ai_list_datasets, load_experiments as ai_load_experiments
+from auth import register_user, login_user, get_current_user
+
+security = HTTPBearer(auto_error=False)
 
 app = FastAPI(title="AutoML Platform API")
 
@@ -67,6 +72,21 @@ def home():
     return {"status": "AutoML Backend is running smoothly!"}
 
 
+@app.post("/api/v1/auth/register")
+def auth_register(email: str = Form(...), password: str = Form(...), name: str = Form(...)):
+    return register_user(email, password, name)
+
+
+@app.post("/api/v1/auth/login")
+def auth_login(email: str = Form(...), password: str = Form(...)):
+    return login_user(email, password)
+
+
+@app.get("/api/v1/auth/me")
+def auth_me(current_user: dict = Depends(get_current_user)):
+    return {"user": current_user}
+
+
 @app.get("/api/v1/health")
 def health():
     return {
@@ -98,6 +118,7 @@ def list_datasets():
                     "size_kb": size_kb,
                     "rows": len(df),
                     "columns": list(df.columns),
+                    "dtypes": {c: str(dt) for c, dt in df.dtypes.items()},
                     "uploaded_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
                 })
             except Exception:
@@ -420,3 +441,69 @@ def activity():
         with open(activity_file) as f:
             return {"activities": json.load(f)}
     return {"activities": []}
+
+
+@app.post("/api/v1/ai/chat")
+def ai_chat(question: str = Form(...)):
+    try:
+        answer = answer_question(question)
+        return {"answer": answer}
+    except Exception as e:
+        return {"answer": f"I ran into an error processing your question: {str(e)}. Please try again."}
+
+
+@app.post("/api/v1/query")
+def run_sql(query: str = Form(...), dataset: str = Form(None)):
+    import duckdb
+    try:
+        con = duckdb.connect()
+        if dataset:
+            fpath = os.path.join(DATASET_DIR, dataset)
+            if not os.path.exists(fpath):
+                raise HTTPException(status_code=404, detail=f"Dataset '{dataset}' not found")
+            con.execute(f"CREATE OR REPLACE VIEW data AS SELECT * FROM read_csv_auto('{fpath.replace(os.sep, '/')}', strict_mode=false, ignore_errors=true)")
+        else:
+            for f in os.listdir(DATASET_DIR):
+                if f.endswith((".csv", ".parquet")):
+                    fpath = os.path.join(DATASET_DIR, f)
+                    tbl = f.rsplit(".", 1)[0].replace(" ", "_").replace("-", "_")
+                    con.execute(f"CREATE OR REPLACE VIEW \"{tbl}\" AS SELECT * FROM read_csv_auto('{fpath.replace(os.sep, '/')}', strict_mode=false, ignore_errors=true)")
+
+        result = con.execute(query)
+        columns = [desc[0] for desc in result.description] if result.description else []
+        rows = result.fetchall()
+        data = [dict(zip(columns, row)) for row in rows]
+        con.close()
+        return {"columns": columns, "rows": len(data), "data": data, "query": query}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/v1/ai/suggestions")
+def ai_suggestions():
+    try:
+        datasets = ai_list_datasets()
+        experiments = ai_load_experiments()
+        answers = []
+        if not datasets:
+            answers.append("Upload a dataset to get started with AutoML")
+            return {"suggestions": answers}
+
+        d = datasets[0]
+        numeric_cols = [c for c, t in d.get("dtypes", {}).items() if "float" in t or "int" in t]
+        text_cols = [c for c, t in d.get("dtypes", {}).items() if "object" in t or "str" in t]
+
+        answers.append(f"Which model should I train on {d['name']}?")
+        if numeric_cols:
+            answers.append(f"How should I clean missing values in {d['name']}?")
+        if text_cols:
+            answers.append(f"Suggest features for {d['name']}")
+        if experiments:
+            latest = experiments[0]
+            answers.append(f"Explain the {latest['model']} results on {latest['dataset']}")
+        if len(datasets) > 1:
+            answers.append("Compare my experiments across datasets")
+
+        return {"suggestions": answers[:4]}
+    except Exception:
+        return {"suggestions": ["Which model should I use?", "How should I clean my data?", "Suggest features for my dataset"]}

@@ -17,6 +17,9 @@ import PipelinesPage from './pages/PipelinesPage';
 import AutomationsPage from './pages/AutomationsPage';
 import AIAssistantPage from './pages/AIAssistantPage';
 import MarketplacePage from './pages/MarketplacePage';
+import SQLEditorPage from './pages/SQLEditorPage';
+import SettingsPage from './pages/SettingsPage';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useUIStore } from './store/useUIStore';
 
 const PAGE_MAP: Record<string, React.FC> = {
@@ -25,6 +28,7 @@ const PAGE_MAP: Record<string, React.FC> = {
   Datasets: UploadPage,
   'Data Cleaning': CleaningPage,
   'Feature Engineering': EngineeringPage,
+  Explorer: ExplorerPage,
   Training: TrainingPage,
   Experiments: ExperimentsPage,
   Models: ModelRegistryPage,
@@ -35,13 +39,27 @@ const PAGE_MAP: Record<string, React.FC> = {
   Automations: AutomationsPage,
   'AI Assistant': AIAssistantPage,
   Marketplace: MarketplacePage,
-  Settings: Dashboard,
+  'SQL Editor': SQLEditorPage,
+  Settings: SettingsPage,
 };
 
 function CurrentPage() {
   const activePage = useUIStore((s) => s.activePage);
-  const Page = PAGE_MAP[activePage];
-  return Page ? <Page /> : <Dashboard />;
+  const Page = PAGE_MAP[activePage] || Dashboard;
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={activePage}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="min-w-0"
+      >
+        <Page />
+      </motion.div>
+    </AnimatePresence>
+  );
 }
 
 export default function App() {

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Cloud, Globe, CheckCircle2, Rocket, Trash2, Plus } from 'lucide-react';
+import { Cloud, CheckCircle2, Rocket, Trash2, Plus } from 'lucide-react';
 import { api } from '../lib/api';
 
 function DeploymentsPage() {
@@ -37,7 +36,7 @@ function DeploymentsPage() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
+    <div className="space-y-6">
       <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -50,7 +49,7 @@ function DeploymentsPage() {
         </div>
 
         {showForm && (
-          <div className="mb-6 rounded-3xl border border-primary/20 bg-primary/5 p-5 space-y-4">
+          <div className="mb-6 rounded-3xl border border-primary/20 bg-primary/5 p-5 space-y-4 transition-all duration-300">
             <p className="text-sm font-medium text-white">New deployment</p>
             <select className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-white outline-none" value={selectedModel} onChange={e => setSelectedModel(e.target.value)}>
               <option value="">Select a model...</option>
@@ -135,7 +134,7 @@ function DeploymentsPage() {
           </div>
         </div>
       </section>
-    </motion.div>
+    </div>
   );
 }
 

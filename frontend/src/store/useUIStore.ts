@@ -7,6 +7,8 @@ interface UIState {
   setCommandPaletteOpen: (open: boolean) => void;
   activePage: string;
   setActivePage: (page: string) => void;
+  settingsTab: string;
+  setSettingsTab: (tab: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -16,4 +18,6 @@ export const useUIStore = create<UIState>((set) => ({
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   activePage: 'Dashboard',
   setActivePage: (page) => set({ activePage: page }),
+  settingsTab: 'general',
+  setSettingsTab: (tab) => set({ settingsTab: tab }),
 }));
