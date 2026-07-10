@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Database, Table2, RotateCcw, AlertCircle, ChevronDown } from 'lucide-react';
-import { api } from '../lib/api';
+import { Play, Database, Table2, RotateCcw, AlertCircle, ChevronDown, Download } from 'lucide-react';
+import { api, downloadBlob } from '../lib/api';
 
 function SQLEditorPage() {
   const [query, setQuery] = useState('SELECT * FROM data LIMIT 50');
@@ -112,7 +112,12 @@ function SQLEditorPage() {
                 <Table2 className="h-4 w-4 text-primary" />
                 <p className="text-sm font-medium text-white">Results ({result.rows} rows)</p>
               </div>
-              <p className="text-xs text-slate-500">{result.columns.length} columns</p>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-slate-500">{result.columns.length} columns</p>
+                <button onClick={() => downloadBlob(result.data, 'query_results.csv')} className="flex items-center gap-1 rounded-xl border border-white/10 px-2.5 py-1 text-[11px] text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors">
+                  <Download className="h-3 w-3" /> CSV
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

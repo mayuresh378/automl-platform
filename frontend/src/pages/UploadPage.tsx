@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { CloudUpload, FileSpreadsheet, CheckCircle2, Sparkles, DatabaseZap, AlertCircle, Search, Eye, Trash2, Table, BarChart3, Columns, HardDrive } from 'lucide-react';
-import { api } from '../lib/api';
+import { CloudUpload, FileSpreadsheet, CheckCircle2, Sparkles, DatabaseZap, AlertCircle, Search, Eye, Trash2, Table, BarChart3, Columns, HardDrive, Download } from 'lucide-react';
+import { api, downloadUrl } from '../lib/api';
 import { useUIStore } from '../store/useUIStore';
+import { useNotificationStore } from '../store/useNotificationStore';
 
 function UploadPage() {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -11,6 +12,7 @@ function UploadPage() {
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const setActivePage = useUIStore((s) => s.setActivePage);
+  const notify = useNotificationStore((s) => s.add);
 
   const load = () => api.datasets.list().then(r => setDatasets(r.datasets)).catch(() => {});
 
@@ -24,6 +26,7 @@ function UploadPage() {
     try {
       const res = await api.datasets.upload(file);
       setFeedback({ type: 'success', msg: `Uploaded "${file.name}" successfully` });
+      notify({ title: 'Dataset uploaded', message: `${file.name} uploaded (${(file.size / 1024).toFixed(1)} KB)`, type: 'success' });
       await load();
     } catch (err: any) {
       setFeedback({ type: 'error', msg: err.message || 'Upload failed' });
@@ -37,6 +40,7 @@ function UploadPage() {
     try {
       await api.datasets.remove(name);
       setFeedback({ type: 'success', msg: `Deleted "${name}"` });
+      notify({ title: 'Dataset deleted', message: `"${name}" removed from storage`, type: 'info' });
       await load();
     } catch (err: any) {
       setFeedback({ type: 'error', msg: err.message || 'Delete failed' });
@@ -164,6 +168,9 @@ function UploadPage() {
                   >
                     <BarChart3 className="h-3 w-3" /> Profile
                   </button>
+                  <a href={downloadUrl(`/datasets/${encodeURIComponent(ds.name)}/download`)} download={ds.name} className="flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors">
+                    <Download className="h-3 w-3" /> Download
+                  </a>
                   <button
                     onClick={() => handleDelete(ds.name)}
                     className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition-colors"

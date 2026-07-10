@@ -1,26 +1,52 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
-import pandas as pd
 import os
 import json
 import time
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+import pandas as pd
+
+from database import get_db, init_db
+from crud import (
+    create_user, authenticate_user, get_user_by_id,
+    list_experiments, create_experiment,
+    list_models, get_model, create_model, update_model_status,
+    list_deployments, create_deployment, delete_deployment,
+    list_pipelines, create_pipeline, get_pipeline, run_pipeline,
+    list_webhooks, create_webhook, delete_webhook,
+    list_api_keys, create_api_key, delete_api_key,
+    list_teams, create_team,
+    list_audit_logs, log_audit,
+    _create_token,
+)
+from schemas import (
+    PipelineCreate, PipelineResponse,
+    WebhookCreate, WebhookResponse,
+)
 from preprocess import auto_preprocess
 from train import run_automl_training
 from predict import make_prediction, load_model_metadata
 from cleaning import profile_dataset, clean_dataset
 from features import generate_features, suggest_features
 from ai_assistant import answer_question, list_datasets as ai_list_datasets, load_experiments as ai_load_experiments
-from auth import register_user, login_user, get_current_user
+from auth import get_current_user
 
 security = HTTPBearer(auto_error=False)
 
-app = FastAPI(title="AutoML Platform API")
+app = FastAPI(title="AutoML Platform API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:3000", "http://localhost",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,55 +57,74 @@ DATASET_DIR = os.path.join(BASE_DIR, "..", "dataset")
 MODELS_DIR = os.path.join(BASE_DIR, "..", "models")
 EXPERIMENTS_FILE = os.path.join(BASE_DIR, "experiments.json")
 DEPLOYMENTS_FILE = os.path.join(BASE_DIR, "deployments.json")
+ACTIVITY_FILE = os.path.join(BASE_DIR, "activity.json")
 
 os.makedirs(DATASET_DIR, exist_ok=True)
 os.makedirs(MODELS_DIR, exist_ok=True)
 
 
-def load_experiments():
-    if os.path.exists(EXPERIMENTS_FILE):
-        with open(EXPERIMENTS_FILE) as f:
+@app.on_event("startup")
+def on_start():
+    init_db()
+
+
+# ── Legacy JSON helpers (keep for backward compat) ──────────────────
+
+def load_json(path: str, default=None):
+    if os.path.exists(path):
+        with open(path) as f:
             return json.load(f)
-    return []
+    return default if default is not None else []
 
 
-def save_experiment(exp: dict):
-    exps = load_experiments()
-    exps.insert(0, exp)
-    with open(EXPERIMENTS_FILE, "w") as f:
-        json.dump(exps, f, indent=2)
+def save_json(path: str, data):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
 
 
-def log_activity(actor: str, action: str, target: str):
-    activities = []
-    activity_file = os.path.join(BASE_DIR, "activity.json")
-    if os.path.exists(activity_file):
-        with open(activity_file) as f:
-            activities = json.load(f)
-    activities.insert(0, {
-        "id": f"act_{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
-        "actor": actor,
-        "action": action,
-        "target": target,
-        "time": datetime.now().isoformat(),
-    })
-    with open(activity_file, "w") as f:
-        json.dump(activities, f, indent=2)
-
+# ── Root ────────────────────────────────────────────────────────────
 
 @app.get("/")
 def home():
-    return {"status": "AutoML Backend is running smoothly!"}
+    return {
+        "status": "AutoML Backend is running!",
+        "version": "2.0.0",
+        "database": "PostgreSQL/SQLite via SQLAlchemy",
+        "docs": "/docs",
+    }
 
+
+# ── Health ──────────────────────────────────────────────────────────
+
+@app.get("/api/v1/health")
+def health():
+    dataset_count = len([f for f in os.listdir(DATASET_DIR) if f.endswith((".csv", ".xlsx", ".parquet", ".json"))])
+    model_count = len([f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")])
+    return {
+        "status": "healthy",
+        "version": "2.0.0",
+        "timestamp": datetime.now().isoformat(),
+        "datasets_count": dataset_count,
+        "models_count": model_count,
+    }
+
+
+# ── Auth (DB-backed) ────────────────────────────────────────────────
 
 @app.post("/api/v1/auth/register")
-def auth_register(email: str = Form(...), password: str = Form(...), name: str = Form(...)):
-    return register_user(email, password, name)
+def auth_register(email: str = Form(...), password: str = Form(...), name: str = Form(...), db: Session = Depends(get_db)):
+    try:
+        return create_user(db, email, password, name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/v1/auth/login")
-def auth_login(email: str = Form(...), password: str = Form(...)):
-    return login_user(email, password)
+def auth_login(email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    try:
+        return authenticate_user(db, email, password)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 
 @app.get("/api/v1/auth/me")
@@ -87,53 +132,40 @@ def auth_me(current_user: dict = Depends(get_current_user)):
     return {"user": current_user}
 
 
-@app.get("/api/v1/health")
-def health():
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "datasets_count": len([f for f in os.listdir(DATASET_DIR) if f.endswith((".csv", ".xlsx", ".parquet", ".json"))]),
-        "models_count": len([f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]),
-    }
-
+# ── Datasets ────────────────────────────────────────────────────────
 
 @app.get("/api/v1/datasets")
 def list_datasets():
     files = []
-    for f in os.listdir(DATASET_DIR):
-        if f.endswith((".csv", ".xlsx", ".parquet", ".json")):
-            fpath = os.path.join(DATASET_DIR, f)
-            size_kb = round(os.path.getsize(fpath) / 1024, 1)
-            try:
-                if f.endswith(".csv"):
-                    df = pd.read_csv(fpath)
-                elif f.endswith(".xlsx"):
-                    df = pd.read_excel(fpath)
-                elif f.endswith(".parquet"):
-                    df = pd.read_parquet(fpath)
-                else:
-                    df = pd.read_json(fpath)
-                files.append({
-                    "name": f,
-                    "size_kb": size_kb,
-                    "rows": len(df),
-                    "columns": list(df.columns),
-                    "dtypes": {c: str(dt) for c, dt in df.dtypes.items()},
-                    "uploaded_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
-                })
-            except Exception:
-                files.append({
-                    "name": f,
-                    "size_kb": size_kb,
-                    "rows": 0,
-                    "columns": [],
-                    "uploaded_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
-                })
+    for f in sorted(os.listdir(DATASET_DIR)):
+        if not f.endswith((".csv", ".xlsx", ".parquet", ".json")):
+            continue
+        fpath = os.path.join(DATASET_DIR, f)
+        size_kb = round(os.path.getsize(fpath) / 1024, 1)
+        try:
+            if f.endswith(".csv"):
+                df = pd.read_csv(fpath, nrows=5)
+            elif f.endswith(".xlsx"):
+                df = pd.read_excel(fpath, nrows=5)
+            elif f.endswith(".parquet"):
+                df = pd.read_parquet(fpath)
+            else:
+                df = pd.read_json(fpath, nrows=5)
+            files.append({
+                "name": f,
+                "size_kb": size_kb,
+                "rows": len(pd.read_csv(fpath)) if f.endswith(".csv") else 0,
+                "columns": list(df.columns),
+                "dtypes": {c: str(dt) for c, dt in df.dtypes.items()},
+                "uploaded_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
+            })
+        except Exception:
+            files.append({"name": f, "size_kb": size_kb, "rows": 0, "columns": [], "uploaded_at": ""})
     return {"datasets": files}
 
 
 @app.post("/api/v1/datasets")
-async def upload_dataset(file: UploadFile = File(...)):
+async def upload_dataset(file: UploadFile = File(...), db: Session = Depends(get_db)):
     file_location = os.path.join(DATASET_DIR, file.filename)
     if os.path.exists(file_location):
         os.remove(file_location)
@@ -151,39 +183,39 @@ async def upload_dataset(file: UploadFile = File(...)):
             df = pd.read_json(file_location)
     except Exception as e:
         os.remove(file_location)
-        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
-    log_activity("User", "uploaded dataset", file.filename)
-    return {
-        "message": f"Successfully uploaded {file.filename}",
-        "filename": file.filename,
-        "features": list(df.columns),
-        "rows": len(df),
-    }
+        raise HTTPException(status_code=400, detail=f"Failed to parse: {str(e)}")
+    log_audit(db, "User", "dataset.uploaded", file.filename, "dataset")
+    return {"message": f"Uploaded {file.filename}", "filename": file.filename, "features": list(df.columns), "rows": len(df)}
+
+
+@app.get("/api/v1/datasets/{name}/download")
+def download_dataset(name: str):
+    fpath = os.path.join(DATASET_DIR, name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    return FileResponse(fpath, filename=name, media_type="text/csv")
 
 
 @app.delete("/api/v1/datasets/{name}")
-def delete_dataset(name: str):
-    file_path = os.path.join(DATASET_DIR, name)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found.")
-    os.remove(file_path)
-    log_activity("User", "deleted dataset", name)
-    return {"message": f"Dataset '{name}' deleted successfully."}
+def delete_dataset(name: str, db: Session = Depends(get_db)):
+    fpath = os.path.join(DATASET_DIR, name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    os.remove(fpath)
+    log_audit(db, "User", "dataset.deleted", name, "dataset")
+    return {"message": f"Deleted '{name}'"}
 
 
 @app.get("/api/v1/datasets/{name}/preview")
-def preview_dataset(name: str, rows: int = 50, offset: int = 0):
+def preview_dataset(name: str, rows: int = Query(50, le=500), offset: int = Query(0, ge=0)):
     try:
         from cleaning import load_dataset as _ld
         df = _ld(name)
         total = len(df)
         page = df.iloc[offset:offset + rows]
         return {
-            "name": name,
-            "total_rows": total,
-            "offset": offset,
-            "rows_returned": len(page),
-            "columns": list(df.columns),
+            "name": name, "total_rows": total, "offset": offset,
+            "rows_returned": len(page), "columns": list(df.columns),
             "data": page.fillna("").to_dict(orient="records"),
         }
     except Exception as e:
@@ -199,22 +231,22 @@ def dataset_profile(name: str):
 
 
 @app.post("/api/v1/datasets/{name}/clean")
-def clean(name: str, operations: str = Form(...)):
+def clean(name: str, operations: str = Form(...), db: Session = Depends(get_db)):
     try:
         ops = json.loads(operations)
         result = clean_dataset(name, ops)
-        log_activity("User", "cleaned dataset", name)
+        log_audit(db, "User", "dataset.cleaned", name, "dataset")
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/v1/datasets/{name}/features/generate")
-def generate(name: str, operations: str = Form(...)):
+def generate(name: str, operations: str = Form(...), db: Session = Depends(get_db)):
     try:
         ops = json.loads(operations)
         result = generate_features(name, ops)
-        log_activity("User", "generated features", name)
+        log_audit(db, "User", "features.generated", name, "dataset")
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -228,107 +260,29 @@ def suggest(name: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@app.get("/api/v1/models")
-def list_models():
-    models = []
-    for f in os.listdir(MODELS_DIR):
-        if f.endswith(".pkl"):
-            fpath = os.path.join(MODELS_DIR, f)
-            size_kb = round(os.path.getsize(fpath) / 1024, 1)
-            meta = load_model_metadata(f)
-            models.append({
-                "name": f,
-                "size_kb": size_kb,
-                "task_type": meta.get("task_type") if meta else None,
-                "best_score": meta.get("cv_score") if meta else None,
-                "created_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
-            })
-    return {"models": models}
+# ── Experiments (DB-backed) ─────────────────────────────────────────
+
+@app.get("/api/v1/experiments")
+def list_experiments_api(db: Session = Depends(get_db)):
+    return {"experiments": [{
+        "id": e.id, "name": e.name, "model": e.model,
+        "task_type": e.task_type, "dataset": e.dataset, "target": e.target,
+        "cv_score": e.cv_score, "metrics": e.metrics,
+        "training_time": e.training_time, "total_time": e.total_time,
+        "status": e.status, "runAt": e.run_at.isoformat() if e.run_at else None,
+        "params": e.params, "feature_importance": e.feature_importance,
+        "confusion_matrix": e.confusion_matrix,
+    } for e in list_experiments(db)]}
 
 
-@app.get("/api/v1/models/{name}")
-def get_model_detail(name: str):
-    meta = load_model_metadata(name)
-    if not meta:
-        model_path = os.path.join(MODELS_DIR, name)
-        if not os.path.exists(model_path):
-            raise HTTPException(status_code=404, detail=f"Model '{name}' not found.")
-        return {"name": name, "detail": "No metadata available"}
-    return {"name": name, **meta}
-
-
-@app.delete("/api/v1/models/{name}")
-def delete_model(name: str):
-    model_path = os.path.join(MODELS_DIR, name)
-    meta_path = model_path.replace(".pkl", "_meta.json")
-    deleted = []
-    if os.path.exists(model_path):
-        os.remove(model_path)
-        deleted.append(name)
-    if os.path.exists(meta_path):
-        os.remove(meta_path)
-        deleted.append(meta_path)
-    if not deleted:
-        raise HTTPException(status_code=404, detail=f"Model '{name}' not found.")
-    log_activity("User", "deleted model", name)
-    return {"message": f"Model '{name}' deleted."}
-
-
-def load_deployments():
-    if os.path.exists(DEPLOYMENTS_FILE):
-        with open(DEPLOYMENTS_FILE) as f:
-            return json.load(f)
-    return []
-
-
-def save_deployment(dep: dict):
-    deps = load_deployments()
-    deps.insert(0, dep)
-    with open(DEPLOYMENTS_FILE, "w") as f:
-        json.dump(deps, f, indent=2)
-
-
-@app.get("/api/v1/deployments")
-def list_deployments():
-    return {"deployments": load_deployments()}
-
-
-@app.post("/api/v1/deployments")
-def create_deployment(model_name: str = Form(...), endpoint_name: str = Form(...)):
-    model_path = os.path.join(MODELS_DIR, model_name)
-    if not os.path.exists(model_path):
-        raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found.")
-    dep = {
-        "id": f"dep_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-        "model_name": model_name,
-        "endpoint_name": endpoint_name,
-        "endpoint_url": f"http://127.0.0.1:8000/api/v1/predictions?model={model_name}",
-        "status": "Active",
-        "created_at": datetime.now().isoformat(),
-        "requests_count": 0,
-    }
-    save_deployment(dep)
-    log_activity("User", "deployed model", endpoint_name)
-    return dep
-
-
-@app.delete("/api/v1/deployments/{dep_id}")
-def delete_deployment(dep_id: str):
-    deps = load_deployments()
-    new_deps = [d for d in deps if d["id"] != dep_id]
-    if len(new_deps) == len(deps):
-        raise HTTPException(status_code=404, detail=f"Deployment '{dep_id}' not found.")
-    with open(DEPLOYMENTS_FILE, "w") as f:
-        json.dump(new_deps, f, indent=2)
-    log_activity("User", "undeployed endpoint", dep_id)
-    return {"message": f"Deployment '{dep_id}' removed."}
-
+# ── Training ────────────────────────────────────────────────────────
 
 @app.post("/api/v1/training")
 def train_model(
     file_name: str = Form(...),
     target_column: str = Form(...),
     task_type: str = Form(None),
+    db: Session = Depends(get_db),
 ):
     try:
         start = time.time()
@@ -338,16 +292,12 @@ def train_model(
         preprocessor = preprocess_result["preprocessor"]
         task = preprocess_result["task_type"]
 
-        results = run_automl_training(
-            X, y,
-            task_type=task,
-            model_name_prefix=file_name.split('.')[0],
-            preprocessor=preprocessor,
-        )
+        results = run_automl_training(X, y, task_type=task,
+                                      model_name_prefix=file_name.split('.')[0],
+                                      preprocessor=preprocessor)
         elapsed = round(time.time() - start, 2)
 
-        save_experiment({
-            "id": f"exp_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        exp_data = {
             "name": f"{file_name.split('.')[0]}-{results['best_model']}",
             "model": results["best_model"],
             "task_type": task,
@@ -357,100 +307,314 @@ def train_model(
             "target": target_column,
             "training_time": results["training_time"],
             "total_time": elapsed,
-            "runAt": datetime.now().isoformat(),
             "status": "success",
-        })
-        log_activity("User", "trained model", f"{file_name} -> {results['best_model']}")
+            "run_at": datetime.now(timezone.utc),
+        }
+        create_experiment(db, exp_data)
+        log_audit(db, "User", "training.completed", f"{file_name} -> {results['best_model']}", "experiment")
 
         return {
             "status": "Success",
-            "message": "Training completed successfully!",
-            "data_summary": {
-                "features_count": X.shape[1],
-                "rows_count": X.shape[0],
-                "task_type": task,
-            },
+            "message": "Training completed!",
+            "data_summary": {"features_count": X.shape[1], "rows_count": X.shape[0], "task_type": task},
             "training_summary": results,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/v1/experiments")
-def list_experiments():
-    return {"experiments": load_experiments()}
+# ── Models (DB-backed) ──────────────────────────────────────────────
 
+@app.get("/api/v1/models")
+def list_models_api(db: Session = Depends(get_db)):
+    db_models = list_models(db)
+    fs_models = []
+    for f in os.listdir(MODELS_DIR):
+        if f.endswith(".pkl"):
+            fpath = os.path.join(MODELS_DIR, f)
+            size_kb = round(os.path.getsize(fpath) / 1024, 1)
+            meta = load_model_metadata(f)
+            fs_models.append({
+                "name": f, "size_kb": size_kb,
+                "task_type": meta.get("task_type") if meta else None,
+                "best_score": meta.get("cv_score") if meta else None,
+                "created_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
+            })
+
+    registered = [{
+        "id": m.id, "name": m.name, "version": m.version,
+        "model_type": m.model_type, "task_type": m.task_type,
+        "framework": m.framework, "file_size_kb": m.file_size_kb,
+        "cv_score": m.cv_score, "status": m.status,
+        "tags": m.tags, "description": m.description,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    } for m in db_models]
+
+    return {"models": fs_models, "registered_models": registered}
+
+
+@app.get("/api/v1/models/{name}")
+def get_model_detail(name: str):
+    meta = load_model_metadata(name)
+    if not meta:
+        fpath = os.path.join(MODELS_DIR, name)
+        if not os.path.exists(fpath):
+            raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+        return {"name": name}
+    return {"name": name, **meta}
+
+
+@app.delete("/api/v1/models/{name}")
+def delete_model(name: str, db: Session = Depends(get_db)):
+    fpath = os.path.join(MODELS_DIR, name)
+    meta_path = fpath.replace(".pkl", "_meta.json")
+    removed = []
+    if os.path.exists(fpath):
+        os.remove(fpath)
+        removed.append(name)
+    if os.path.exists(meta_path):
+        os.remove(meta_path)
+        removed.append(meta_path)
+    if not removed:
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    log_audit(db, "User", "model.deleted", name, "model")
+    return {"message": f"Deleted model '{name}'"}
+
+
+# ── Deployments (DB-backed) ─────────────────────────────────────────
+
+@app.get("/api/v1/deployments")
+def list_deployments_api(db: Session = Depends(get_db)):
+    deps = list_deployments(db)
+    return {"deployments": [{
+        "id": d.id, "model_name": d.name, "endpoint_name": d.name,
+        "endpoint_url": d.endpoint_url, "status": d.status,
+        "environment": d.environment, "requests_count": d.requests_count,
+        "avg_latency_ms": d.avg_latency_ms,
+        "created_at": d.created_at.isoformat() if d.created_at else None,
+    } for d in deps]}
+
+
+@app.post("/api/v1/deployments")
+def create_deployment_api(
+    model_name: str = Form(...),
+    endpoint_name: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    fpath = os.path.join(MODELS_DIR, model_name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found")
+    dep = create_deployment(db, {
+        "name": endpoint_name,
+        "model_id": model_name,
+        "endpoint_url": f"http://127.0.0.1:8000/api/v1/predictions?model={model_name}",
+        "status": "active",
+        "environment": "production",
+    })
+    log_audit(db, "User", "deployment.created", endpoint_name, "deployment")
+    return {
+        "id": dep.id, "model_name": model_name, "endpoint_name": endpoint_name,
+        "endpoint_url": dep.endpoint_url, "status": dep.status,
+        "created_at": dep.created_at.isoformat() if dep.created_at else None,
+    }
+
+
+@app.delete("/api/v1/deployments/{dep_id}")
+def delete_deployment_api(dep_id: str, db: Session = Depends(get_db)):
+    if not delete_deployment(db, dep_id):
+        raise HTTPException(status_code=404, detail=f"Deployment '{dep_id}' not found")
+    log_audit(db, "User", "deployment.deleted", dep_id, "deployment")
+    return {"message": f"Removed deployment '{dep_id}'"}
+
+
+# ── Predictions ─────────────────────────────────────────────────────
 
 @app.post("/api/v1/predictions")
-def predict(model_name: str = Form(...), payload: str = Form(...)):
+def predict(model_name: str = Form(...), payload: str = Form(...), db: Session = Depends(get_db)):
     try:
         input_data = json.loads(payload)
         result = make_prediction(model_name, input_data)
-        log_activity("User", "ran inference", model_name)
+        log_audit(db, "User", "prediction.made", model_name, "prediction")
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# ── Pipelines (DB-backed) ───────────────────────────────────────────
+
+@app.get("/api/v1/pipelines")
+def list_pipelines_api(db: Session = Depends(get_db)):
+    pipes = list_pipelines(db)
+    return {"pipelines": [{
+        "id": p.id, "name": p.name, "description": p.description,
+        "steps": p.steps, "status": p.status, "schedule": p.schedule,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+    } for p in pipes]}
+
+
+@app.post("/api/v1/pipelines")
+def create_pipeline_api(data: PipelineCreate, db: Session = Depends(get_db)):
+    pipe = create_pipeline(db, user_id="system", name=data.name,
+                           steps=data.steps, description=data.description,
+                           schedule=data.schedule)
+    return {
+        "id": pipe.id, "name": pipe.name, "description": pipe.description,
+        "steps": pipe.steps, "status": pipe.status, "schedule": pipe.schedule,
+        "created_at": pipe.created_at.isoformat() if pipe.created_at else None,
+    }
+
+
+@app.get("/api/v1/pipelines/{pipeline_id}")
+def get_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
+    pipe = get_pipeline(db, pipeline_id)
+    if not pipe:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    return {
+        "id": pipe.id, "name": pipe.name, "description": pipe.description,
+        "steps": pipe.steps, "status": pipe.status, "schedule": pipe.schedule,
+        "created_at": pipe.created_at.isoformat() if pipe.created_at else None,
+    }
+
+
+@app.post("/api/v1/pipelines/{pipeline_id}/run")
+def run_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
+    try:
+        run = run_pipeline(db, pipeline_id)
+        return {"id": run.id, "pipeline_id": run.pipeline_id, "status": run.status,
+                "started_at": run.started_at.isoformat() if run.started_at else None}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Webhooks (DB-backed) ────────────────────────────────────────────
+
+@app.get("/api/v1/webhooks")
+def list_webhooks_api(db: Session = Depends(get_db)):
+    whs = list_webhooks(db)
+    return {"webhooks": [{
+        "id": w.id, "name": w.name, "url": w.url,
+        "events": w.events, "status": w.status,
+        "created_at": w.created_at.isoformat() if w.created_at else None,
+    } for w in whs]}
+
+
+@app.post("/api/v1/webhooks")
+def create_webhook_api(data: WebhookCreate, db: Session = Depends(get_db)):
+    wh = create_webhook(db, data.model_dump())
+    return {
+        "id": wh.id, "name": wh.name, "url": wh.url,
+        "events": wh.events, "status": wh.status,
+        "created_at": wh.created_at.isoformat() if wh.created_at else None,
+    }
+
+
+@app.delete("/api/v1/webhooks/{webhook_id}")
+def delete_webhook_api(webhook_id: str, db: Session = Depends(get_db)):
+    if not delete_webhook(db, webhook_id):
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return {"message": f"Deleted webhook '{webhook_id}'"}
+
+
+# ── Teams (DB-backed) ───────────────────────────────────────────────
+
+@app.get("/api/v1/teams")
+def list_teams_api(db: Session = Depends(get_db)):
+    teams = list_teams(db)
+    return {"teams": [{
+        "id": t.id, "name": t.name, "slug": t.slug,
+        "plan": t.plan, "member_count": len(t.members),
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+    } for t in teams]}
+
+
+@app.post("/api/v1/teams")
+def create_team_api(name: str = Form(...), db: Session = Depends(get_db)):
+    team = create_team(db, name, owner_id="system")
+    return {"id": team.id, "name": team.name, "slug": team.slug, "plan": team.plan}
+
+
+# ── API Keys (DB-backed) ────────────────────────────────────────────
+
+@app.get("/api/v1/api-keys")
+def list_api_keys_api(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user or not current_user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    keys = list_api_keys(db, current_user["id"])
+    return {"api_keys": [{"id": k.id, "name": k.name, "key_prefix": k.key_prefix,
+                          "status": k.status, "created_at": k.created_at.isoformat() if k.created_at else None}
+                         for k in keys]}
+
+
+@app.post("/api/v1/api-keys")
+def create_api_key_api(name: str = Form(...),
+                       current_user: dict = Depends(get_current_user),
+                       db: Session = Depends(get_db)):
+    if not current_user or not current_user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    result = create_api_key(db, current_user["id"], name)
+    return result
+
+
+@app.delete("/api/v1/api-keys/{key_id}")
+def delete_api_key_api(key_id: str,
+                       current_user: dict = Depends(get_current_user),
+                       db: Session = Depends(get_db)):
+    if not current_user or not current_user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if not delete_api_key(db, key_id):
+        raise HTTPException(status_code=404, detail="API key not found")
+    return {"message": "API key deleted"}
+
+
+# ── Monitoring ──────────────────────────────────────────────────────
+
 @app.get("/api/v1/monitoring/metrics")
 def system_metrics():
     try:
         import psutil
-        cpu = psutil.cpu_percent()
+        cpu = psutil.cpu_percent(interval=0.1)
         memory = psutil.virtual_memory()
         storage = psutil.disk_usage(os.path.abspath(os.sep))
         return {
             "cpu": {"label": "CPU", "value": cpu, "detail": f"{psutil.cpu_count()} logical cores"},
             "memory": {"label": "Memory", "value": memory.percent, "detail": f"{memory.used / 1e9:.1f} GB / {memory.total / 1e9:.1f} GB"},
             "storage": {"label": "Storage", "value": storage.percent, "detail": f"{storage.used / 1e9:.1f} GB / {storage.total / 1e9:.1f} GB"},
-            "gpu": {"label": "GPU", "value": 0, "detail": "Not available"},
-        }
-    except ImportError:
-        return {
-            "cpu": {"label": "CPU", "value": 0, "detail": "psutil not installed"},
-            "memory": {"label": "Memory", "value": 0, "detail": "psutil not installed"},
-            "storage": {"label": "Storage", "value": 0, "detail": "psutil not installed"},
-            "gpu": {"label": "GPU", "value": 0, "detail": "Not available"},
-        }
-    except Exception:
-        return {
-            "cpu": {"label": "CPU", "value": 0, "detail": "N/A"},
-            "memory": {"label": "Memory", "value": 0, "detail": "N/A"},
-            "storage": {"label": "Storage", "value": 0, "detail": "N/A"},
             "gpu": {"label": "GPU", "value": 0, "detail": "N/A"},
         }
+    except Exception:
+        return {"cpu": {"label": "CPU", "value": 0, "detail": "N/A"},
+                "memory": {"label": "Memory", "value": 0, "detail": "N/A"},
+                "storage": {"label": "Storage", "value": 0, "detail": "N/A"},
+                "gpu": {"label": "GPU", "value": 0, "detail": "N/A"}}
 
 
 @app.get("/api/v1/monitoring/stats")
-def live_stats():
-    exps = load_experiments()
+def live_stats(db: Session = Depends(get_db)):
+    exps = list_experiments(db)
     models = [f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]
-    recent = exps[:5] if exps else []
+    today_prefix = datetime.now().strftime("%Y-%m-%d")
     return {
         "modelsTrained": len(exps),
         "activeDeployments": len(models),
-        "inferenceRequestsToday": sum(1 for e in exps if e.get("runAt", "").startswith(datetime.now().strftime("%Y-%m-%d"))),
-        "avgLatencyMs": round(sum(e.get("training_time", 0) for e in exps) / max(len(exps), 1) * 1000, 1),
+        "inferenceRequestsToday": sum(1 for e in exps if e.run_at and e.run_at.strftime("%Y-%m-%d") == today_prefix),
+        "avgLatencyMs": round(sum((e.training_time or 0) for e in exps) / max(len(exps), 1) * 1000, 1),
     }
 
 
+# ── Activity / Audit Log ────────────────────────────────────────────
+
 @app.get("/api/v1/activity")
-def activity():
-    activity_file = os.path.join(BASE_DIR, "activity.json")
-    if os.path.exists(activity_file):
-        with open(activity_file) as f:
-            return {"activities": json.load(f)}
-    return {"activities": []}
+def activity(db: Session = Depends(get_db)):
+    logs = list_audit_logs(db)
+    return {"activities": [{
+        "id": l.id, "actor": l.actor, "action": l.action,
+        "target": l.target, "resource_type": l.resource_type,
+        "status": l.status,
+        "time": l.created_at.isoformat() if l.created_at else None,
+    } for l in logs]}
 
 
-@app.post("/api/v1/ai/chat")
-def ai_chat(question: str = Form(...)):
-    try:
-        answer = answer_question(question)
-        return {"answer": answer}
-    except Exception as e:
-        return {"answer": f"I ran into an error processing your question: {str(e)}. Please try again."}
-
+# ── SQL Query ───────────────────────────────────────────────────────
 
 @app.post("/api/v1/query")
 def run_sql(query: str = Form(...), dataset: str = Form(None)):
@@ -479,6 +643,16 @@ def run_sql(query: str = Form(...), dataset: str = Form(None)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# ── AI Assistant ────────────────────────────────────────────────────
+
+@app.post("/api/v1/ai/chat")
+def ai_chat(question: str = Form(...)):
+    try:
+        return {"answer": answer_question(question)}
+    except Exception as e:
+        return {"answer": f"Error: {str(e)}. Please try again."}
+
+
 @app.get("/api/v1/ai/suggestions")
 def ai_suggestions():
     try:
@@ -486,8 +660,7 @@ def ai_suggestions():
         experiments = ai_load_experiments()
         answers = []
         if not datasets:
-            answers.append("Upload a dataset to get started with AutoML")
-            return {"suggestions": answers}
+            return {"suggestions": ["Upload a dataset to get started with AutoML"]}
 
         d = datasets[0]
         numeric_cols = [c for c, t in d.get("dtypes", {}).items() if "float" in t or "int" in t]
@@ -499,8 +672,7 @@ def ai_suggestions():
         if text_cols:
             answers.append(f"Suggest features for {d['name']}")
         if experiments:
-            latest = experiments[0]
-            answers.append(f"Explain the {latest['model']} results on {latest['dataset']}")
+            answers.append(f"Explain the {experiments[0]['model']} results on {experiments[0]['dataset']}")
         if len(datasets) > 1:
             answers.append("Compare my experiments across datasets")
 

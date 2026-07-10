@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, SlidersHorizontal, BarChart3, ScanSearch } from 'lucide-react';
-import { api } from '../lib/api';
+import { Search, Filter, SlidersHorizontal, BarChart3, ScanSearch, Download } from 'lucide-react';
+import { api, downloadUrl } from '../lib/api';
 
 function ExplorerPage() {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -37,6 +37,11 @@ function ExplorerPage() {
               <option value="">Select a dataset...</option>
               {datasets.map((d: any) => <option key={d.name} value={d.name}>{d.name}</option>)}
             </select>
+            {selected && (
+              <a href={downloadUrl(`/datasets/${encodeURIComponent(selected)}/download`)} download={selected} className="flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors">
+                <Download className="h-4 w-4" /> Download
+              </a>
+            )}
           </div>
         </div>
 

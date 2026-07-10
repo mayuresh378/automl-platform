@@ -1,12 +1,33 @@
-node_modules/
+# Python
 __pycache__/
-*.pyc
-.env
-.venv/
-venv/
+*.py[cod]
 backend/.venv/
-frontend/node_modules/
-*.tsbuildinfo
-dist/
-build/
-.vite/
+backend/*.db
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.venv_front/
+
+# Dataset temp files
+dataset/tmp*.csv
+
+# Models (generated build artifacts)
+models/*.pkl
+models/*_meta.json
+
+# Environment
+.env
+.venv
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Reports
+reports/

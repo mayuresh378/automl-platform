@@ -2,6 +2,27 @@ import { useAuthStore } from '../store/useAuthStore';
 
 const BASE = '/api/v1';
 
+export function downloadUrl(path: string) {
+  const token = useAuthStore.getState().token;
+  const url = `${BASE}${path}`;
+  if (!token) return url;
+  const sep = path.includes('?') ? '&' : '?';
+  return `${url}${sep}token=${token}`;
+}
+
+export function downloadBlob(data: Record<string, any>[], filename: string) {
+  const header = Object.keys(data[0] || {});
+  const csv = [header.join(','), ...data.map(r => header.map(k => JSON.stringify(r[k] ?? '')).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
 async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers: Record<string, string> = {

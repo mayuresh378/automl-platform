@@ -62,7 +62,7 @@ const FOOTER_ITEMS: NavItem[] = [
 ];
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, activePage, setActivePage } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar, activePage, setActivePage, setSettingsTab } = useUIStore();
 
   const groups = Array.from(new Set(NAV_ITEMS.map((n) => n.group)));
 
@@ -127,16 +127,26 @@ export function Sidebar() {
       <div className="border-t border-border p-2.5 space-y-0.5">
         {FOOTER_ITEMS.map((item) => {
           const Icon = item.icon;
+          const TAB_MAP: Record<string, string> = { Settings: 'general', Billing: 'billing', Admin: 'admin' };
           return (
             <button
               key={item.label}
+              onClick={() => {
+                if (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin') {
+                  setSettingsTab(TAB_MAP[item.label]);
+                }
+                setActivePage(item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label);
+              }}
               title={sidebarCollapsed ? item.label : undefined}
               className={cn(
-                'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] transition-colors',
-                sidebarCollapsed && 'justify-center px-0'
+                'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                sidebarCollapsed && 'justify-center px-0',
+                activePage === (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label)
+                  ? 'text-white bg-white/[0.06]'
+                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]'
               )}
             >
-              <Icon className="h-[16px] w-[16px] shrink-0 text-zinc-500" strokeWidth={2} />
+              <Icon className={cn('h-[16px] w-[16px] shrink-0', activePage === (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label) ? 'text-primary' : 'text-zinc-500')} strokeWidth={2} />
               {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
             </button>
           );

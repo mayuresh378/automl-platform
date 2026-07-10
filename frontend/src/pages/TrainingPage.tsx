@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BrainCircuit, PlayCircle, TimerReset, Cpu, HardDrive, Zap } from 'lucide-react';
 import { api } from '../lib/api';
+import { useNotificationStore } from '../store/useNotificationStore';
 
 function TrainingPage() {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -10,6 +11,7 @@ function TrainingPage() {
   const [targetColumn, setTargetColumn] = useState('');
   const [training, setTraining] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const notify = useNotificationStore((s) => s.add);
 
   useEffect(() => {
     api.datasets.list().then(r => setDatasets(r.datasets)).catch(() => {});
@@ -24,8 +26,9 @@ function TrainingPage() {
       const res = await api.training.start(selectedDataset, targetColumn);
       setResult(res);
       api.experiments.list().then(r => setExperiments(r.experiments)).catch(() => {});
+      notify({ title: 'Training complete', message: `${res.name} finished with score ${res.cv_score} on ${selectedDataset}`, type: 'success' });
     } catch (err: any) {
-      alert(err.message);
+      notify({ title: 'Training failed', message: err.message, type: 'error' });
     }
     setTraining(false);
   };

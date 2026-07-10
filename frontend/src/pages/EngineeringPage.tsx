@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Wand2, PlusCircle, Bot, Sparkles, Table, Sigma, Layers, ArrowRight, CheckCircle2, FunctionSquare, Workflow } from 'lucide-react';
-import { api } from '../lib/api';
+import { Wand2, PlusCircle, Bot, Sparkles, Table, Sigma, Layers, ArrowRight, CheckCircle2, FunctionSquare, Workflow, Download } from 'lucide-react';
+import { api, downloadUrl } from '../lib/api';
+import { useNotificationStore } from '../store/useNotificationStore';
 
 const TRANSFORM_META: Record<string, { icon: any; color: string }> = {
   polynomial: { icon: Sigma, color: 'text-purple-400' },
@@ -18,6 +19,7 @@ function EngineeringPage() {
   const [result, setResult] = useState<any>(null);
   const [running, setRunning] = useState(false);
   const [selectedDs, setSelectedDs] = useState<any>(null);
+  const notify = useNotificationStore((s) => s.add);
 
   useEffect(() => {
     api.datasets.list().then(r => setDatasets(r.datasets)).catch(() => {});
@@ -38,7 +40,8 @@ function EngineeringPage() {
       const res = await api.datasets.generateFeatures(selected, ops);
       setResult(res);
       api.datasets.suggestFeatures(selected).then(r => setSuggestions(r.suggestions)).catch(() => {});
-    } catch (err: any) { alert(err.message); }
+      notify({ title: 'Features generated', message: `${res.new_columns} new features created for ${selected}`, type: 'success' });
+    } catch (err: any) { notify({ title: 'Feature generation failed', message: err.message, type: 'error' }); }
     setRunning(false);
   };
 
@@ -170,6 +173,9 @@ function EngineeringPage() {
                   <span>Saved as</span>
                   <span className="text-primary font-mono">{result.enhanced_file}</span>
                 </div>
+                <a href={downloadUrl(`/datasets/${encodeURIComponent(result.enhanced_file)}/download`)} download={result.enhanced_file} className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">
+                  <Download className="h-4 w-4" /> Download
+                </a>
                 <button
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
                   onClick={() => setResult(null)}
