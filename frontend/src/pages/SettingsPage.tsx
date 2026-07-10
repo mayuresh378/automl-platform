@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, KeyRound, CreditCard, ShieldCheck, User, Mail, Lock, LogIn, UserPlus, Globe, Chrome, Monitor, Smartphone, Copy, CheckCheck, Eye, EyeOff, Trash2, Plus, XCircle, Bell, Palette, ChevronRight, Loader2 } from 'lucide-react';
+import { Settings, KeyRound, CreditCard, ShieldCheck, User, Mail, Lock, LogIn, UserPlus, Globe, Chrome, Monitor, Smartphone, Copy, CheckCheck, Eye, EyeOff, Trash2, Plus, XCircle, Bell, Palette, ChevronRight, Loader2, Camera, Building, Hash, Clock, Calendar, Type, Save, RotateCcw, Sun, Moon, Laptop as LaptopIcon } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../lib/api';
@@ -12,45 +12,279 @@ const TABS = [
   { id: 'admin', label: 'Admin', icon: ShieldCheck },
 ];
 
-function GeneralTab() {
+function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-white mb-4">Profile</h3>
-        <div className="grid gap-4 md:grid-cols-2">
+    <div
+      role="switch"
+      aria-checked={enabled}
+      onClick={() => onChange(!enabled)}
+      className={`h-6 w-10 rounded-full relative cursor-pointer transition-colors shrink-0 ${enabled ? 'bg-primary' : 'bg-white/10'}`}
+    >
+      <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+    </div>
+  );
+}
+
+function Select({ value, onChange, options, className }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; className?: string }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/50 ${className || ''}`}
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value} className="bg-gray-900 text-white">{o.label}</option>
+      ))}
+    </select>
+  );
+}
+
+function GeneralTab() {
+  const { user, token } = useAuthStore();
+  const isLoggedIn = !!token && !!user && user.id !== 'anonymous';
+
+  const [displayName, setDisplayName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [company, setCompany] = useState('');
+  const [bio, setBio] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const [emailNotifs, setEmailNotifs] = useState(true);
+  const [darkMode, setDarkMode] = useState(true);
+  const [language, setLanguage] = useState('en');
+  const [timezone, setTimezone] = useState('UTC');
+  const [dateFormat, setDateFormat] = useState('MM/DD/YYYY');
+  const [editorFontSize, setEditorFontSize] = useState('14');
+
+  useEffect(() => {
+    if (user?.name) setDisplayName(user.name);
+    if (user?.email) setEmail(user.email);
+  }, [user]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await new Promise((r) => setTimeout(r, 600));
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleReset = () => {
+    setDisplayName(user?.name || '');
+    setEmail(user?.email || '');
+    setCompany('');
+    setBio('');
+    setLanguage('en');
+    setTimezone('UTC');
+    setDateFormat('MM/DD/YYYY');
+    setEditorFontSize('14');
+    setEmailNotifs(true);
+    setDarkMode(true);
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* ── Profile ── */}
+      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">Display name</label>
-            <input type="text" defaultValue="Mayuresh Joshi" className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50" />
+            <h3 className="text-lg font-semibold text-white">Profile</h3>
+            <p className="text-sm text-slate-500">Your personal information and avatar</p>
           </div>
-          <div>
-            <label className="block text-sm text-slate-400 mb-1.5">Email</label>
-            <input type="email" defaultValue="mayuresh@example.com" className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50" />
+          <div className="flex items-center gap-2">
+            <button onClick={handleReset} className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white transition-colors">
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </button>
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-6 mb-6">
+          <div className="relative shrink-0">
+            <div className="flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-br from-accent to-secondary text-2xl font-semibold text-white">
+              {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+            </div>
+            <button className="absolute -bottom-1 -right-1 flex items-center justify-center h-7 w-7 rounded-full border-2 border-[#111827] bg-white/10 text-slate-300 hover:text-white hover:bg-white/20 transition-colors">
+              <Camera className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="flex-1 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm text-slate-400 mb-1.5">
+                <User className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
+                Display name
+              </label>
+              <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" placeholder="Your name" />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1.5">
+                <Mail className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
+                Email
+              </label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" placeholder="you@example.com" />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1.5">
+                <Building className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
+                Company
+              </label>
+              <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" placeholder="Acme Corp" />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1.5">
+                <Hash className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
+                Role
+              </label>
+              <select
+                value="individual"
+                onChange={() => {}}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+              >
+                <option value="individual" className="bg-gray-900 text-white">Individual</option>
+                <option value="team-lead" className="bg-gray-900 text-white">Team Lead</option>
+                <option value="admin" className="bg-gray-900 text-white">Admin</option>
+                <option value="viewer" className="bg-gray-900 text-white">Viewer</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm text-slate-400 mb-1.5">Bio</label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={2}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50 resize-none"
+            placeholder="A short description about yourself…"
+          />
+        </div>
+      </div>
+
+      {/* ── Theme ── */}
+      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="mb-5">
+          <h3 className="text-lg font-semibold text-white">Theme</h3>
+          <p className="text-sm text-slate-500">Customize the appearance of the platform</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {[
+            { id: 'light', label: 'Light', icon: Sun, desc: 'Bright and clean' },
+            { id: 'dark', label: 'Dark', icon: Moon, desc: 'Easy on the eyes' },
+            { id: 'system', label: 'System', icon: LaptopIcon, desc: 'Follow your OS' },
+          ].map((t) => {
+            const Icon = t.icon;
+            const selected = (t.id === 'dark' && darkMode) || (t.id === 'light' && !darkMode);
+            return (
+              <button
+                key={t.id}
+                onClick={() => setDarkMode(t.id === 'dark')}
+                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${selected ? 'border-primary/40 bg-primary/5' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'}`}
+              >
+                <div className={`flex items-center justify-center h-9 w-9 rounded-xl ${selected ? 'bg-primary text-white' : 'bg-white/5 text-slate-400'}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className={`text-sm font-medium ${selected ? 'text-white' : 'text-slate-300'}`}>{t.label}</p>
+                  <p className="text-xs text-slate-500">{t.desc}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Preferences ── */}
+      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="mb-5">
+          <h3 className="text-lg font-semibold text-white">Preferences</h3>
+          <p className="text-sm text-slate-500">Application settings and defaults</p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Bell className="h-4 w-4 text-slate-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-white">Email notifications</p>
+                <p className="text-xs text-slate-500">Receive updates about training completions and errors</p>
+              </div>
+            </div>
+            <Toggle enabled={emailNotifs} onChange={setEmailNotifs} />
+          </div>
+
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Type className="h-4 w-4 text-slate-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-white">Editor font size</p>
+                <p className="text-xs text-slate-500">Code and query editor text size</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
+              {['12', '13', '14', '16', '18'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setEditorFontSize(s)}
+                  className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${editorFontSize === s ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-      <div>
-        <h3 className="text-lg font-semibold text-white mb-4">Preferences</h3>
-        <div className="space-y-3">
-          {[
-            { label: 'Email notifications', desc: 'Receive updates about training completions', icon: Bell },
-            { label: 'Dark mode', desc: 'Use dark theme across the platform', icon: Palette },
-          ].map((s) => {
-            const Icon = s.icon;
-            return (
-              <div key={s.label} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <Icon className="h-4 w-4 text-slate-400" />
-                  <div>
-                    <p className="text-sm font-medium text-white">{s.label}</p>
-                    <p className="text-xs text-slate-500">{s.desc}</p>
-                  </div>
-                </div>
-                <div className="h-6 w-10 rounded-full bg-primary relative cursor-pointer">
-                  <div className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow translate-x-[18px]" />
-                </div>
-              </div>
-            );
-          })}
+
+      {/* ── Regional ── */}
+      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="mb-5">
+          <h3 className="text-lg font-semibold text-white">Regional</h3>
+          <p className="text-sm text-slate-500">Language, timezone, and formatting preferences</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="flex items-center gap-1.5 text-sm text-slate-400 mb-1.5">
+              <Globe className="h-3.5 w-3.5" /> Language
+            </label>
+            <Select value={language} onChange={setLanguage} options={[
+              { value: 'en', label: 'English' },
+              { value: 'es', label: 'Spanish' },
+              { value: 'fr', label: 'French' },
+              { value: 'de', label: 'German' },
+              { value: 'ja', label: 'Japanese' },
+              { value: 'zh', label: 'Chinese' },
+            ]} />
+          </div>
+          <div>
+            <label className="flex items-center gap-1.5 text-sm text-slate-400 mb-1.5">
+              <Clock className="h-3.5 w-3.5" /> Timezone
+            </label>
+            <Select value={timezone} onChange={setTimezone} options={[
+              { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+              { value: 'US/Eastern', label: 'US/Eastern (EST/EDT)' },
+              { value: 'US/Pacific', label: 'US/Pacific (PST/PDT)' },
+              { value: 'Europe/London', label: 'Europe/London (GMT/BST)' },
+              { value: 'Europe/Berlin', label: 'Europe/Berlin (CET/CEST)' },
+              { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST)' },
+              { value: 'Asia/Shanghai', label: 'Asia/Shanghai (CST)' },
+              { value: 'Asia/Kolkata', label: 'Asia/Kolkata (IST)' },
+            ]} />
+          </div>
+          <div>
+            <label className="flex items-center gap-1.5 text-sm text-slate-400 mb-1.5">
+              <Calendar className="h-3.5 w-3.5" /> Date format
+            </label>
+            <Select value={dateFormat} onChange={setDateFormat} options={[
+              { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
+              { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
+              { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
+            ]} />
+          </div>
         </div>
       </div>
     </div>

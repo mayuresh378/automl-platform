@@ -4,6 +4,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,7 +57,12 @@ async def get_current_user_db(
         raise HTTPException(status_code=401, detail="User not found")
     return {"id": user.id, "email": user.email, "name": user.name}
 
-app = FastAPI(title="AutoML Platform API", version="2.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+app = FastAPI(title="AutoML Platform API", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,11 +84,6 @@ ACTIVITY_FILE = os.path.join(BASE_DIR, "activity.json")
 
 os.makedirs(DATASET_DIR, exist_ok=True)
 os.makedirs(MODELS_DIR, exist_ok=True)
-
-
-@app.on_event("startup")
-def on_start():
-    init_db()
 
 
 # ── Legacy JSON helpers (keep for backward compat) ──────────────────
@@ -168,10 +169,14 @@ def list_datasets():
                 df = pd.read_parquet(fpath)
             else:
                 df = pd.read_json(fpath, nrows=5)
+            row_count = 0
+            if f.endswith(".csv"):
+                with open(fpath, encoding="utf-8", errors="ignore") as fh:
+                    row_count = sum(1 for _ in fh) - 1
             files.append({
                 "name": f,
                 "size_kb": size_kb,
-                "rows": len(pd.read_csv(fpath)) if f.endswith(".csv") else 0,
+                "rows": row_count,
                 "columns": list(df.columns),
                 "dtypes": {c: str(dt) for c, dt in df.dtypes.items()},
                 "uploaded_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),

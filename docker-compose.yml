@@ -3,6 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: automl
       POSTGRES_USER: automl
@@ -31,6 +32,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,12 +50,13 @@ services:
       - storage_data:/data
     ports:
       - "8000:8000"
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
 
   frontend:
     build:
       context: frontend
       dockerfile: Dockerfile
+    restart: unless-stopped
     depends_on:
       - backend
     ports:

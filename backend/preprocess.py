@@ -28,6 +28,16 @@ def auto_preprocess(file_name: str, target_column: str, task_type: str = None):
     numeric_features = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
     categorical_features = X.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
 
+    # Drop high-cardinality categorical columns (likely ID columns) that would explode memory
+    drop_cols = []
+    safe_cat_features = []
+    for col in categorical_features:
+        nunique = X[col].nunique()
+        if nunique > 50 or nunique / max(len(X), 1) > 0.5:
+            drop_cols.append(col)
+        else:
+            safe_cat_features.append(col)
+
     numeric_transformer = Pipeline(steps=[
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler", StandardScaler()),
@@ -38,24 +48,25 @@ def auto_preprocess(file_name: str, target_column: str, task_type: str = None):
         ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
     ])
 
+    transformers = [("num", numeric_transformer, numeric_features)]
+    if safe_cat_features:
+        transformers.append(("cat", categorical_transformer, safe_cat_features))
+
     preprocessor = ColumnTransformer(
-        transformers=[
-            ("num", numeric_transformer, numeric_features),
-            ("cat", categorical_transformer, categorical_features),
-        ],
+        transformers=transformers,
         remainder="drop",
     )
 
     X_transformed = preprocessor.fit_transform(X)
 
     cat_features_out = []
-    if categorical_features:
+    if safe_cat_features:
         try:
             cat_pipeline = preprocessor.named_transformers_["cat"]
             encoder = cat_pipeline.named_steps["encoder"] if hasattr(cat_pipeline, "named_steps") else cat_pipeline
-            cat_features_out = encoder.get_feature_names_out(categorical_features).tolist()
+            cat_features_out = encoder.get_feature_names_out(safe_cat_features).tolist()
         except Exception:
-            cat_features_out = categorical_features
+            cat_features_out = safe_cat_features
 
     all_feature_names = numeric_features + cat_features_out
 

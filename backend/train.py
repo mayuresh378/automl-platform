@@ -29,7 +29,7 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 CLASSIFICATION_MODELS = {
     "LogisticRegression": {
         "model": LogisticRegression(max_iter=2000, random_state=42),
-        "params": {"C": [0.01, 0.1, 1, 10], "solver": ["lbfgs", "liblinear"]},
+        "params": {"C": [0.01, 0.1, 1, 10], "solver": ["lbfgs"]},
     },
     "RandomForest": {
         "model": RandomForestClassifier(random_state=42),
@@ -40,7 +40,7 @@ CLASSIFICATION_MODELS = {
         "params": {"n_estimators": [50, 100], "learning_rate": [0.01, 0.1], "max_depth": [3, 5]},
     },
     "SVC": {
-        "model": SVC(probability=True, random_state=42),
+        "model": SVC(random_state=42),
         "params": {"C": [0.1, 1, 10], "kernel": ["rbf", "linear"], "gamma": ["scale", "auto"]},
     },
     "KNN": {

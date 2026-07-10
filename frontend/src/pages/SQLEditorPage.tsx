@@ -62,8 +62,9 @@ function SQLEditorPage() {
               onChange={(e) => setDataset(e.target.value)}
               className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/50"
             >
+              <option value="" disabled>Select a dataset...</option>
               {datasets.map((d: any) => (
-                <option key={d.name} value={d.name}>{d.name}</option>
+                <option key={d.name} value={d.name} className="text-black dark:text-white bg-white dark:bg-gray-800">{d.name}</option>
               ))}
             </select>
           </div>

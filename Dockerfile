@@ -2,12 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends gcc build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-RUN pip install --no-cache-dir sqlalchemy psycopg2-binary alembic celery[redis] redis
+RUN pip install --no-cache-dir psycopg2-binary
 
 COPY backend/ /app/backend/
 COPY dataset/ /app/dataset/
