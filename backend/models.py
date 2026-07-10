@@ -175,6 +175,38 @@ class PipelineRun(Base):
     pipeline = relationship("Pipeline", back_populates="runs")
 
 
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default="development")
+    model_ids = Column(JSON, default=list)
+    dataset_ids = Column(JSON, default=list)
+    tags = Column(JSON, default=list)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class MarketplaceItem(Base):
+    __tablename__ = "marketplace_items"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    name = Column(String, nullable=False)
+    item_type = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String, nullable=True)
+    author = Column(String, nullable=True)
+    tags = Column(JSON, default=list)
+    downloads = Column(Integer, default=0)
+    rating = Column(Float, default=0.0)
+    featured = Column(Boolean, default=False)
+    config = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+
 class Webhook(Base):
     __tablename__ = "webhooks"
 

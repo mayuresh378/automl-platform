@@ -19,6 +19,7 @@ import AIAssistantPage from './pages/AIAssistantPage';
 import MarketplacePage from './pages/MarketplacePage';
 import SQLEditorPage from './pages/SQLEditorPage';
 import SettingsPage from './pages/SettingsPage';
+import APIDocumentationPage from './pages/APIDocumentationPage';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useUIStore } from './store/useUIStore';
 
@@ -41,6 +42,8 @@ const PAGE_MAP: Record<string, React.FC> = {
   Marketplace: MarketplacePage,
   'SQL Editor': SQLEditorPage,
   Settings: SettingsPage,
+  Documentation: APIDocumentationPage,
+  Support: AIAssistantPage,
 };
 
 function CurrentPage() {

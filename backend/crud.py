@@ -8,7 +8,8 @@ from sqlalchemy import desc
 from jose import jwt
 
 from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
-                    Deployment, Pipeline, PipelineRun, Webhook, AuditLog)
+                    Deployment, Pipeline, PipelineRun, Webhook, AuditLog,
+                    Project, MarketplaceItem)
 
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
@@ -246,3 +247,39 @@ def create_team(db: Session, name: str, owner_id: str) -> Team:
 
 def list_audit_logs(db: Session, limit: int = 100) -> list:
     return db.query(AuditLog).order_by(desc(AuditLog.created_at)).limit(limit).all()
+
+
+# ─── Projects ─────────────────────────────────────────────────────────
+
+def list_projects(db: Session) -> list:
+    return db.query(Project).order_by(desc(Project.created_at)).all()
+
+
+def create_project(db: Session, name: str, user_id: str = None, description: str = None) -> Project:
+    project = Project(id=_uid(), user_id=user_id, name=name, description=description, created_at=_now())
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+def get_project(db: Session, project_id: str) -> Optional[Project]:
+    return db.query(Project).filter(Project.id == project_id).first()
+
+
+# ─── Marketplace ──────────────────────────────────────────────────────
+
+def list_marketplace_items(db: Session, category: str = None) -> list:
+    q = db.query(MarketplaceItem)
+    if category and category != "all":
+        q = q.filter(MarketplaceItem.category == category)
+    return q.order_by(desc(MarketplaceItem.featured), desc(MarketplaceItem.downloads)).all()
+
+
+def install_marketplace_item(db: Session, item_id: str) -> Optional[MarketplaceItem]:
+    item = db.query(MarketplaceItem).filter(MarketplaceItem.id == item_id).first()
+    if item:
+        item.downloads = (item.downloads or 0) + 1
+        db.commit()
+        db.refresh(item)
+    return item

@@ -133,6 +133,69 @@ export const api = {
     list: () => fetchJSON<{ activities: any[] }>(`${BASE}/activity`),
   },
 
+  pipelines: {
+    list: () => fetchJSON<{ pipelines: any[] }>(`${BASE}/pipelines`),
+    create: (name: string, steps: any[], description?: string) => {
+      return fetchJSON(`${BASE}/pipelines`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, steps, description }),
+      });
+    },
+    run: (pipeline_id: string) =>
+      fetchJSON(`${BASE}/pipelines/${pipeline_id}/run`, { method: 'POST' }),
+  },
+
+  webhooks: {
+    list: () => fetchJSON<{ webhooks: any[] }>(`${BASE}/webhooks`),
+    create: (data: { name: string; url: string; events: string[] }) => {
+      return fetchJSON(`${BASE}/webhooks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    },
+    remove: (webhook_id: string) =>
+      fetchJSON(`${BASE}/webhooks/${webhook_id}`, { method: 'DELETE' }),
+  },
+
+  projects: {
+    list: () => fetchJSON<{ projects: any[] }>(`${BASE}/projects`),
+    create: (name: string, description?: string) => {
+      const form = new FormData();
+      form.append('name', name);
+      if (description) form.append('description', description);
+      return fetchJSON(`${BASE}/projects`, { method: 'POST', body: form });
+    },
+  },
+
+  marketplace: {
+    list: (category?: string) =>
+      fetchJSON<{ items: any[] }>(`${BASE}/marketplace${category ? `?category=${category}` : ''}`),
+    install: (item_id: string) =>
+      fetchJSON(`${BASE}/marketplace/${item_id}/install`, { method: 'POST' }),
+  },
+
+  apiKeys: {
+    list: () => fetchJSON<{ api_keys: any[] }>(`${BASE}/api-keys`),
+    create: (name: string) => {
+      const form = new FormData();
+      form.append('name', name);
+      return fetchJSON(`${BASE}/api-keys`, { method: 'POST', body: form });
+    },
+    remove: (key_id: string) =>
+      fetchJSON(`${BASE}/api-keys/${key_id}`, { method: 'DELETE' }),
+  },
+
+  teams: {
+    list: () => fetchJSON<{ teams: any[] }>(`${BASE}/teams`),
+    create: (name: string) => {
+      const form = new FormData();
+      form.append('name', name);
+      return fetchJSON(`${BASE}/teams`, { method: 'POST', body: form });
+    },
+  },
+
   ai: {
     chat: (question: string) => {
       const form = new FormData();

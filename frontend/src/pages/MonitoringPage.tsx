@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, TrendingUp, AlertCircle, Cpu, HardDrive, Network } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { api } from '../lib/api';
 
-const monitoringData = [
+const chartData = [
   { time: '10:00', cpu: 32, memory: 45, latency: 28 },
   { time: '10:15', cpu: 38, memory: 48, latency: 32 },
   { time: '10:30', cpu: 42, memory: 52, latency: 35 },
@@ -12,6 +14,30 @@ const monitoringData = [
 ];
 
 function MonitoringPage() {
+  const [metrics, setMetrics] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
+
+  useEffect(() => {
+    api.monitoring.metrics().then(setMetrics).catch(() => {});
+    api.monitoring.stats().then(setStats).catch(() => {});
+  }, []);
+
+  const m = metrics || {};
+  const s = stats || {};
+
+  const cards = [
+    { label: 'CPU Usage', value: m.cpu ? `${m.cpu.value}%` : '—', icon: Cpu, detail: m.cpu?.detail },
+    { label: 'Memory', value: m.memory ? `${m.memory.value}%` : '—', icon: HardDrive, detail: m.memory?.detail },
+    { label: 'Network I/O', value: '—', icon: Network, detail: 'N/A' },
+    { label: 'P95 Latency', value: s.avgLatencyMs ? `${s.avgLatencyMs}ms` : '—', icon: Activity, detail: 'Avg inference' },
+  ];
+
+  const alertItems = [
+    { alert: 'High memory usage', level: 'warning', time: '5 min ago' },
+    { alert: 'CPU spike detected', level: 'info', time: '12 min ago' },
+    { alert: 'Latency increase', level: 'warning', time: '18 min ago' },
+  ];
+
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
       <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
@@ -22,28 +48,41 @@ function MonitoringPage() {
           </div>
           <div className="flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-sm text-emerald-400">
             <div className="h-2 w-2 rounded-full bg-emerald-400" />
-            Healthy
+            {metrics ? 'Live' : 'Loading'}
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: 'CPU Usage', value: '58%', icon: Cpu, trend: '↑ 8%' },
-            { label: 'Memory', value: '72%', icon: HardDrive, trend: '↑ 5%' },
-            { label: 'Network I/O', value: '284 Mbps', icon: Network, trend: '↓ 12%' },
-            { label: 'P95 Latency', value: '54ms', icon: Activity, trend: '↑ 3%' },
-          ].map((metric) => {
+          {cards.map((metric) => {
             const Icon = metric.icon;
             return (
               <div key={metric.label} className="rounded-3xl border border-white/10 bg-white/5 p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <Icon className="h-4 w-4 text-primary" />
-                  <span className="text-sm text-slate-500">{metric.trend}</span>
+                  <span className="text-xs text-slate-500">{metric.detail}</span>
                 </div>
                 <p className="text-sm text-slate-400">{metric.label}</p>
                 <p className="mt-1 text-2xl font-semibold text-white">{metric.value}</p>
               </div>
             );
           })}
+        </div>
+        <div className="mt-4 grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-xs text-slate-500">Models trained</p>
+            <p className="text-lg font-semibold text-white">{s.modelsTrained ?? '—'}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-xs text-slate-500">Deployments</p>
+            <p className="text-lg font-semibold text-white">{s.activeDeployments ?? '—'}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-xs text-slate-500">Requests today</p>
+            <p className="text-lg font-semibold text-white">{s.inferenceRequestsToday ?? '—'}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-xs text-slate-500">Avg latency</p>
+            <p className="text-lg font-semibold text-white">{s.avgLatencyMs ? `${s.avgLatencyMs}ms` : '—'}</p>
+          </div>
         </div>
       </section>
 
@@ -58,7 +97,7 @@ function MonitoringPage() {
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monitoringData}>
+              <LineChart data={chartData}>
                 <XAxis dataKey="time" stroke="#64748b" />
                 <YAxis stroke="#64748b" />
                 <Tooltip />
@@ -78,11 +117,7 @@ function MonitoringPage() {
             <AlertCircle className="h-5 w-5 text-warning" />
           </div>
           <div className="space-y-3">
-            {[
-              { alert: 'High memory usage', level: 'warning', time: '5 min ago' },
-              { alert: 'CPU spike detected', level: 'info', time: '12 min ago' },
-              { alert: 'Latency increase', level: 'warning', time: '18 min ago' },
-            ].map((item) => (
+            {alertItems.map((item) => (
               <div key={item.alert} className={`rounded-2xl px-4 py-3 text-sm ${
                 item.level === 'warning'
                   ? 'border border-warning/20 bg-warning/10 text-warning'

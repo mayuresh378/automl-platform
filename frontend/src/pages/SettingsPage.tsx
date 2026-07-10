@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, KeyRound, CreditCard, ShieldCheck, User, Mail, Lock, LogIn, UserPlus, Globe, Chrome, Monitor, Smartphone, Copy, CheckCheck, Eye, EyeOff, Trash2, Plus, XCircle, Bell, Palette, ChevronRight } from 'lucide-react';
+import { Settings, KeyRound, CreditCard, ShieldCheck, User, Mail, Lock, LogIn, UserPlus, Globe, Chrome, Monitor, Smartphone, Copy, CheckCheck, Eye, EyeOff, Trash2, Plus, XCircle, Bell, Palette, ChevronRight, Loader2 } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../lib/api';
@@ -73,36 +73,46 @@ function AuthenticationTab() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState<string | null>(null);
 
-  const [apiKeys] = useState([
-    { id: '1', name: 'Production API Key', key: 'amk_prod_a1b2c3d4e5f6g7h8i9j0', created: '2026-06-15', lastUsed: '2026-07-09', status: 'active' },
-    { id: '2', name: 'Development Key', key: 'amk_dev_k1l2m3n4o5p6q7r8s9t0', created: '2026-07-01', lastUsed: '2026-07-08', status: 'active' },
-    { id: '3', name: 'Staging Key', key: 'amk_stg_u1v2w3x4y5z6a7b8c9d0', created: '2026-05-20', lastUsed: '2026-06-30', status: 'revoked' },
-  ]);
+  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [keysLoading, setKeysLoading] = useState(false);
 
-  const [users] = useState([
-    { id: '1', name: 'Mayuresh Joshi', email: 'mayuresh@example.com', role: 'Admin', status: 'active', mfa: true },
-    { id: '2', name: 'Priya Sharma', email: 'priya@example.com', role: 'Editor', status: 'active', mfa: false },
-    { id: '3', name: 'Rahul Verma', email: 'rahul@example.com', role: 'Viewer', status: 'active', mfa: false },
-    { id: '4', name: 'Ananya Patel', email: 'ananya@example.com', role: 'Editor', status: 'inactive', mfa: true },
-  ]);
+  useEffect(() => {
+    if (isLoggedIn) {
+      setKeysLoading(true);
+      Promise.all([
+        api.apiKeys.list().then(r => setApiKeys(r.api_keys)).catch(() => {}),
+        api.teams.list().then(r => setTeams(r.teams)).catch(() => {}),
+      ]).finally(() => setKeysLoading(false));
+    }
+  }, [isLoggedIn]);
 
-  const [sessions] = useState([
-    { id: '1', device: 'Chrome on Windows', ip: '203.0.113.42', location: 'Mumbai, IN', lastActive: '2 min ago', current: true },
-    { id: '2', device: 'Safari on macOS', ip: '198.51.100.7', location: 'Pune, IN', lastActive: '3 hours ago', current: false },
-    { id: '3', device: 'Firefox on Linux', ip: '192.0.2.15', location: 'Delhi, IN', lastActive: '1 day ago', current: false },
-  ]);
-
-  const [authLog] = useState([
-    { event: 'Login successful', user: 'Mayuresh Joshi', ip: '203.0.113.42', time: '2 min ago', status: 'success' },
-    { event: 'API key used', user: 'Production Key', ip: '198.51.100.7', time: '15 min ago', status: 'success' },
-    { event: 'Failed login attempt', user: 'unknown@example.com', ip: '45.33.32.156', time: '1 hour ago', status: 'failed' },
-    { event: 'Password changed', user: 'Priya Sharma', ip: '192.0.2.15', time: '3 hours ago', status: 'success' },
-  ]);
-
-  const copyKey = (key: string) => {
+  const copyKey = (key: string, id: string) => {
     navigator.clipboard.writeText(key);
-    setCopiedKey(key);
+    setCopiedKey(id);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleCreateKey = async () => {
+    const name = prompt('Enter a name for the API key:');
+    if (!name) return;
+    try {
+      const result = await api.apiKeys.create(name);
+      setApiKeys(prev => [...prev, { id: result.id, name: result.name, key_prefix: result.key_prefix, key: result.key, status: 'active' }]);
+      if (result.key) copyKey(result.key, result.id);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteKey = async (keyId: string) => {
+    if (!confirm('Delete this API key? This cannot be undone.')) return;
+    try {
+      await api.apiKeys.remove(keyId);
+      setApiKeys(prev => prev.filter(k => k.id !== keyId));
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -163,22 +173,30 @@ function AuthenticationTab() {
         <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-white">API keys</h3>
-            <button className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50" disabled={!isLoggedIn}><KeyRound className="h-3.5 w-3.5" /> New</button>
+            <button onClick={handleCreateKey} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50" disabled={!isLoggedIn}><KeyRound className="h-3.5 w-3.5" /> New</button>
           </div>
-          {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to manage API keys</div> : (
+          {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to manage API keys</div> : keysLoading ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
+          ) : apiKeys.length === 0 ? (
+            <div className="py-6 text-center text-sm text-slate-500">No API keys yet. Create one to get started.</div>
+          ) : (
             <div className="space-y-2">
-              {apiKeys.map((ak) => (
+              {apiKeys.map((ak: any) => (
                 <div key={ak.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-medium text-white">{ak.name}</p>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => copyKey(ak.key)} className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400 hover:text-white"> {copiedKey === ak.key ? <CheckCheck className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />} </button>
-                      <button onClick={() => setShowKey(showKey === ak.id ? null : ak.id)} className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400 hover:text-white"> {showKey === ak.id ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />} </button>
-                      <button className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400 hover:text-white"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => copyKey(ak.key || ak.key_prefix, ak.id)} className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400 hover:text-white">
+                        {copiedKey === ak.id ? <CheckCheck className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                      </button>
+                      <button onClick={() => setShowKey(showKey === ak.id ? null : ak.id)} className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400 hover:text-white">
+                        {showKey === ak.id ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                      <button onClick={() => handleDeleteKey(ak.id)} className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400 hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-mono text-slate-500">{showKey === ak.id ? ak.key : `${ak.key.slice(0, 12)}••••••••`}</p>
+                    <p className="text-xs font-mono text-slate-500">{showKey === ak.id ? (ak.key || ak.key_prefix) : `${ak.key_prefix || ''}••••••••`}</p>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] ${ak.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{ak.status}</span>
                   </div>
                 </div>
@@ -193,19 +211,17 @@ function AuthenticationTab() {
           <h3 className="text-sm font-semibold text-white">Team members</h3>
           <button className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium ${isLoggedIn ? 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`} disabled={!isLoggedIn}><Plus className="h-3.5 w-3.5" /> Invite</button>
         </div>
-        {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to manage team members</div> : (
+        {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to manage team members</div> : teams.length === 0 ? (
+          <div className="py-6 text-center text-sm text-slate-500">No teams yet. Create one to collaborate.</div>
+        ) : (
           <div className="space-y-2">
-            {users.map((u) => (
-              <div key={u.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            {teams.map((t: any) => (
+              <div key={t.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-br from-primary to-secondary text-xs font-semibold text-white">{u.name.split(' ').map(n => n[0]).join('')}</div>
-                  <div><p className="text-sm font-medium text-white">{u.name}</p><p className="text-xs text-slate-500">{u.email}</p></div>
+                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-br from-primary to-secondary text-xs font-semibold text-white">{t.name?.charAt(0)?.toUpperCase()}</div>
+                  <div><p className="text-sm font-medium text-white">{t.name}</p><p className="text-xs text-slate-500">{t.member_count || 0} members · {t.plan || 'free'}</p></div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${u.role === 'Admin' ? 'bg-accent/10 text-accent' : u.role === 'Editor' ? 'bg-primary/10 text-primary' : 'bg-white/10 text-slate-400'}`}>{u.role}</span>
-                  {u.mfa && <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />}
-                  <span className={`h-2 w-2 rounded-full ${u.status === 'active' ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-                </div>
+                <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent">{t.slug}</span>
               </div>
             ))}
           </div>
@@ -216,37 +232,12 @@ function AuthenticationTab() {
         <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
           <h3 className="text-sm font-semibold text-white mb-4">Active sessions</h3>
           {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to view sessions</div> : (
-            <div className="space-y-2">
-              {sessions.map((s) => (
-                <div key={s.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-white/5 shrink-0">
-                      {s.device.includes('Chrome') ? <Globe className="h-4 w-4 text-sky-400" /> : s.device.includes('Safari') ? <Monitor className="h-4 w-4 text-blue-400" /> : <Monitor className="h-4 w-4 text-slate-400" />}
-                    </div>
-                    <div><p className="text-sm font-medium text-white truncate">{s.device}</p><p className="text-xs text-slate-500">{s.ip} · {s.location}</p></div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[10px] text-slate-500">{s.lastActive}</span>
-                    {s.current ? <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">Current</span> : <button className="p-1 text-slate-500 hover:text-danger"><XCircle className="h-3.5 w-3.5" /></button>}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div className="py-6 text-center text-sm text-slate-500">Session management coming soon.</div>
           )}
         </div>
         <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
           <h3 className="text-sm font-semibold text-white mb-4">Auth log</h3>
-          <div className="space-y-1.5">
-            {authLog.map((entry, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-xl px-3 py-2 hover:bg-white/[0.02]">
-                <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${entry.status === 'success' ? 'bg-emerald-500' : entry.status === 'failed' ? 'bg-danger' : 'bg-yellow-500'}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2"><p className="text-sm text-zinc-300 truncate">{entry.event}</p><span className="text-[10px] text-slate-600 shrink-0">{entry.time}</span></div>
-                  <p className="text-xs text-slate-600 truncate">{entry.user} · {entry.ip}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="py-6 text-center text-sm text-slate-500">Audit trail available in Admin tab.</div>
         </div>
       </div>
 
@@ -295,26 +286,53 @@ function BillingTab() {
 }
 
 function AdminTab() {
+  const [experiments, setExperiments] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.experiments.list().then(r => setExperiments(r.experiments)).catch(() => {});
+    api.activity.list().then(r => setActivities(r.activities)).catch(() => {});
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
         <h3 className="text-lg font-semibold text-white mb-4">System overview</h3>
         <div className="grid gap-4 md:grid-cols-3">
-          {[
-            { label: 'Total users', value: '4' },
-            { label: 'Total models', value: '12' },
-            { label: 'Uptime', value: '99.9%' },
-          ].map((s) => (
-            <div key={s.label} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-              <p className="text-xs text-slate-400">{s.label}</p>
-              <p className="text-lg font-semibold text-white">{s.value}</p>
-            </div>
-          ))}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <p className="text-xs text-slate-400">Total experiments</p>
+            <p className="text-lg font-semibold text-white">{experiments.length}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <p className="text-xs text-slate-400">Successful runs</p>
+            <p className="text-lg font-semibold text-white">{experiments.filter(e => e.status === 'success').length}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <p className="text-xs text-slate-400">Audit events</p>
+            <p className="text-lg font-semibold text-white">{activities.length}</p>
+          </div>
         </div>
       </div>
       <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Audit log</h3>
-        <p className="text-sm text-slate-500">No admin actions recorded.</p>
+        <h3 className="text-sm font-semibold text-white mb-4">Activity log</h3>
+        {activities.length === 0 ? (
+          <p className="text-sm text-slate-500">No activity recorded yet.</p>
+        ) : (
+          <div className="space-y-1.5 max-h-80 overflow-y-auto">
+            {activities.map((a: any) => (
+              <div key={a.id} className="flex items-start gap-3 rounded-xl px-3 py-2 hover:bg-white/[0.02]">
+                <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${a.status === 'success' ? 'bg-emerald-500' : a.status === 'failed' ? 'bg-danger' : 'bg-yellow-500'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm text-zinc-300 truncate">{a.action}</p>
+                    <span className="text-[10px] text-slate-600 shrink-0">{a.time ? new Date(a.time).toLocaleString() : ''}</span>
+                  </div>
+                  <p className="text-xs text-slate-600 truncate">{a.actor} · {a.target || ''}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

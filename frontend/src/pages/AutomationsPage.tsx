@@ -1,32 +1,29 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Zap, Clock, Webhook, Repeat, Bell, Plus } from 'lucide-react';
+import { Zap, Clock, Webhook, Repeat, Bell, Plus, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useUIStore } from '../store/useUIStore';
 
 function AutomationsPage() {
-  const [models, setModels] = useState<any[]>([]);
+  const [webhooks, setWebhooks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const setActivePage = useUIStore((s) => s.setActivePage);
 
   useEffect(() => {
-    api.models.list().then(r => setModels(r.models)).catch(() => {});
+    api.webhooks.list().then(r => setWebhooks(r.webhooks)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const automations = [
-    { name: 'Daily retrain', trigger: 'Scheduled', schedule: 'Every 24h', target: 'All deployed models', active: true },
-    { name: 'Data drift alert', trigger: 'Event', schedule: 'On drift detected', target: 'Churn model v2', active: true },
-    { name: 'Webhook: Slack notify', trigger: 'Webhook', schedule: 'On training complete', target: '#ml-alerts', active: false },
+  const stats = [
+    { label: 'Active automations', value: webhooks.filter(w => w.status === 'active').length, icon: Zap },
+    { label: 'Webhooks configured', value: webhooks.length, icon: Webhook },
+    { label: 'Triggers available', value: 3, icon: Repeat },
+    { label: 'Notifications', value: 0, icon: Bell },
   ];
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6 p-6">
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Active automations', value: automations.filter(a => a.active).length, icon: Zap },
-          { label: 'Models monitored', value: models.length, icon: Bell },
-          { label: 'Triggers configured', value: 3, icon: Repeat },
-          { label: 'Webhooks active', value: 1, icon: Webhook },
-        ].map((stat) => {
+        {stats.map((stat) => {
           const Icon = stat.icon;
           return (
             <div key={stat.label} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
@@ -44,41 +41,41 @@ function AutomationsPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Rules & triggers</p>
-            <h2 className="text-2xl font-semibold text-white">Automations</h2>
+            <h2 className="text-2xl font-semibold text-white">Webhook automations</h2>
           </div>
           <button
             onClick={() => setActivePage('Deployment')}
             className="rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors inline-flex items-center gap-2"
           >
-            <Plus className="h-4 w-4" />
-            New automation
+            <Plus className="h-4 w-4" /> New webhook
           </button>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {automations.map((a) => (
-            <div key={a.name} className="rounded-[28px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
-              <div className="mb-4 flex items-start justify-between">
-                <div>
-                  <p className="font-medium text-white">{a.name}</p>
-                  <p className="text-sm text-slate-400">{a.trigger} trigger</p>
+        {loading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+        ) : webhooks.length === 0 ? (
+          <div className="py-12 text-center text-sm text-slate-500">No webhooks yet. Add one to automate workflows.</div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {webhooks.map((w: any) => (
+              <div key={w.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
+                <div className="mb-4 flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-white">{w.name}</p>
+                    <p className="text-sm text-slate-400 truncate max-w-[200px]">{w.url}</p>
+                  </div>
+                  <div className={`rounded-full px-3 py-1 text-sm ${w.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-400'}`}>
+                    {w.status}
+                  </div>
                 </div>
-                <div className={`rounded-full px-3 py-1 text-sm ${a.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-400'}`}>
-                  {a.active ? 'Active' : 'Paused'}
+                <div className="flex flex-wrap gap-1">
+                  {(w.events || []).map((ev: string) => (
+                    <span key={ev} className="rounded-md bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">{ev}</span>
+                  ))}
                 </div>
               </div>
-              <div className="space-y-2 text-sm text-slate-400">
-                <div className="flex items-center justify-between">
-                  <span>Schedule</span>
-                  <span className="text-white">{a.schedule}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Target</span>
-                  <span className="text-white">{a.target}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">

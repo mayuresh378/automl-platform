@@ -23,6 +23,8 @@ from crud import (
     list_api_keys, create_api_key, delete_api_key,
     list_teams, create_team,
     list_audit_logs, log_audit,
+    list_projects, create_project, get_project,
+    list_marketplace_items, install_marketplace_item,
     _create_token,
 )
 from schemas import (
@@ -35,9 +37,24 @@ from predict import make_prediction, load_model_metadata
 from cleaning import profile_dataset, clean_dataset
 from features import generate_features, suggest_features
 from ai_assistant import answer_question, list_datasets as ai_list_datasets, load_experiments as ai_load_experiments
-from auth import get_current_user
+from auth import get_current_user, decode_token as auth_decode_token
 
 security = HTTPBearer(auto_error=False)
+
+
+async def get_current_user_db(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    if credentials is None:
+        return {"id": "anonymous", "email": "guest@automl.local", "name": "Guest"}
+    payload = auth_decode_token(credentials.credentials)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = get_user_by_id(db, payload.get("sub"))
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return {"id": user.id, "email": user.email, "name": user.name}
 
 app = FastAPI(title="AutoML Platform API", version="2.0.0")
 
@@ -128,7 +145,7 @@ def auth_login(email: str = Form(...), password: str = Form(...), db: Session = 
 
 
 @app.get("/api/v1/auth/me")
-def auth_me(current_user: dict = Depends(get_current_user)):
+def auth_me(current_user: dict = Depends(get_current_user_db)):
     return {"user": current_user}
 
 
@@ -536,7 +553,7 @@ def create_team_api(name: str = Form(...), db: Session = Depends(get_db)):
 # ── API Keys (DB-backed) ────────────────────────────────────────────
 
 @app.get("/api/v1/api-keys")
-def list_api_keys_api(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+def list_api_keys_api(current_user: dict = Depends(get_current_user_db), db: Session = Depends(get_db)):
     if not current_user or not current_user.get("id"):
         raise HTTPException(status_code=401, detail="Authentication required")
     keys = list_api_keys(db, current_user["id"])
@@ -547,7 +564,7 @@ def list_api_keys_api(current_user: dict = Depends(get_current_user), db: Sessio
 
 @app.post("/api/v1/api-keys")
 def create_api_key_api(name: str = Form(...),
-                       current_user: dict = Depends(get_current_user),
+                       current_user: dict = Depends(get_current_user_db),
                        db: Session = Depends(get_db)):
     if not current_user or not current_user.get("id"):
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -557,7 +574,7 @@ def create_api_key_api(name: str = Form(...),
 
 @app.delete("/api/v1/api-keys/{key_id}")
 def delete_api_key_api(key_id: str,
-                       current_user: dict = Depends(get_current_user),
+                       current_user: dict = Depends(get_current_user_db),
                        db: Session = Depends(get_db)):
     if not current_user or not current_user.get("id"):
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -599,6 +616,61 @@ def live_stats(db: Session = Depends(get_db)):
         "inferenceRequestsToday": sum(1 for e in exps if e.run_at and e.run_at.strftime("%Y-%m-%d") == today_prefix),
         "avgLatencyMs": round(sum((e.training_time or 0) for e in exps) / max(len(exps), 1) * 1000, 1),
     }
+
+
+# ── Projects ────────────────────────────────────────────────────────
+
+@app.get("/api/v1/projects")
+def list_projects_api(db: Session = Depends(get_db)):
+    projects = list_projects(db)
+    return {"projects": [{
+        "id": p.id, "name": p.name, "description": p.description,
+        "status": p.status, "model_ids": p.model_ids,
+        "dataset_ids": p.dataset_ids, "tags": p.tags,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+    } for p in projects]}
+
+
+@app.post("/api/v1/projects")
+def create_project_api(name: str = Form(...), description: str = Form(None),
+                       db: Session = Depends(get_db)):
+    p = create_project(db, name=name, description=description)
+    log_audit(db, "User", "project.created", name, "project", p.id)
+    return {"id": p.id, "name": p.name, "description": p.description,
+            "status": p.status, "created_at": p.created_at.isoformat() if p.created_at else None}
+
+
+@app.get("/api/v1/projects/{project_id}")
+def get_project_api(project_id: str, db: Session = Depends(get_db)):
+    p = get_project(db, project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"id": p.id, "name": p.name, "description": p.description,
+            "status": p.status, "model_ids": p.model_ids,
+            "dataset_ids": p.dataset_ids, "tags": p.tags,
+            "created_at": p.created_at.isoformat() if p.created_at else None}
+
+
+# ── Marketplace ──────────────────────────────────────────────────────
+
+@app.get("/api/v1/marketplace")
+def list_marketplace_api(category: str = Query(None), db: Session = Depends(get_db)):
+    items = list_marketplace_items(db, category)
+    return {"items": [{
+        "id": i.id, "name": i.name, "type": i.item_type,
+        "description": i.description, "category": i.category,
+        "author": i.author, "tags": i.tags,
+        "downloads": i.downloads, "rating": i.rating,
+        "featured": i.featured,
+    } for i in items]}
+
+
+@app.post("/api/v1/marketplace/{item_id}/install")
+def install_marketplace_api(item_id: str, db: Session = Depends(get_db)):
+    item = install_marketplace_item(db, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"id": item.id, "name": item.name, "downloads": item.downloads}
 
 
 # ── Activity / Audit Log ────────────────────────────────────────────

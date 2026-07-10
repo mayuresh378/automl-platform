@@ -1,22 +1,35 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { GitBranch, Play, Save, Zap } from 'lucide-react';
+import { GitBranch, Play, Save, Zap, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useUIStore } from '../store/useUIStore';
+import { useNotificationStore } from '../store/useNotificationStore';
 
 function PipelinesPage() {
-  const [models, setModels] = useState<any[]>([]);
+  const [pipelines, setPipelines] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [runningId, setRunningId] = useState<string | null>(null);
   const setActivePage = useUIStore((s) => s.setActivePage);
+  const notify = useNotificationStore((s) => s.add);
 
-  useEffect(() => {
-    api.models.list().then(r => setModels(r.models)).catch(() => {});
-  }, []);
+  const load = () => {
+    setLoading(true);
+    api.pipelines.list().then(r => setPipelines(r.pipelines)).catch(() => {}).finally(() => setLoading(false));
+  };
 
-  const pipelines = [
-    { name: 'ETL Pipeline', steps: 5, status: 'Active', lastRun: '2 hours ago', executions: '847' },
-    { name: 'Feature Pipeline', steps: 8, status: 'Active', lastRun: '1 hour ago', executions: '612' },
-    { name: 'Training Pipeline', steps: 12, status: 'Active', lastRun: '3 hours ago', executions: '34' },
-  ];
+  useEffect(() => { load(); }, []);
+
+  const handleRun = async (id: string) => {
+    setRunningId(id);
+    try {
+      await api.pipelines.run(id);
+      notify({ title: 'Pipeline run started', message: 'Pipeline execution has begun', type: 'success' });
+      load();
+    } catch (err: any) {
+      notify({ title: 'Run failed', message: err.message, type: 'error' });
+    }
+    setRunningId(null);
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6 p-6">
@@ -33,35 +46,56 @@ function PipelinesPage() {
             Create pipeline
           </button>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {pipelines.map((pipeline) => (
-            <div key={pipeline.name} className="rounded-[28px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
-              <div className="mb-4 flex items-start justify-between">
-                <div>
-                  <p className="font-medium text-white">{pipeline.name}</p>
-                  <p className="text-sm text-slate-400">{pipeline.steps} steps</p>
+        {loading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+        ) : pipelines.length === 0 ? (
+          <div className="py-12 text-center text-sm text-slate-500">No pipelines yet. Create one to get started.</div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {pipelines.map((pipeline: any) => (
+              <div key={pipeline.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
+                <div className="mb-4 flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-white">{pipeline.name}</p>
+                    <p className="text-sm text-slate-400">{pipeline.steps?.length || 0} steps</p>
+                  </div>
+                  <div className={`rounded-full px-3 py-1 text-sm ${
+                    pipeline.status === 'active' || pipeline.status === 'running'
+                      ? 'bg-emerald-500/10 text-emerald-400'
+                      : 'bg-zinc-500/10 text-zinc-400'
+                  }`}>{pipeline.status}</div>
                 </div>
-                <div className="rounded-full bg-emerald-500/10 px-3 py-1 text-sm text-emerald-400">{pipeline.status}</div>
+                {pipeline.description && (
+                  <p className="text-xs text-slate-500 mb-3 line-clamp-2">{pipeline.description}</p>
+                )}
+                <div className="space-y-2 text-sm text-slate-400">
+                  {pipeline.schedule && (
+                    <div className="flex items-center justify-between">
+                      <span>Schedule</span>
+                      <span className="text-white">{pipeline.schedule}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => handleRun(pipeline.id)}
+                    disabled={runningId === pipeline.id}
+                    className="flex-1 rounded-2xl bg-primary/20 px-3 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                  >
+                    {runningId === pipeline.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                    Run
+                  </button>
+                  <button
+                    onClick={() => setActivePage('Experiments')}
+                    className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 transition-colors"
+                  >
+                    View runs
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2 text-sm text-slate-400">
-                <div className="flex items-center justify-between">
-                  <span>Last run</span>
-                  <span>{pipeline.lastRun}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Total executions</span>
-                  <span className="text-white">{pipeline.executions}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setActivePage('Experiments')}
-                className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-              >
-                View runs
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -100,26 +134,14 @@ function PipelinesPage() {
             <Zap className="h-5 w-5 text-accent" />
           </div>
           <div className="space-y-3">
-            <button
-              onClick={() => setActivePage('Training')}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
-            >
-              <Play className="h-4 w-4" />
-              Run training
+            <button onClick={() => setActivePage('Training')} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
+              <Play className="h-4 w-4" /> Run training
             </button>
-            <button
-              onClick={() => setActivePage('Datasets')}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
-            >
-              <Save className="h-4 w-4" />
-              Add data source
+            <button onClick={() => setActivePage('Datasets')} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
+              <Save className="h-4 w-4" /> Add data source
             </button>
-            <button
-              onClick={() => setActivePage('Experiments')}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
-            >
-              <GitBranch className="h-4 w-4" />
-              View history
+            <button onClick={() => setActivePage('Experiments')} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
+              <GitBranch className="h-4 w-4" /> View history
             </button>
           </div>
         </div>

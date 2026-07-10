@@ -26,7 +26,7 @@ function TrainingPage() {
       const res = await api.training.start(selectedDataset, targetColumn);
       setResult(res);
       api.experiments.list().then(r => setExperiments(r.experiments)).catch(() => {});
-      notify({ title: 'Training complete', message: `${res.name} finished with score ${res.cv_score} on ${selectedDataset}`, type: 'success' });
+      notify({ title: 'Training complete', message: `${selectedDataset} finished with score ${res.training_summary?.cv_score ?? 'N/A'}`, type: 'success' });
     } catch (err: any) {
       notify({ title: 'Training failed', message: err.message, type: 'error' });
     }
@@ -66,7 +66,7 @@ function TrainingPage() {
             {result && (
               <div className="mt-4 rounded-2xl bg-emerald-500/10 p-4 text-sm text-emerald-300">
                 Best model: <strong>{result.training_summary?.best_model}</strong> &middot;
-                Accuracy: <strong>{result.training_summary?.accuracy}</strong>
+                Score: <strong>{result.training_summary?.cv_score ?? 'N/A'}</strong>
               </div>
             )}
           </div>
@@ -85,7 +85,7 @@ function TrainingPage() {
             {experiments.map((exp: any) => (
               <div key={exp.id} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <p className="text-sm font-medium text-white">{exp.model}</p>
-                <p className="text-xs text-slate-400">Accuracy: {exp.accuracy} &middot; {exp.runAt}</p>
+                <p className="text-xs text-slate-400">Score: {exp.cv_score ?? 'N/A'} &middot; {exp.runAt ? new Date(exp.runAt).toLocaleDateString() : ''}</p>
               </div>
             ))}
           </div>
