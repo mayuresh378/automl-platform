@@ -19,7 +19,8 @@ from crud import (
     list_experiments, create_experiment,
     list_models, get_model, create_model, update_model_status,
     list_deployments, create_deployment, delete_deployment,
-    list_pipelines, create_pipeline, get_pipeline, run_pipeline,
+    list_pipelines, create_pipeline, get_pipeline, update_pipeline,
+    delete_pipeline, run_pipeline, list_pipeline_runs, get_pipeline_run,
     list_webhooks, create_webhook, delete_webhook,
     list_api_keys, create_api_key, delete_api_key,
     list_teams, create_team,
@@ -29,7 +30,7 @@ from crud import (
     _create_token,
 )
 from schemas import (
-    PipelineCreate, PipelineResponse,
+    PipelineCreate, PipelineUpdate, PipelineResponse, PipelineRunResponse,
     WebhookCreate, WebhookResponse,
 )
 from preprocess import auto_preprocess
@@ -474,6 +475,7 @@ def list_pipelines_api(db: Session = Depends(get_db)):
         "id": p.id, "name": p.name, "description": p.description,
         "steps": p.steps, "status": p.status, "schedule": p.schedule,
         "created_at": p.created_at.isoformat() if p.created_at else None,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
     } for p in pipes]}
 
 
@@ -486,6 +488,7 @@ def create_pipeline_api(data: PipelineCreate, db: Session = Depends(get_db)):
         "id": pipe.id, "name": pipe.name, "description": pipe.description,
         "steps": pipe.steps, "status": pipe.status, "schedule": pipe.schedule,
         "created_at": pipe.created_at.isoformat() if pipe.created_at else None,
+        "updated_at": pipe.updated_at.isoformat() if pipe.updated_at else None,
     }
 
 
@@ -498,17 +501,72 @@ def get_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
         "id": pipe.id, "name": pipe.name, "description": pipe.description,
         "steps": pipe.steps, "status": pipe.status, "schedule": pipe.schedule,
         "created_at": pipe.created_at.isoformat() if pipe.created_at else None,
+        "updated_at": pipe.updated_at.isoformat() if pipe.updated_at else None,
     }
+
+
+@app.put("/api/v1/pipelines/{pipeline_id}")
+def update_pipeline_api(pipeline_id: str, data: PipelineUpdate, db: Session = Depends(get_db)):
+    pipe = update_pipeline(db, pipeline_id, name=data.name, description=data.description,
+                           steps=data.steps, schedule=data.schedule)
+    if not pipe:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    return {
+        "id": pipe.id, "name": pipe.name, "description": pipe.description,
+        "steps": pipe.steps, "status": pipe.status, "schedule": pipe.schedule,
+        "created_at": pipe.created_at.isoformat() if pipe.created_at else None,
+        "updated_at": pipe.updated_at.isoformat() if pipe.updated_at else None,
+    }
+
+
+@app.delete("/api/v1/pipelines/{pipeline_id}")
+def delete_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
+    if not delete_pipeline(db, pipeline_id):
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    return {"status": "deleted"}
 
 
 @app.post("/api/v1/pipelines/{pipeline_id}/run")
 def run_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
     try:
         run = run_pipeline(db, pipeline_id)
-        return {"id": run.id, "pipeline_id": run.pipeline_id, "status": run.status,
-                "started_at": run.started_at.isoformat() if run.started_at else None}
+        return {
+            "id": run.id, "pipeline_id": run.pipeline_id,
+            "status": run.status, "current_step": run.current_step,
+            "error": run.error,
+            "started_at": run.started_at.isoformat() if run.started_at else None,
+            "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+        }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/v1/pipelines/{pipeline_id}/runs")
+def list_runs_api(pipeline_id: str, db: Session = Depends(get_db)):
+    runs = list_pipeline_runs(db, pipeline_id)
+    return {"runs": [{
+        "id": r.id, "pipeline_id": r.pipeline_id,
+        "status": r.status, "current_step": r.current_step,
+        "results": r.results, "error": r.error,
+        "started_at": r.started_at.isoformat() if r.started_at else None,
+        "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    } for r in runs]}
+
+
+@app.get("/api/v1/pipeline-runs/{run_id}")
+def get_run_api(run_id: str, db: Session = Depends(get_db)):
+    run = get_pipeline_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return {
+        "id": run.id, "pipeline_id": run.pipeline_id,
+        "status": run.status, "current_step": run.current_step,
+        "results": run.results, "error": run.error,
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+        "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+        "created_at": run.created_at.isoformat() if run.created_at else None,
+    }
 
 
 # ── Webhooks (DB-backed) ────────────────────────────────────────────

@@ -79,6 +79,13 @@ class PipelineCreate(BaseModel):
     schedule: Optional[str] = None
 
 
+class PipelineUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    steps: Optional[list] = None
+    schedule: Optional[str] = None
+
+
 class PipelineResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,6 +95,20 @@ class PipelineResponse(BaseModel):
     steps: list = []
     status: str
     schedule: Optional[str] = None
+    created_at: datetime
+
+
+class PipelineRunResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    pipeline_id: str
+    status: str
+    current_step: Optional[str] = None
+    results: Optional[Any] = None
+    error: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     created_at: datetime
 
 

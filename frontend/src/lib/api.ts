@@ -135,6 +135,7 @@ export const api = {
 
   pipelines: {
     list: () => fetchJSON<{ pipelines: any[] }>(`${BASE}/pipelines`),
+    get: (id: string) => fetchJSON<any>(`${BASE}/pipelines/${id}`),
     create: (name: string, steps: any[], description?: string) => {
       return fetchJSON(`${BASE}/pipelines`, {
         method: 'POST',
@@ -142,8 +143,21 @@ export const api = {
         body: JSON.stringify({ name, steps, description }),
       });
     },
+    update: (id: string, data: { name?: string; description?: string; steps?: any[]; schedule?: string }) => {
+      return fetchJSON(`${BASE}/pipelines/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    },
+    delete: (id: string) =>
+      fetchJSON(`${BASE}/pipelines/${id}`, { method: 'DELETE' }),
     run: (pipeline_id: string) =>
       fetchJSON(`${BASE}/pipelines/${pipeline_id}/run`, { method: 'POST' }),
+    runs: (pipeline_id: string) =>
+      fetchJSON<{ runs: any[] }>(`${BASE}/pipelines/${pipeline_id}/runs`),
+    getRun: (run_id: string) =>
+      fetchJSON<any>(`${BASE}/pipeline-runs/${run_id}`),
   },
 
   webhooks: {

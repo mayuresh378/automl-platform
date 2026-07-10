@@ -161,17 +161,88 @@ def get_pipeline(db: Session, pipeline_id: str) -> Optional[Pipeline]:
     return db.query(Pipeline).filter(Pipeline.id == pipeline_id).first()
 
 
+def update_pipeline(db: Session, pipeline_id: str, name: str = None,
+                    description: str = None, steps: list = None,
+                    schedule: str = None) -> Optional[Pipeline]:
+    pipe = get_pipeline(db, pipeline_id)
+    if not pipe:
+        return None
+    if name is not None:
+        pipe.name = name
+    if description is not None:
+        pipe.description = description
+    if steps is not None:
+        pipe.steps = steps
+    if schedule is not None:
+        pipe.schedule = schedule
+    pipe.updated_at = _now()
+    db.commit()
+    db.refresh(pipe)
+    return pipe
+
+
+def delete_pipeline(db: Session, pipeline_id: str) -> bool:
+    pipe = get_pipeline(db, pipeline_id)
+    if not pipe:
+        return False
+    db.query(PipelineRun).filter(PipelineRun.pipeline_id == pipeline_id).delete()
+    db.delete(pipe)
+    db.commit()
+    return True
+
+
 def run_pipeline(db: Session, pipeline_id: str) -> PipelineRun:
+    from pipeline_engine import execute_pipeline_steps
     pipeline = get_pipeline(db, pipeline_id)
     if not pipeline:
         raise ValueError("Pipeline not found")
     run = PipelineRun(id=_uid(), pipeline_id=pipeline_id, status="running",
+                      current_step="Starting...",
                       started_at=_now(), created_at=_now())
     db.add(run)
     pipeline.status = "running"
     db.commit()
     db.refresh(run)
+
+    for update in execute_pipeline_steps(pipeline, run.id):
+        step_info = update.get("step", "")
+        step_status = update.get("status", "")
+        if step_status == "failed":
+            run.status = "failed"
+            run.current_step = step_info
+            run.error = update.get("error", "Unknown error")
+            run.completed_at = _now()
+            pipeline.status = "failed"
+        elif step_status == "running":
+            run.current_step = step_info
+        elif step_info == "complete":
+            run.status = "completed"
+            run.current_step = "Complete"
+            run.completed_at = _now()
+            pipeline.status = "active"
+        else:
+            run.current_step = step_info
+        run.results = {
+            "step": step_info,
+            "status": step_status,
+            "state_keys": update.get("state_keys", []),
+        }
+        db.commit()
+
+    db.refresh(run)
     return run
+
+
+def list_pipeline_runs(db: Session, pipeline_id: str, limit: int = 20) -> list:
+    return (db.query(PipelineRun)
+            .filter(PipelineRun.pipeline_id == pipeline_id)
+            .order_by(desc(PipelineRun.created_at))
+            .limit(limit)
+            .all())
+
+
+def get_pipeline_run(db: Session, run_id: str) -> Optional[PipelineRun]:
+    return db.query(PipelineRun).filter(PipelineRun.id == run_id).first()
 
 
 # ─── Webhooks ─────────────────────────────────────────────────────────
