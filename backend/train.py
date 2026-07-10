@@ -95,10 +95,12 @@ def run_automl_training(X, y, task_type, model_name_prefix="automl_model", prepr
             if n_classes == 2 and name == "LogisticRegression":
                 pass
 
+            n_iter = min(5, _count_params(param_dist))
+            cv = min(2, cv_folds)
             search = RandomizedSearchCV(
-                base_model, param_dist, n_iter=min(10, _count_params(param_dist)),
-                cv=min(3, cv_folds), scoring=_default_scoring(task_type),
-                random_state=42, n_jobs=-1, verbose=0,
+                base_model, param_dist, n_iter=n_iter,
+                cv=cv, scoring=_default_scoring(task_type),
+                random_state=42, n_jobs=1, verbose=0,
             )
             search.fit(X_train, y_train)
 

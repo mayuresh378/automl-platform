@@ -337,7 +337,10 @@ def train_model(
             "training_summary": results,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        detail = str(e)
+        if "paging file" in detail.lower() or "memory" in detail.lower():
+            detail = "System running low on memory. Try closing other applications or reducing dataset size."
+        raise HTTPException(status_code=500, detail=detail)
 
 
 # ── Models (DB-backed) ──────────────────────────────────────────────
