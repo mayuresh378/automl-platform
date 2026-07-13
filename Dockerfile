@@ -11,8 +11,11 @@ RUN pip install --no-cache-dir psycopg2-binary
 COPY backend/ /app/backend/
 COPY dataset/ /app/dataset/
 
+COPY backend/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 WORKDIR /app/backend
 
 EXPOSE 8000
 
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["/app/start.sh"]

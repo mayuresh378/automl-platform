@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import time
 import uuid
@@ -60,7 +61,12 @@ async def get_current_user_db(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    print(f"Starting up... DATABASE_URL={'set' if os.getenv('DATABASE_URL') else 'not set'}, PORT={os.getenv('PORT', 'not set')}", flush=True)
+    try:
+        init_db()
+        print("Database initialized, app ready", flush=True)
+    except Exception as e:
+        print(f"Database init failed: {e}", flush=True)
     yield
 
 app = FastAPI(title="AutoML Platform API", version="2.0.0", lifespan=lifespan)
