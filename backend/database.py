@@ -1,5 +1,6 @@
 import os
-from sqlalchemy import create_engine
+import time
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 DATABASE_URL = os.getenv(
@@ -27,4 +28,11 @@ def init_db():
     from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
                         Deployment, Pipeline, PipelineRun, Webhook, AuditLog,
                         Project, MarketplaceItem)
-    Base.metadata.create_all(bind=engine)
+    for attempt in range(30):
+        try:
+            Base.metadata.create_all(bind=engine)
+            return
+        except Exception:
+            if attempt == 29:
+                raise
+            time.sleep(1)
