@@ -1,6 +1,6 @@
 import { useAuthStore } from '../store/useAuthStore';
 
-const BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '/api/v1';
+export const BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '/api/v1';
 
 export function downloadUrl(path: string) {
   const token = useAuthStore.getState().token;

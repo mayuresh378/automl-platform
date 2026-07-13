@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, ArrowUp, Wand2, Loader2 } from 'lucide-react';
+import { BASE } from '../lib/api';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -38,7 +39,7 @@ export function AIAssistantPanel() {
     try {
       const form = new FormData();
       form.append('question', text);
-      const res = await fetch('/api/v1/ai/chat', { method: 'POST', body: form });
+      const res = await fetch(`${BASE}/ai/chat`, { method: 'POST', body: form });
       const data = await res.json();
       setMessages(m => [...m, { role: 'assistant', text: data.answer || "Sorry, I couldn't process that." }]);
     } catch {
