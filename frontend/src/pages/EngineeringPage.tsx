@@ -132,7 +132,7 @@ function EngineeringPage() {
                         <span className="text-[11px] font-medium text-slate-500 uppercase">{s.type}</span>
                       </div>
                       <button
-                        className="rounded-xl bg-primary/20 px-3 py-1 text-xs text-white hover:bg-primary/30 transition-colors disabled:opacity-50"
+                        className="btn-press rounded-xl bg-primary/20 px-3 py-1 text-xs text-white hover:bg-primary/30 transition-colors disabled:opacity-50"
                         onClick={() => handleGenerate([s])}
                         disabled={running}
                       >
@@ -177,7 +177,7 @@ function EngineeringPage() {
                   <Download className="h-4 w-4" /> Download
                 </a>
                 <button
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                  className="btn-press w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
                   onClick={() => setResult(null)}
                 >
                   Generate more

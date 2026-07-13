@@ -73,7 +73,7 @@ function MarketplacePage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search marketplace…" className="rounded-2xl border border-white/10 bg-white/5 pl-9 pr-4 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:border-primary/40 w-56" />
           </div>
-          <button onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} className="rounded-xl border border-white/10 p-2 text-slate-400 hover:text-white transition-colors">
+          <button onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} className="btn-press rounded-xl border border-white/10 p-2 text-slate-400 hover:text-white transition-colors">
             {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
           </button>
         </div>
@@ -84,7 +84,7 @@ function MarketplacePage() {
           {CATEGORIES.map(cat => {
             const Icon = cat.icon;
             return (
-              <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm whitespace-nowrap transition-colors ${activeCategory === cat.id ? 'bg-primary/20 text-primary border border-primary/30' : 'text-slate-400 hover:text-white border border-transparent'}`}>
+              <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`btn-press flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm whitespace-nowrap transition-colors ${activeCategory === cat.id ? 'bg-primary/20 text-primary border border-primary/30' : 'text-slate-400 hover:text-white border border-transparent'}`}>
                 <Icon className="h-3.5 w-3.5" />
                 {cat.label}
                 <span className="text-[11px] text-slate-500">({cat.count})</span>
@@ -114,7 +114,7 @@ function MarketplacePage() {
                     <span className="flex items-center gap-1"><Download className="h-3 w-3" /> {item.downloads}</span>
                     <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-400" /> {item.rating}</span>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); toggleInstall(item.id); }} className={`rounded-xl px-3 py-1 text-xs font-medium transition-colors ${installed.includes(item.id) ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'}`}>
+                  <button onClick={e => { e.stopPropagation(); toggleInstall(item.id); }} className={`btn-press rounded-xl px-3 py-1 text-xs font-medium transition-colors ${installed.includes(item.id) ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'}`}>
                     {installed.includes(item.id) ? <span className="flex items-center gap-1"><CheckCheck className="h-3 w-3" /> Installed</span> : 'Install'}
                   </button>
                 </div>
@@ -130,14 +130,14 @@ function MarketplacePage() {
             <Store className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold text-white">{filtered.length} {search || activeCategory !== 'all' ? 'results' : 'available'}</h3>
             {(search || activeCategory !== 'all') && (
-              <button onClick={() => { setSearch(''); setActiveCategory('all'); setActiveType('All'); }} className="flex items-center gap-1 text-xs text-slate-500 hover:text-white transition-colors ml-2">
+              <button onClick={() => { setSearch(''); setActiveCategory('all'); setActiveType('All'); }} className="btn-press flex items-center gap-1 text-xs text-slate-500 hover:text-white transition-colors ml-2">
                 <X className="h-3 w-3" /> Clear
               </button>
             )}
           </div>
           <div className="flex items-center gap-1">
             {TYPES.map(t => (
-              <button key={t} onClick={() => setActiveType(t)} className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${activeType === t ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300'}`}>{t}</button>
+              <button key={t} onClick={() => setActiveType(t)} className={`btn-press rounded-lg px-2.5 py-1 text-xs transition-colors ${activeType === t ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300'}`}>{t}</button>
             ))}
           </div>
         </div>
@@ -165,7 +165,7 @@ function MarketplacePage() {
                     <span className="flex items-center gap-1"><Download className="h-3 w-3" /> {item.downloads}</span>
                     <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-400" /> {item.rating}</span>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); toggleInstall(item.id); }} className={`rounded-xl px-2.5 py-1 text-xs font-medium transition-colors ${installed.includes(item.id) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
+                  <button onClick={e => { e.stopPropagation(); toggleInstall(item.id); }} className={`btn-press rounded-xl px-2.5 py-1 text-xs font-medium transition-colors ${installed.includes(item.id) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
                     {installed.includes(item.id) ? <span className="flex items-center gap-1"><CheckCheck className="h-3 w-3" /> Installed</span> : 'Install'}
                   </button>
                 </div>
@@ -189,7 +189,7 @@ function MarketplacePage() {
                   <span className="text-[11px] text-slate-500 hidden sm:block">{item.type}</span>
                   <span className="flex items-center gap-1 text-xs text-slate-500"><Star className="h-3 w-3 text-amber-400" /> {item.rating}</span>
                   <span className="flex items-center gap-1 text-xs text-slate-500"><Download className="h-3 w-3" /> {item.downloads}</span>
-                  <button onClick={e => { e.stopPropagation(); toggleInstall(item.id); }} className={`rounded-xl px-2.5 py-1 text-xs font-medium transition-colors ${installed.includes(item.id) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
+                  <button onClick={e => { e.stopPropagation(); toggleInstall(item.id); }} className={`btn-press rounded-xl px-2.5 py-1 text-xs font-medium transition-colors ${installed.includes(item.id) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
                     {installed.includes(item.id) ? 'Installed' : 'Install'}
                   </button>
                 </div>
@@ -216,7 +216,7 @@ function MarketplacePage() {
                   <p className="text-sm font-medium text-white">{item.name}</p>
                   <p className="text-xs text-slate-500">{item.type} · v1.0</p>
                 </div>
-                <button onClick={() => toggleInstall(item.id)} className="rounded-lg border border-white/10 px-2.5 py-1 text-[10px] text-slate-400 hover:text-white transition-colors">Remove</button>
+                <button onClick={() => toggleInstall(item.id)} className="btn-press rounded-lg border border-white/10 px-2.5 py-1 text-[10px] text-slate-400 hover:text-white transition-colors">Remove</button>
               </div>
             ))}
           </div>
@@ -257,7 +257,7 @@ function MarketplacePage() {
                   <p className="text-[10px] text-slate-500">Version</p>
                 </div>
               </div>
-              <button onClick={() => { toggleInstall(detail.id); setDetailId(null); }} className={`w-full rounded-2xl py-3 text-sm font-medium transition-opacity ${installed.includes(detail.id) ? 'bg-white/10 text-slate-300 border border-white/10' : 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90'}`}>
+              <button onClick={() => { toggleInstall(detail.id); setDetailId(null); }} className={`btn-press w-full rounded-2xl py-3 text-sm font-medium transition-opacity ${installed.includes(detail.id) ? 'bg-white/10 text-slate-300 border border-white/10' : 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90'}`}>
                 {installed.includes(detail.id) ? 'Remove installation' : 'Install now'}
               </button>
             </motion.div>

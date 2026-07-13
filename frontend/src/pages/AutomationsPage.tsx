@@ -45,7 +45,7 @@ function AutomationsPage() {
           </div>
           <button
             onClick={() => setActivePage('Deployment')}
-            className="rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors inline-flex items-center gap-2"
+            className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors inline-flex items-center gap-2"
           >
             <Plus className="h-4 w-4" /> New webhook
           </button>

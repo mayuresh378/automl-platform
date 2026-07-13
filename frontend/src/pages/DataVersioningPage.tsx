@@ -10,7 +10,7 @@ function DataVersioningPage() {
             <p className="text-sm text-slate-400">Dataset management</p>
             <h2 className="text-2xl font-semibold text-white">Version control</h2>
           </div>
-          <button className="rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white">Create version</button>
+          <button className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white">Create version</button>
         </div>
         <div className="space-y-3">
           {[
@@ -39,7 +39,7 @@ function DataVersioningPage() {
               </div>
               <div className="flex items-center justify-between text-sm text-slate-400">
                 <span>Created {ver.created}</span>
-                <button className="rounded-xl border border-white/10 bg-white/5 px-3 py-1 text-white transition hover:bg-white/10">
+                <button className="btn-press rounded-xl border border-white/10 bg-white/5 px-3 py-1 text-white transition hover:bg-white/10">
                   Rollback
                 </button>
               </div>

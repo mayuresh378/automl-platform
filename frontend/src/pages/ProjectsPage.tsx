@@ -55,7 +55,7 @@ function ProjectsPage() {
                 <p className="text-sm text-slate-400">Workspace organization</p>
                 <h2 className="text-2xl font-semibold text-white">Active projects</h2>
               </div>
-              <button onClick={() => setActivePage('Datasets')} className="rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors">
+              <button onClick={() => setActivePage('Datasets')} className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors">
                 New project
               </button>
             </div>
@@ -70,7 +70,7 @@ function ProjectsPage() {
                         <p className="font-medium text-white">{project.name}</p>
                         <p className="text-sm text-slate-400">{project.model_ids?.length || 0} models</p>
                       </div>
-                      <button className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white">
+                      <button className="btn-press rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white">
                         <Star className="h-4 w-4" />
                       </button>
                     </div>
@@ -93,10 +93,10 @@ function ProjectsPage() {
               <FolderOpen className="h-5 w-5 text-accent" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <button onClick={() => setActivePage('Datasets')} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">Upload a dataset</button>
-              <button onClick={() => setActivePage('Training')} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">Start a new training run</button>
-              <button onClick={() => setActivePage('Experiments')} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">View recent experiments</button>
-              <button onClick={() => setActivePage('Dashboard')} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">Go to dashboard</button>
+              <button onClick={() => setActivePage('Datasets')} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">Upload a dataset</button>
+              <button onClick={() => setActivePage('Training')} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">Start a new training run</button>
+              <button onClick={() => setActivePage('Experiments')} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">View recent experiments</button>
+              <button onClick={() => setActivePage('Dashboard')} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">Go to dashboard</button>
             </div>
           </section>
         </>

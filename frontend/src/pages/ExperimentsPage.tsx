@@ -66,7 +66,7 @@ function ExperimentsPage() {
         <div className="space-y-3">
           {experiments.map((exp: any) => (
             <div key={exp.id} className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
-              <button className="w-full flex items-center justify-between px-5 py-4 text-left" onClick={() => setExpanded(expanded === exp.id ? null : exp.id)}>
+              <button className="btn-press w-full flex items-center justify-between px-5 py-4 text-left" onClick={() => setExpanded(expanded === exp.id ? null : exp.id)}>
                 <div className="flex items-center gap-4">
                   <FlaskConical className="h-5 w-5 text-primary shrink-0" />
                   <div>

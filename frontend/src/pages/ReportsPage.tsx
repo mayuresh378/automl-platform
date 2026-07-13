@@ -10,7 +10,7 @@ function ReportsPage() {
             <p className="text-sm text-slate-400">Reporting</p>
             <h2 className="text-2xl font-semibold text-white">Generate polished ML reports for stakeholders</h2>
           </div>
-          <button className="rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-primary-100">Export report</button>
+          <button className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-primary-100">Export report</button>
         </div>
         <div className="grid gap-4 lg:grid-cols-[1fr_0.75fr]">
           <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">

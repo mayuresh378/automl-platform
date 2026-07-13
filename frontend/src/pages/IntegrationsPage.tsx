@@ -10,7 +10,7 @@ function IntegrationsPage() {
             <p className="text-sm text-slate-400">Ecosystem</p>
             <h2 className="text-2xl font-semibold text-white">Third-party integrations</h2>
           </div>
-          <button className="rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white">Browse marketplace</button>
+          <button className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white">Browse marketplace</button>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[
@@ -36,7 +36,7 @@ function IntegrationsPage() {
               </div>
               <p className="font-medium text-white">{integration.name}</p>
               {integration.status === 'Connected' && (
-                <button className="mt-3 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10">
+                <button className="btn-press mt-3 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10">
                   Manage
                 </button>
               )}

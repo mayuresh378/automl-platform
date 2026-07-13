@@ -145,13 +145,13 @@ function AuthenticationPage() {
               <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 text-sm text-emerald-400 inline-flex items-center gap-2">
                 <Shield className="h-4 w-4" /> Authenticated
               </div>
-              <button onClick={logout} className="mt-6 w-full rounded-xl border border-white/10 py-2 text-sm text-danger hover:bg-white/[0.03] transition-colors">Sign out</button>
+              <button onClick={logout} className="btn-press mt-6 w-full rounded-xl border border-white/10 py-2 text-sm text-danger hover:bg-white/[0.03] transition-colors">Sign out</button>
             </div>
           ) : (
             <>
               <div className="flex items-center gap-2 mb-5">
-                <button onClick={() => setAuthTab('login')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${authTab === 'login' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}>Sign in</button>
-                <button onClick={() => setAuthTab('signup')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${authTab === 'signup' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}>Create account</button>
+                <button onClick={() => setAuthTab('login')} className={`btn-press px-4 py-2 rounded-xl text-sm font-medium transition-colors ${authTab === 'login' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}>Sign in</button>
+                <button onClick={() => setAuthTab('signup')} className={`btn-press px-4 py-2 rounded-xl text-sm font-medium transition-colors ${authTab === 'signup' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}>Create account</button>
               </div>
 
               {authError && (
@@ -175,7 +175,7 @@ function AuthenticationPage() {
                       <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required />
                     </div>
                   </div>
-                  <button type="submit" disabled={authLoading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+                  <button type="submit" disabled={authLoading} className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
                     <LogIn className="h-4 w-4" /> {authLoading ? 'Signing in…' : 'Sign in'}
                   </button>
                 </form>
@@ -203,7 +203,7 @@ function AuthenticationPage() {
                       <input type="password" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required minLength={6} />
                     </div>
                   </div>
-                  <button type="submit" disabled={authLoading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+                  <button type="submit" disabled={authLoading} className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
                     <UserPlus className="h-4 w-4" /> {authLoading ? 'Creating account…' : 'Create account'}
                   </button>
                 </form>
@@ -218,7 +218,7 @@ function AuthenticationPage() {
               <p className="text-sm text-slate-400">API access</p>
               <h3 className="text-lg font-semibold text-white">API keys</h3>
             </div>
-            <button className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50" disabled={!isLoggedIn}>
+            <button className="btn-press flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50" disabled={!isLoggedIn}>
               <KeyRound className="h-4 w-4" />
               New key
             </button>
@@ -269,7 +269,7 @@ function AuthenticationPage() {
               <p className="text-sm text-slate-400">Team members</p>
               <h3 className="text-lg font-semibold text-white">User management</h3>
             </div>
-            <button className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium transition-opacity ${isLoggedIn ? 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`} disabled={!isLoggedIn}>
+            <button className={`btn-press flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium transition-opacity ${isLoggedIn ? 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`} disabled={!isLoggedIn}>
               <Plus className="h-4 w-4" /> Invite
             </button>
           </div>
@@ -342,7 +342,7 @@ function AuthenticationPage() {
               <p className="text-sm text-slate-400">Sessions</p>
               <h3 className="text-lg font-semibold text-white">Active sessions</h3>
             </div>
-            <button className={`flex items-center gap-2 rounded-xl border border-white/10 px-3 py-1.5 text-xs transition-colors ${isLoggedIn ? 'text-slate-400 hover:text-white' : 'text-slate-600 cursor-not-allowed'}`} disabled={!isLoggedIn}>
+            <button className={`btn-press flex items-center gap-2 rounded-xl border border-white/10 px-3 py-1.5 text-xs transition-colors ${isLoggedIn ? 'text-slate-400 hover:text-white' : 'text-slate-600 cursor-not-allowed'}`} disabled={!isLoggedIn}>
               <XCircle className="h-3.5 w-3.5" /> Revoke all
             </button>
           </div>

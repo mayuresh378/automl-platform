@@ -33,7 +33,7 @@ function PipelineRunsPanel({ pipelineId }: { pipelineId: string }) {
     <div className="space-y-1.5">
       {runs.map(run => (
         <div key={run.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
-          <button onClick={() => setExpanded(expanded === run.id ? null : run.id)} className="flex w-full items-center justify-between">
+          <button onClick={() => setExpanded(expanded === run.id ? null : run.id)} className="btn-press flex w-full items-center justify-between">
             <div className="flex items-center gap-2">
               {run.status === 'completed' ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
                 : run.status === 'failed' ? <XCircle className="h-3.5 w-3.5 text-danger" />
@@ -118,7 +118,7 @@ function PipelinesPage() {
             <h2 className="text-2xl font-semibold text-white">Data & training pipelines</h2>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={load} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors">
+            <button onClick={load} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors">
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
             <button onClick={() => setActivePage('Datasets')} className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors">
@@ -172,14 +172,14 @@ function PipelinesPage() {
                   <button
                     onClick={() => handleRun(pipeline.id)}
                     disabled={runningId === pipeline.id}
-                    className="flex-1 rounded-2xl bg-primary/20 px-3 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                    className="btn-press flex-1 rounded-2xl bg-primary/20 px-3 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1"
                   >
                     {runningId === pipeline.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
                     Run
                   </button>
                   <button
                     onClick={() => setShowRunsFor(showRunsFor === pipeline.id ? null : pipeline.id)}
-                    className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-1"
+                    className="btn-press flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-1"
                   >
                     <Eye className="h-3.5 w-3.5" /> Runs
                   </button>
@@ -231,13 +231,13 @@ function PipelinesPage() {
             <Zap className="h-5 w-5 text-accent" />
           </div>
           <div className="space-y-3">
-            <button onClick={() => setActivePage('Training')} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
+            <button onClick={() => setActivePage('Training')} className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
               <Play className="h-4 w-4" /> Run training
             </button>
-            <button onClick={() => setActivePage('Datasets')} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
+            <button onClick={() => setActivePage('Datasets')} className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
               <Save className="h-4 w-4" /> Add data source
             </button>
-            <button onClick={() => setActivePage('Experiments')} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
+            <button onClick={() => setActivePage('Experiments')} className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
               <GitBranch className="h-4 w-4" /> View history
             </button>
           </div>

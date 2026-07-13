@@ -82,7 +82,7 @@ function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <LogIn className="h-4 w-4" />
               {loading ? 'Signing in…' : 'Sign in'}
@@ -91,7 +91,7 @@ function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Don&apos;t have an account?{' '}
-            <button onClick={() => setActivePage('Sign Up')} className="text-primary hover:underline">
+            <button onClick={() => setActivePage('Sign Up')} className="btn-press text-primary hover:underline">
               Sign up
             </button>
           </p>

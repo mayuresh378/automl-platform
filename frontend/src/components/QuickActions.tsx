@@ -28,8 +28,8 @@ export function QuickActions() {
             whileTap={{ scale: 0.97 }}
             className={
               action.primary
-                ? 'flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity shadow-glow-sm'
-                : 'flex items-center gap-2 rounded-lg border border-border bg-white/[0.02] px-4 py-2 text-sm font-medium text-zinc-300 hover:border-border-strong hover:text-white transition-colors'
+                ? 'btn-press flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity shadow-glow-sm'
+                : 'btn-press flex items-center gap-2 rounded-lg border border-border bg-white/[0.02] px-4 py-2 text-sm font-medium text-zinc-300 hover:border-border-strong hover:text-white transition-colors'
             }
           >
             <Icon className="h-3.5 w-3.5" />

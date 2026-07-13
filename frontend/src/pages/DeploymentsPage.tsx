@@ -58,7 +58,7 @@ function DeploymentsPage() {
             <input className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-white outline-none" placeholder="Endpoint name (e.g. my-api)" value={endpointName} onChange={e => setEndpointName(e.target.value)} />
             <div className="flex gap-3">
               <button className="btn-press rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/80 disabled:opacity-50" onClick={handleDeploy} disabled={!selectedModel || !endpointName}>Deploy</button>
-              <button className="rounded-2xl bg-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/20" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="btn-press rounded-2xl bg-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/20" onClick={() => setShowForm(false)}>Cancel</button>
             </div>
           </div>
         )}

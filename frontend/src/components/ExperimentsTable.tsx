@@ -15,7 +15,7 @@ export function ExperimentsTable() {
     <div className="rounded-xl border border-border bg-card/60 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
         <span className="text-sm font-medium text-zinc-100">Recent experiments</span>
-        <button className="text-[11px] text-primary hover:text-primary/80 transition-colors" onClick={() => setActivePage('Experiments')}>View all</button>
+        <button className="btn-press text-[11px] text-primary hover:text-primary/80 transition-colors" onClick={() => setActivePage('Experiments')}>View all</button>
       </div>
       <div className="overflow-x-auto scrollbar-thin">
         <table className="w-full text-left">

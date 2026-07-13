@@ -12,7 +12,7 @@ function AuditLogsPage() {
           </div>
           <div className="flex items-center gap-2">
             <input className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 placeholder-slate-500" placeholder="Search events" />
-            <button className="rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300">
+            <button className="btn-press rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300">
               <Filter className="h-4 w-4" />
             </button>
           </div>
@@ -90,7 +90,7 @@ function AuditLogsPage() {
           </div>
           <div className="space-y-2">
             {['Last 24 hours', 'Last 7 days', 'Last 30 days', 'All time'].map((period) => (
-              <button key={period} className="block w-full rounded-2xl bg-white/5 px-4 py-3 text-sm text-left text-slate-300 transition hover:bg-white/10">
+              <button key={period} className="btn-press block w-full rounded-2xl bg-white/5 px-4 py-3 text-sm text-left text-slate-300 transition hover:bg-white/10">
                 {period}
               </button>
             ))}

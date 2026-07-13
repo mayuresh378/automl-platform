@@ -206,7 +206,7 @@ function CleaningPage() {
                       <button
                         onClick={() => applyAction(action)}
                         disabled={isRunning || action.disabled}
-                        className={`rounded-xl px-3 py-1 text-xs font-medium transition-colors shrink-0 ml-2 ${
+                        className={`btn-press rounded-xl px-3 py-1 text-xs font-medium transition-colors shrink-0 ml-2 ${
                           isDone
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                             : isRunning
@@ -227,7 +227,7 @@ function CleaningPage() {
             {profile && (
               <div className="mt-4 flex items-center gap-2">
                 <button onClick={applyAll} disabled={runningAll || pendingCount === 0}
-                  className={`flex-1 rounded-2xl py-2.5 text-sm font-medium transition-opacity ${
+                  className={`btn-press flex-1 rounded-2xl py-2.5 text-sm font-medium transition-opacity ${
                     runningAll
                       ? 'bg-primary/20 text-primary/50'
                       : 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90'
@@ -239,7 +239,7 @@ function CleaningPage() {
                   )}
                 </button>
                 {doneCount > 0 && (
-                  <button onClick={resetAll} className="rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-slate-400 hover:text-white transition-colors">
+                  <button onClick={resetAll} className="btn-press rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-slate-400 hover:text-white transition-colors">
                     <Undo2 className="h-4 w-4" />
                   </button>
                 )}
@@ -311,7 +311,7 @@ function CleaningPage() {
               { label: 'Reset and start over', onClick: resetAll, disabled: doneCount === 0, variant: 'reset' as const },
             ].map((btn) => (
               <button key={btn.label} onClick={btn.onClick} disabled={btn.disabled}
-                className={`w-full rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-40 ${
+                className={`btn-press w-full rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-40 ${
                   btn.variant === 'reset'
                     ? 'border border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.03]'
                     : 'bg-primary/20 text-white hover:bg-primary/30'

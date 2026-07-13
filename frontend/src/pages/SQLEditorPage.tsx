@@ -78,7 +78,7 @@ function SQLEditorPage() {
           </button>
           <button
             onClick={() => setQuery('SELECT * FROM data LIMIT 50')}
-            className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+            className="btn-press flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
           >
             <RotateCcw className="h-4 w-4" />
             Reset
@@ -115,7 +115,7 @@ function SQLEditorPage() {
               </div>
               <div className="flex items-center gap-3">
                 <p className="text-xs text-slate-500">{result.columns.length} columns</p>
-                <button onClick={() => downloadBlob(result.data, 'query_results.csv')} className="flex items-center gap-1 rounded-xl border border-white/10 px-2.5 py-1 text-[11px] text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors">
+                <button onClick={() => downloadBlob(result.data, 'query_results.csv')} className="btn-press flex items-center gap-1 rounded-xl border border-white/10 px-2.5 py-1 text-[11px] text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors">
                   <Download className="h-3 w-3" /> CSV
                 </button>
               </div>
@@ -152,7 +152,7 @@ function SQLEditorPage() {
                   <button
                     key={i}
                     onClick={() => setQuery(q)}
-                    className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-xs font-mono text-zinc-400 hover:text-white hover:bg-white/[0.04] transition-colors truncate"
+                    className="btn-press w-full text-left rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-xs font-mono text-zinc-400 hover:text-white hover:bg-white/[0.04] transition-colors truncate"
                   >
                     {q}
                   </button>
@@ -172,7 +172,7 @@ function SQLEditorPage() {
                 <button
                   key={q}
                   onClick={() => setQuery(q)}
-                  className="w-full text-left rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-xs font-mono text-zinc-400 hover:text-white hover:bg-white/[0.04] transition-colors"
+                  className="btn-press w-full text-left rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-xs font-mono text-zinc-400 hover:text-white hover:bg-white/[0.04] transition-colors"
                 >
                   {q}
                 </button>

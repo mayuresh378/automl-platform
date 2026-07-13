@@ -54,7 +54,7 @@ export function TopNav() {
         <button
           onClick={() => setWorkspaceOpen((o) => !o)}
           onBlur={() => setTimeout(() => setWorkspaceOpen(false), 120)}
-          className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-200 hover:bg-white/[0.05] transition-colors"
+          className="btn-press flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-200 hover:bg-white/[0.05] transition-colors"
         >
           <span className="h-5 w-5 rounded-md bg-gradient-to-br from-primary to-secondary" />
           {isLoggedIn ? `${user!.name}'s Workspace` : 'My Workspace'}
@@ -72,7 +72,7 @@ export function TopNav() {
 
       <button
         onClick={() => setCommandPaletteOpen(true)}
-        className="flex-1 max-w-md hidden sm:flex items-center gap-2.5 rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm text-zinc-500 hover:border-border-strong hover:text-zinc-400 transition-colors"
+        className="btn-press flex-1 max-w-md hidden sm:flex items-center gap-2.5 rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm text-zinc-500 hover:border-border-strong hover:text-zinc-400 transition-colors"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="flex-1 text-left">Search everything…</span>
@@ -97,7 +97,7 @@ export function TopNav() {
         </button>
 
         <div className="relative" ref={notifRef}>
-          <button onClick={() => setNotifOpen((o) => !o)} className="relative p-2 rounded-lg text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 transition-colors" aria-label="Notifications">
+          <button onClick={() => setNotifOpen((o) => !o)} className="btn-press relative p-2 rounded-lg text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 transition-colors" aria-label="Notifications">
             <Bell className="h-4 w-4" />
             {unreadCount() > 0 && (
               <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[14px] flex items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white px-[3px]">
@@ -111,9 +111,9 @@ export function TopNav() {
                 <span className="text-xs font-medium text-zinc-300">Notifications</span>
                 <div className="flex items-center gap-1">
                   {unreadCount() > 0 && (
-                    <button onClick={markAllRead} className="text-[10px] text-primary hover:text-primary/80 transition-colors px-1.5 py-0.5">Mark all read</button>
+                    <button onClick={markAllRead} className="btn-press text-[10px] text-primary hover:text-primary/80 transition-colors px-1.5 py-0.5">Mark all read</button>
                   )}
-                  <button onClick={clearAll} className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors px-1.5 py-0.5">Clear</button>
+                  <button onClick={clearAll} className="btn-press text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors px-1.5 py-0.5">Clear</button>
                 </div>
               </div>
               <div className="overflow-y-auto flex-1">

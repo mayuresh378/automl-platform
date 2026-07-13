@@ -77,7 +77,7 @@ export function Sidebar() {
       <div className={cn('flex items-center h-16 px-4 gap-2.5 border-b border-border', sidebarCollapsed && 'justify-center px-0')}>
         <motion.button
           onClick={() => { setActivePage('Dashboard'); setLogoBlink(true); setTimeout(() => setLogoBlink(false), 150); }}
-          className="flex items-center gap-2.5"
+          className="btn-press flex items-center gap-2.5"
         >
           <motion.div
             className="logo-container relative flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-primary via-secondary to-accent shrink-0"

@@ -29,7 +29,7 @@ function APIDocumentationPage() {
                   {endpoint.method}
                 </span>
                 <code className="flex-1 text-slate-300">{endpoint.path}</code>
-                <button className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:bg-white/10">
+                <button className="btn-press rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:bg-white/10">
                   <Copy className="h-4 w-4" />
                 </button>
               </div>
@@ -53,12 +53,12 @@ function APIDocumentationPage() {
               <div key={key} className="rounded-2xl bg-white/5 px-4 py-3 text-sm text-slate-300">
                 <div className="flex items-center justify-between">
                   <code className="font-mono">{key}</code>
-                  <button className="rounded-lg bg-white/10 px-2 py-1 text-xs text-white">Revoke</button>
+                  <button className="btn-press rounded-lg bg-white/10 px-2 py-1 text-xs text-white">Revoke</button>
                 </div>
               </div>
             ))}
           </div>
-          <button className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
+          <button className="btn-press mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">
             Generate new key
           </button>
         </div>

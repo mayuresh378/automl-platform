@@ -93,7 +93,7 @@ function GeneralTab() {
             <p className="text-sm text-slate-500">Your personal information and avatar</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={handleReset} className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white transition-colors">
+            <button onClick={handleReset} className="btn-press flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white transition-colors">
               <RotateCcw className="h-3.5 w-3.5" /> Reset
             </button>
             <button onClick={handleSave} disabled={saving} className="btn-press flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
@@ -376,13 +376,13 @@ function AuthenticationTab() {
             <h3 className="text-lg font-semibold text-white mb-1">{user!.name}</h3>
             <p className="text-sm text-slate-400 mb-4">{user!.email}</p>
             <span className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-1.5 text-sm text-emerald-400 inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Authenticated</span>
-            <button onClick={logout} className="mt-4 w-full rounded-xl border border-white/10 py-2 text-sm text-danger hover:bg-white/[0.03] transition-colors">Sign out</button>
+            <button onClick={logout} className="btn-press mt-4 w-full rounded-xl border border-white/10 py-2 text-sm text-danger hover:bg-white/[0.03] transition-colors">Sign out</button>
           </div>
         ) : (
           <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
             <div className="flex items-center gap-2 mb-5">
-              <button onClick={() => setAuthTab('login')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${authTab === 'login' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}>Sign in</button>
-              <button onClick={() => setAuthTab('signup')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${authTab === 'signup' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}>Create account</button>
+              <button onClick={() => setAuthTab('login')} className={`btn-press px-4 py-2 rounded-xl text-sm font-medium transition-colors ${authTab === 'login' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}>Sign in</button>
+              <button onClick={() => setAuthTab('signup')} className={`btn-press px-4 py-2 rounded-xl text-sm font-medium transition-colors ${authTab === 'signup' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'}`}>Create account</button>
             </div>
             {authError && <div className="mb-4 rounded-xl bg-danger/10 border border-danger/20 px-4 py-2 text-sm text-danger">{authError}</div>}
             {authTab === 'login' ? (
@@ -390,7 +390,7 @@ function AuthenticationTab() {
                 <p className="text-sm text-slate-500 mb-4">Sign in to manage API keys, team members, and more.</p>
                 <div><label className="block text-sm text-slate-400 mb-1.5">Email</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="you@example.com" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required /></div></div>
                 <div><label className="block text-sm text-slate-400 mb-1.5">Password</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required /></div></div>
-                <button type="submit" disabled={authLoading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"><LogIn className="h-4 w-4" /> {authLoading ? 'Signing in…' : 'Sign in'}</button>
+                <button type="submit" disabled={authLoading} className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"><LogIn className="h-4 w-4" /> {authLoading ? 'Signing in…' : 'Sign in'}</button>
               </form>
             ) : (
               <form onSubmit={handleSignup} className="space-y-4">
@@ -398,7 +398,7 @@ function AuthenticationTab() {
                 <div><label className="block text-sm text-slate-400 mb-1.5">Name</label><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="text" value={signupName} onChange={e => setSignupName(e.target.value)} placeholder="Your name" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required /></div></div>
                 <div><label className="block text-sm text-slate-400 mb-1.5">Email</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="email" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} placeholder="you@example.com" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required /></div></div>
                 <div><label className="block text-sm text-slate-400 mb-1.5">Password</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="password" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required minLength={6} /></div></div>
-                <button type="submit" disabled={authLoading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"><UserPlus className="h-4 w-4" /> {authLoading ? 'Creating account…' : 'Create account'}</button>
+                <button type="submit" disabled={authLoading} className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"><UserPlus className="h-4 w-4" /> {authLoading ? 'Creating account…' : 'Create account'}</button>
               </form>
             )}
           </div>
@@ -407,7 +407,7 @@ function AuthenticationTab() {
         <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-white">API keys</h3>
-            <button onClick={handleCreateKey} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50" disabled={!isLoggedIn}><KeyRound className="h-3.5 w-3.5" /> New</button>
+            <button onClick={handleCreateKey} className="btn-press flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50" disabled={!isLoggedIn}><KeyRound className="h-3.5 w-3.5" /> New</button>
           </div>
           {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to manage API keys</div> : keysLoading ? (
             <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
@@ -443,7 +443,7 @@ function AuthenticationTab() {
       <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-white">Team members</h3>
-          <button className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium ${isLoggedIn ? 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`} disabled={!isLoggedIn}><Plus className="h-3.5 w-3.5" /> Invite</button>
+          <button className={`btn-press flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium ${isLoggedIn ? 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`} disabled={!isLoggedIn}><Plus className="h-3.5 w-3.5" /> Invite</button>
         </div>
         {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to manage team members</div> : teams.length === 0 ? (
           <div className="py-6 text-center text-sm text-slate-500">No teams yet. Create one to collaborate.</div>

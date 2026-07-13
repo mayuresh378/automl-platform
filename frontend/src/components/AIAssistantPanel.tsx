@@ -101,7 +101,7 @@ export function AIAssistantPanel() {
             <button
               key={s}
               onClick={() => send(s)}
-              className="flex items-center gap-1.5 text-[11px] text-zinc-400 border border-border rounded-full px-2.5 py-1 hover:border-border-strong hover:text-zinc-200 transition-colors"
+              className="btn-press flex items-center gap-1.5 text-[11px] text-zinc-400 border border-border rounded-full px-2.5 py-1 hover:border-border-strong hover:text-zinc-200 transition-colors"
             >
               <Wand2 className="h-2.5 w-2.5 shrink-0" />
               <span className="truncate max-w-[200px]">{s}</span>
@@ -123,7 +123,7 @@ export function AIAssistantPanel() {
         />
         <button
           type="submit"
-          className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-40"
+          className="btn-press flex items-center justify-center h-7 w-7 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-40"
           disabled={!input.trim() || loading}
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5" />}

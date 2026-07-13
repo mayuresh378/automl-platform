@@ -30,7 +30,7 @@ function DashboardPage() {
               <p className="mb-2 text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Operations Center</p>
               <h2 className="text-3xl font-semibold text-white">Your AI platform is ready for production workloads.</h2>
             </div>
-            <button className="rounded-2xl border border-primary/30 bg-primary/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/30">
+            <button className="btn-press rounded-2xl border border-primary/30 bg-primary/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/30">
               New experiment
             </button>
           </div>
@@ -67,7 +67,7 @@ function DashboardPage() {
                   ? 'Start a training experiment on your datasets.'
                   : 'Check your latest experiment results in the training page.'}
             </p>
-            <button className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20">
+            <button className="btn-press mt-4 inline-flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20">
               Get started <ArrowUpRight className="h-4 w-4" />
             </button>
           </div>

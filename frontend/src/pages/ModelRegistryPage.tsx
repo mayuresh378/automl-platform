@@ -63,7 +63,7 @@ function ModelRegistryPage() {
                     <p className="text-sm font-medium text-white">{model.best_score ?? '—'}</p>
                     <p className="text-xs text-slate-400">score</p>
                   </div>
-                  <button className="rounded-xl bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20" onClick={() => openDetail(model.name)}>
+                  <button className="btn-press rounded-xl bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20" onClick={() => openDetail(model.name)}>
                     {selected === model.name ? 'Close' : 'Details'}
                   </button>
                   <button className="rounded-xl bg-red-500/10 px-3 py-1 text-xs text-red-400 hover:bg-red-500/20" onClick={() => handleDelete(model.name)}>

@@ -158,13 +158,13 @@ function UploadPage() {
                 <div className="flex items-center gap-2 ml-8">
                   <button
                     onClick={() => { setActivePage('Explorer'); }}
-                    className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
+                    className="btn-press flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
                   >
                     <Eye className="h-3 w-3" /> Preview
                   </button>
                   <button
                     onClick={() => { setActivePage('Data Cleaning'); }}
-                    className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-zinc-200 transition-colors"
+                    className="btn-press flex items-center gap-1 text-[11px] text-slate-400 hover:text-zinc-200 transition-colors"
                   >
                     <BarChart3 className="h-3 w-3" /> Profile
                   </button>
@@ -173,7 +173,7 @@ function UploadPage() {
                   </a>
                   <button
                     onClick={() => handleDelete(ds.name)}
-                    className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition-colors"
+                    className="btn-press flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition-colors"
                   >
                     <Trash2 className="h-3 w-3" /> Delete
                   </button>

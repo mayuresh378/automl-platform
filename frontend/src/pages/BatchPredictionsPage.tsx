@@ -10,7 +10,7 @@ function BatchPredictionsPage() {
             <p className="text-sm text-slate-400">Bulk inference</p>
             <h2 className="text-2xl font-semibold text-white">Batch prediction jobs</h2>
           </div>
-          <button className="rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white">New batch job</button>
+          <button className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white">New batch job</button>
         </div>
         <div className="space-y-3">
           {[
@@ -71,7 +71,7 @@ function BatchPredictionsPage() {
                 <option>customer_export.csv</option>
               </select>
             </div>
-            <button className="w-full rounded-2xl bg-primary/20 px-4 py-3 text-sm font-medium text-white">Submit batch job</button>
+            <button className="btn-press w-full rounded-2xl bg-primary/20 px-4 py-3 text-sm font-medium text-white">Submit batch job</button>
           </div>
         </div>
 
