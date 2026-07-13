@@ -2,8 +2,7 @@ services:
   # Backend API (FastAPI + Uvicorn via Docker)
   - type: web
     name: automl-api
-    runtime: image
-    repo: https://github.com/mayuresh378/automl-platform
+    runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
       - key: DATABASE_URL
