@@ -8,3 +8,11 @@ frontend/node_modules
 frontend/dist
 *.md
 *.log
+dataset/*.csv
+dataset/*.xlsx
+dataset/*.parquet
+dataset/*.json
+backend/*.json
+backend/*.db
+models/
+reports/

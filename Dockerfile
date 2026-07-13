@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir psycopg2-binary
 
 COPY backend/ /app/backend/
-COPY dataset/ /app/dataset/
+RUN mkdir -p /app/dataset
 
 COPY backend/start.sh /app/start.sh
 RUN chmod +x /app/start.sh
