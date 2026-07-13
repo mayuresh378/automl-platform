@@ -30,7 +30,7 @@ function SQLEditorPage() {
         body: new URLSearchParams({ query, dataset }).toString(),
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail || 'Query failed');
       }
       const data = await res.json();

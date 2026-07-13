@@ -40,7 +40,7 @@ export function AIAssistantPanel() {
       const form = new FormData();
       form.append('question', text);
       const res = await fetch(`${BASE}/ai/chat`, { method: 'POST', body: form });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ answer: "Empty response from server" }));
       setMessages(m => [...m, { role: 'assistant', text: data.answer || "Sorry, I couldn't process that." }]);
     } catch {
       setMessages(m => [...m, { role: 'assistant', text: "I'm having trouble connecting to the backend. Make sure the server is running." }]);
