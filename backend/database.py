@@ -1,12 +1,15 @@
 import os
 import time
+import re
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    f"sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'automl.db')}"
-)
+_raw_url = os.getenv("DATABASE_URL", "")
+# Validate: must start with postgresql:// or sqlite:///
+if _raw_url and not re.match(r"^(postgresql|sqlite)://", _raw_url.strip()):
+    _raw_url = ""
+
+DATABASE_URL = _raw_url or f"sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'automl.db')}"
 
 engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
