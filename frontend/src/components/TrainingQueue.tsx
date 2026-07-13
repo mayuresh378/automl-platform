@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FlaskConical, Clock } from 'lucide-react';
 import { api } from '../lib/api';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 export function TrainingQueue() {
   const [experiments, setExperiments] = useState<any[]>([]);
@@ -13,21 +14,19 @@ export function TrainingQueue() {
   }, []);
 
   return (
-    <div className="rounded-xl border border-border bg-card/60">
+    <div className="card-hover rounded-xl border border-border bg-card/60">
       <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
         <span className="text-sm font-medium text-zinc-100">Recent experiments</span>
         <span className="text-[11px] font-mono text-zinc-500">{experiments.length} runs</span>
       </div>
-      <div className="divide-y divide-border">
+      <motion.div className="divide-y divide-border" variants={staggerContainer} initial="hidden" animate="visible">
         {experiments.length === 0 && (
           <div className="px-4 py-8 text-center text-sm text-zinc-500">No experiments yet.</div>
         )}
-        {experiments.map((exp: any, i: number) => (
+        {experiments.map((exp: any) => (
           <motion.div
             key={exp.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: i * 0.05 }}
+            variants={staggerItem}
             className="px-4 py-3"
           >
             <div className="flex items-center justify-between mb-1.5">
@@ -55,7 +54,7 @@ export function TrainingQueue() {
             </div>
           </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }

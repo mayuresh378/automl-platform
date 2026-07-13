@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FlaskConical, ChevronDown, ChevronUp, CheckCircle2, XCircle, TrendingUp, Clock, Award, BarChart3 } from 'lucide-react';
 import { api } from '../lib/api';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function ExperimentsPage() {
   const [experiments, setExperiments] = useState<any[]>([]);
@@ -18,8 +19,8 @@ function ExperimentsPage() {
   const totalTime = experiments.reduce((s, e) => s + (e.training_time || 0), 0);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.div variants={staggerItem} className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Total runs', value: experiments.length, icon: FlaskConical },
           { label: 'Successful', value: successful.length, icon: CheckCircle2 },
@@ -28,7 +29,7 @@ function ExperimentsPage() {
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+            <div key={stat.label} className="card-hover rounded-[28px] border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-slate-400">{stat.label}</span>
                 <Icon className="h-4 w-4 text-accent" />
@@ -37,9 +38,9 @@ function ExperimentsPage() {
             </div>
           );
         })}
-      </div>
+      </motion.div>
 
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Experiment tracking</p>
@@ -137,7 +138,7 @@ function ExperimentsPage() {
             </div>
           ))}
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

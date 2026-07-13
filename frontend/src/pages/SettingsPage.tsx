@@ -4,6 +4,8 @@ import { Settings, KeyRound, CreditCard, ShieldCheck, User, Mail, Lock, LogIn, U
 import { useUIStore } from '../store/useUIStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../lib/api';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 const TABS = [
   { id: 'general', label: 'General', icon: Settings },
@@ -86,20 +88,20 @@ function GeneralTab() {
   return (
     <div className="space-y-8">
       {/* ── Profile ── */}
-      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-white">Profile</h3>
             <p className="text-sm text-slate-500">Your personal information and avatar</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={handleReset} className="btn-press flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white transition-colors">
+            <Button onClick={handleReset} variant="secondary" size="sm">
               <RotateCcw className="h-3.5 w-3.5" /> Reset
-            </button>
-            <button onClick={handleSave} disabled={saving} className="btn-press flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
-            </button>
+            </Button>
+            <Button onClick={handleSave} disabled={saving} loading={saving} loadingText="Saving…" variant="primary" size="sm">
+              <Save className="h-3.5 w-3.5" />
+              {saved ? 'Saved!' : 'Save'}
+            </Button>
           </div>
         </div>
 
@@ -166,7 +168,7 @@ function GeneralTab() {
       </div>
 
       {/* ── Theme ── */}
-      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-5">
           <h3 className="text-lg font-semibold text-white">Theme</h3>
           <p className="text-sm text-slate-500">Customize the appearance of the platform</p>
@@ -199,7 +201,7 @@ function GeneralTab() {
       </div>
 
       {/* ── Preferences ── */}
-      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-5">
           <h3 className="text-lg font-semibold text-white">Preferences</h3>
           <p className="text-sm text-slate-500">Application settings and defaults</p>
@@ -241,7 +243,7 @@ function GeneralTab() {
       </div>
 
       {/* ── Regional ── */}
-      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-5">
           <h3 className="text-lg font-semibold text-white">Regional</h3>
           <p className="text-sm text-slate-500">Language, timezone, and formatting preferences</p>
@@ -390,7 +392,9 @@ function AuthenticationTab() {
                 <p className="text-sm text-slate-500 mb-4">Sign in to manage API keys, team members, and more.</p>
                 <div><label className="block text-sm text-slate-400 mb-1.5">Email</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="you@example.com" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required /></div></div>
                 <div><label className="block text-sm text-slate-400 mb-1.5">Password</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required /></div></div>
-                <button type="submit" disabled={authLoading} className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"><LogIn className="h-4 w-4" /> {authLoading ? 'Signing in…' : 'Sign in'}</button>
+                <Button type="submit" disabled={authLoading} loading={authLoading} loadingText="Signing in…" variant="primary" className="w-full">
+                  <LogIn className="h-4 w-4" /> Sign in
+                </Button>
               </form>
             ) : (
               <form onSubmit={handleSignup} className="space-y-4">
@@ -398,7 +402,9 @@ function AuthenticationTab() {
                 <div><label className="block text-sm text-slate-400 mb-1.5">Name</label><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="text" value={signupName} onChange={e => setSignupName(e.target.value)} placeholder="Your name" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required /></div></div>
                 <div><label className="block text-sm text-slate-400 mb-1.5">Email</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="email" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} placeholder="you@example.com" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required /></div></div>
                 <div><label className="block text-sm text-slate-400 mb-1.5">Password</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><input type="password" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required minLength={6} /></div></div>
-                <button type="submit" disabled={authLoading} className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"><UserPlus className="h-4 w-4" /> {authLoading ? 'Creating account…' : 'Create account'}</button>
+                <Button type="submit" disabled={authLoading} loading={authLoading} loadingText="Creating account…" variant="primary" className="w-full">
+                  <UserPlus className="h-4 w-4" /> Create account
+                </Button>
               </form>
             )}
           </div>
@@ -407,7 +413,7 @@ function AuthenticationTab() {
         <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-white">API keys</h3>
-            <button onClick={handleCreateKey} className="btn-press flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50" disabled={!isLoggedIn}><KeyRound className="h-3.5 w-3.5" /> New</button>
+            <Button onClick={handleCreateKey} variant="primary" size="sm" disabled={!isLoggedIn}><KeyRound className="h-3.5 w-3.5" /> New</Button>
           </div>
           {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to manage API keys</div> : keysLoading ? (
             <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
@@ -443,7 +449,7 @@ function AuthenticationTab() {
       <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-white">Team members</h3>
-          <button className={`btn-press flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium ${isLoggedIn ? 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`} disabled={!isLoggedIn}><Plus className="h-3.5 w-3.5" /> Invite</button>
+          <Button className={`${!isLoggedIn ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={!isLoggedIn}><Plus className="h-3.5 w-3.5" /> Invite</Button>
         </div>
         {!isLoggedIn ? <div className="py-6 text-center text-sm text-slate-500">Sign in to manage team members</div> : teams.length === 0 ? (
           <div className="py-6 text-center text-sm text-slate-500">No teams yet. Create one to collaborate.</div>
@@ -509,7 +515,7 @@ function BillingTab() {
           <div><p className="text-sm font-medium text-white">Free Plan</p><p className="text-xs text-slate-500">5 models · 1 user · Community support</p></div>
           <span className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary font-medium">Active</span>
         </div>
-        <button className="btn-press mt-4 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">Upgrade to Pro</button>
+        <Button variant="primary" className="mt-4">Upgrade to Pro</Button>
       </div>
       <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Billing history</h3>

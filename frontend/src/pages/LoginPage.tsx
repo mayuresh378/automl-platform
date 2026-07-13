@@ -4,6 +4,7 @@ import { Zap, Mail, Lock, LogIn } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUIStore } from '../store/useUIStore';
 import { api } from '../lib/api';
+import { Button } from '../components/Button';
 
 function LoginPage() {
   const [email, setEmail] = useState('');
@@ -79,14 +80,17 @@ function LoginPage() {
               </div>
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              loading={loading}
+              loadingText="Signing in…"
+              variant="primary"
+              className="w-full"
             >
               <LogIn className="h-4 w-4" />
-              {loading ? 'Signing in…' : 'Sign in'}
-            </button>
+              Sign in
+            </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">

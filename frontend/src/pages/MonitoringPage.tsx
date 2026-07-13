@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Activity, TrendingUp, AlertCircle, Cpu, HardDrive, Network } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { api } from '../lib/api';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 const chartData = [
   { time: '10:00', cpu: 32, memory: 45, latency: 28 },
@@ -39,8 +40,8 @@ function MonitoringPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Real-time dashboard</p>
@@ -84,10 +85,10 @@ function MonitoringPage() {
             <p className="text-lg font-semibold text-white">{s.avgLatencyMs ? `${s.avgLatencyMs}ms` : '—'}</p>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Performance trends</p>
@@ -108,7 +109,7 @@ function MonitoringPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Alerts</p>
@@ -131,7 +132,7 @@ function MonitoringPage() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

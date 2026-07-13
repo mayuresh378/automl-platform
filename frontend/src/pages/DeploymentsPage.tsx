@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Cloud, CheckCircle2, Rocket, Trash2, Plus } from 'lucide-react';
 import { api } from '../lib/api';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function DeploymentsPage() {
   const [deployments, setDeployments] = useState<any[]>([]);
@@ -36,16 +39,16 @@ function DeploymentsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Model serving</p>
             <h2 className="text-2xl font-semibold text-white">Deployed endpoints</h2>
           </div>
-          <button className="btn-press flex items-center gap-2 rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30" onClick={() => setShowForm(!showForm)}>
+          <Button onClick={() => setShowForm(!showForm)}>
             <Plus className="h-4 w-4" /> Deploy model
-          </button>
+          </Button>
         </div>
 
         {showForm && (
@@ -57,8 +60,8 @@ function DeploymentsPage() {
             </select>
             <input className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-white outline-none" placeholder="Endpoint name (e.g. my-api)" value={endpointName} onChange={e => setEndpointName(e.target.value)} />
             <div className="flex gap-3">
-              <button className="btn-press rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/80 disabled:opacity-50" onClick={handleDeploy} disabled={!selectedModel || !endpointName}>Deploy</button>
-              <button className="btn-press rounded-2xl bg-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/20" onClick={() => setShowForm(false)}>Cancel</button>
+              <Button onClick={handleDeploy} disabled={!selectedModel || !endpointName}>Deploy</Button>
+              <Button onClick={() => setShowForm(false)} variant="secondary">Cancel</Button>
             </div>
           </div>
         )}
@@ -92,10 +95,10 @@ function DeploymentsPage() {
             </div>
           ))}
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Monitoring</p>
@@ -118,7 +121,7 @@ function DeploymentsPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">How it works</p>
@@ -133,8 +136,8 @@ function DeploymentsPage() {
             <p>4. Use the endpoint URL to make predictions</p>
           </div>
         </div>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
 

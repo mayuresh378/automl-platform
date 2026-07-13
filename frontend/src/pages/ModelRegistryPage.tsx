@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, ChevronDown, ChevronUp, Trash2, BarChart3, ExternalLink } from 'lucide-react';
 import { api } from '../lib/api';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function ModelRegistryPage() {
   const [models, setModels] = useState<any[]>([]);
@@ -33,8 +34,8 @@ function ModelRegistryPage() {
   const metrics = detail?.metrics;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Model repository</p>
@@ -129,7 +130,7 @@ function ModelRegistryPage() {
             </div>
           ))}
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

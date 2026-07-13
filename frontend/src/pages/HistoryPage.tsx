@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
 import { History } from 'lucide-react';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function HistoryPage() {
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Audit trail</p>
@@ -30,7 +31,7 @@ function HistoryPage() {
             </div>
           ))}
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

@@ -4,6 +4,8 @@ import { GitBranch, Play, Save, Zap, Loader2, Trash2, Eye, ChevronDown, ChevronU
 import { api } from '../lib/api';
 import { useUIStore } from '../store/useUIStore';
 import { useNotificationStore } from '../store/useNotificationStore';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 interface Run {
   id: string;
@@ -110,8 +112,8 @@ function PipelinesPage() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6 p-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6 p-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Workflow automation</p>
@@ -121,9 +123,9 @@ function PipelinesPage() {
             <button onClick={load} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors">
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setActivePage('Datasets')} className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors">
+            <Button onClick={() => setActivePage('Datasets')}>
               Create pipeline
-            </button>
+            </Button>
           </div>
         </div>
         {loading ? (
@@ -169,14 +171,18 @@ function PipelinesPage() {
                   </div>
                 )}
                 <div className="mt-4 flex gap-2">
-                  <button
+                  <Button
                     onClick={() => handleRun(pipeline.id)}
                     disabled={runningId === pipeline.id}
-                    className="btn-press flex-1 rounded-2xl bg-primary/20 px-3 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                    loading={runningId === pipeline.id}
+                    loadingText="Running…"
+                    variant="primary"
+                    size="sm"
+                    className="flex-1"
                   >
                     {runningId === pipeline.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
                     Run
-                  </button>
+                  </Button>
                   <button
                     onClick={() => setShowRunsFor(showRunsFor === pipeline.id ? null : pipeline.id)}
                     className="btn-press flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-1"
@@ -193,10 +199,10 @@ function PipelinesPage() {
             ))}
           </div>
         )}
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Visual builder</p>
@@ -222,7 +228,7 @@ function PipelinesPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Controls</p>
@@ -242,7 +248,7 @@ function PipelinesPage() {
             </button>
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

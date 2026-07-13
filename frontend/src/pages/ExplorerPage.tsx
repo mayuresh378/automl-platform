@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, SlidersHorizontal, BarChart3, ScanSearch, Download } from 'lucide-react';
 import { api, downloadUrl } from '../lib/api';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function ExplorerPage() {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -25,8 +26,8 @@ function ExplorerPage() {
   const filteredCols = cols.filter((c: string) => c.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm text-slate-400">Dataset profiling</p>
@@ -63,10 +64,10 @@ function ExplorerPage() {
             </div>
           </div>
         )}
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Preview</p>
@@ -108,7 +109,7 @@ function ExplorerPage() {
           )}
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Insights</p>
@@ -139,7 +140,7 @@ function ExplorerPage() {
             )}
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

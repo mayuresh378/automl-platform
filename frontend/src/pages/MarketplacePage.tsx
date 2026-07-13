@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Store, Download, Star, Search, BookOpen, Cpu, Database, Wand2, ArrowUpRight, CheckCheck, Zap, TrendingUp, Clock, Filter, Grid3X3, List, X, Tag, ChevronRight, Layers, BarChart3, LineChart, Shield, Sparkles } from 'lucide-react';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 const ALL_LISTINGS = [
   { id: '1', name: 'Fraud Detection Pack', type: 'Template', downloads: '2.4k', rating: 4.8, category: 'Solutions', tags: ['classification', 'anomaly'], featured: true, installed: true, author: 'AutoML Labs', desc: 'Pre-built pipeline for detecting fraudulent transactions with ensemble methods.' },
@@ -62,7 +64,7 @@ function MarketplacePage() {
   const detail = detailId ? ALL_LISTINGS.find(l => l.id === detailId) : null;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
       <div className="flex items-center justify-between px-6 pt-2">
         <div>
           <p className="text-sm text-slate-400">Extensions & templates</p>
@@ -102,7 +104,7 @@ function MarketplacePage() {
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {featured.map(item => (
-              <div key={item.id} className="rounded-[28px] border border-accent/20 bg-gradient-to-br from-accent/5 to-transparent p-5 transition hover:border-accent/40 cursor-pointer" onClick={() => setDetailId(item.id)}>
+              <div key={item.id} className="card-hover rounded-[28px] border border-accent/20 bg-gradient-to-br from-accent/5 to-transparent p-5 transition hover:border-accent/40 cursor-pointer" onClick={() => setDetailId(item.id)}>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-medium text-accent flex items-center gap-1"><Zap className="h-3 w-3" /> Featured</span>
                   <span className="text-[11px] text-slate-500">{item.type}</span>
@@ -145,7 +147,7 @@ function MarketplacePage() {
         {viewMode === 'grid' ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map(item => (
-              <div key={item.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/[0.07] hover:border-white/20 cursor-pointer group" onClick={() => setDetailId(item.id)}>
+              <div key={item.id} className="card-hover rounded-[28px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/[0.07] hover:border-white/20 cursor-pointer group" onClick={() => setDetailId(item.id)}>
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-medium text-slate-500">{item.category}</span>
@@ -257,9 +259,9 @@ function MarketplacePage() {
                   <p className="text-[10px] text-slate-500">Version</p>
                 </div>
               </div>
-              <button onClick={() => { toggleInstall(detail.id); setDetailId(null); }} className={`btn-press w-full rounded-2xl py-3 text-sm font-medium transition-opacity ${installed.includes(detail.id) ? 'bg-white/10 text-slate-300 border border-white/10' : 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90'}`}>
+              <Button onClick={() => { toggleInstall(detail.id); setDetailId(null); }} variant={installed.includes(detail.id) ? 'secondary' : 'primary'} className="w-full">
                 {installed.includes(detail.id) ? 'Remove installation' : 'Install now'}
-              </button>
+              </Button>
             </motion.div>
           </motion.div>
         )}

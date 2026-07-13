@@ -1,16 +1,18 @@
 import { motion } from 'framer-motion';
 import { FileText, BarChart3, Download } from 'lucide-react';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function ReportsPage() {
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Reporting</p>
             <h2 className="text-2xl font-semibold text-white">Generate polished ML reports for stakeholders</h2>
           </div>
-          <button className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-primary-100">Export report</button>
+          <Button>Export report</Button>
         </div>
         <div className="grid gap-4 lg:grid-cols-[1fr_0.75fr]">
           <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
@@ -35,7 +37,7 @@ function ReportsPage() {
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { BrainCircuit, PlayCircle, TimerReset, Cpu, HardDrive, Zap } from 'lucide-react';
 import { api } from '../lib/api';
 import { useNotificationStore } from '../store/useNotificationStore';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function TrainingPage() {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -36,9 +38,9 @@ function TrainingPage() {
   const cols = datasets.find(d => d.name === selectedDataset)?.columns || [];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Train models</p>
@@ -60,9 +62,9 @@ function TrainingPage() {
                 {cols.map((c: string) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <button onClick={handleTrain} disabled={training} className="btn-press w-full rounded-2xl bg-primary/30 px-4 py-3 font-medium text-white hover:bg-primary/40 disabled:opacity-50">
-              {training ? 'Training...' : 'Start AutoML training'}
-            </button>
+            <Button onClick={handleTrain} disabled={training} loading={training} loadingText="Training..." variant="primary" size="md" className="w-full">
+              Start AutoML training
+            </Button>
             {result && (
               <div className="mt-4 rounded-2xl bg-emerald-500/10 p-4 text-sm text-emerald-300">
                 Best model: <strong>{result.training_summary?.best_model}</strong> &middot;
@@ -72,7 +74,7 @@ function TrainingPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">History</p>
@@ -90,10 +92,10 @@ function TrainingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Monitoring</p>
@@ -117,7 +119,7 @@ function TrainingPage() {
             })}
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

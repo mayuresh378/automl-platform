@@ -1,16 +1,18 @@
 import { motion } from 'framer-motion';
 import { Users, Shield } from 'lucide-react';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function TeamPage() {
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Collaboration</p>
             <h2 className="text-2xl font-semibold text-white">Team members</h2>
           </div>
-          <button className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white">Invite member</button>
+          <Button>Invite member</Button>
         </div>
         <div className="space-y-3">
           {[
@@ -19,7 +21,7 @@ function TeamPage() {
             { name: 'Emma Johnson', role: 'ML Engineer', email: 'emma@automl.io', status: 'Active', joined: '3 months ago' },
             { name: 'James Park', role: 'Data Engineer', email: 'james@automl.io', status: 'Active', joined: '1 month ago' },
           ].map((member) => (
-            <div key={member.name} className="rounded-[28px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
+            <div key={member.name} className="card-hover rounded-[28px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-white font-semibold">
@@ -41,10 +43,10 @@ function TeamPage() {
             </div>
           ))}
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Permissions</p>
@@ -62,7 +64,7 @@ function TeamPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Activity</p>
@@ -78,7 +80,7 @@ function TeamPage() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

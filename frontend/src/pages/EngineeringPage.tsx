@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Wand2, PlusCircle, Bot, Sparkles, Table, Sigma, Layers, ArrowRight, CheckCircle2, FunctionSquare, Workflow, Download } from 'lucide-react';
 import { api, downloadUrl } from '../lib/api';
 import { useNotificationStore } from '../store/useNotificationStore';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 const TRANSFORM_META: Record<string, { icon: any; color: string }> = {
   polynomial: { icon: Sigma, color: 'text-purple-400' },
@@ -49,8 +51,8 @@ function EngineeringPage() {
   const textCols = selectedDs?.columns?.filter((c: string) => selectedDs.dtypes?.[c]?.includes('object') || selectedDs.dtypes?.[c]?.includes('str')) || [];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.div variants={staggerItem} className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Datasets available', value: datasets.length, icon: Table },
           { label: 'Numeric columns', value: numericCols.length, icon: Sigma },
@@ -59,7 +61,7 @@ function EngineeringPage() {
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+            <div key={stat.label} className="card-hover rounded-[28px] border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-slate-400">{stat.label}</span>
                 <Icon className="h-4 w-4 text-accent" />
@@ -68,9 +70,9 @@ function EngineeringPage() {
             </div>
           );
         })}
-      </div>
+      </motion.div>
 
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Feature intelligence</p>
@@ -207,21 +209,24 @@ function EngineeringPage() {
                     );
                   })}
                 </div>
-                <button
-                  className="btn-press mt-4 w-full rounded-2xl bg-primary/30 px-4 py-3 text-sm font-medium text-white hover:bg-primary/40 transition-colors disabled:opacity-40"
+                <Button
                   onClick={() => handleGenerate(suggestions)}
                   disabled={!selected || running || suggestions.length === 0}
+                  loading={running}
+                  loadingText="Generating..."
+                  variant="primary"
+                  className="mt-4 w-full"
                 >
-                  {running ? 'Generating...' : 'Generate all suggested features'}
-                </button>
+                  Generate all suggested features
+                </Button>
               </>
             )}
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {result && (
-        <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Feature store</p>
@@ -251,7 +256,7 @@ function EngineeringPage() {
               </div>
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
     </motion.div>
   );

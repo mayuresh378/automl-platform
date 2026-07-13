@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { KeyRound, Users, Shield, Copy, CheckCheck, Plus, Trash2, Eye, EyeOff, LogIn, Monitor, Globe, Chrome, Smartphone, XCircle, Mail, Lock, User, UserPlus, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../lib/api';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 const ROLES = ['Admin', 'Editor', 'Viewer'];
 const PERMISSIONS = [
@@ -112,8 +114,8 @@ function AuthenticationPage() {
   const activeSessions = sessions.filter(s => s.current || s.lastActive !== '2 days ago').length;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.div variants={staggerItem} className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Active users', value: activeUsers, icon: Users },
           { label: 'Active sessions', value: activeSessions, icon: LogIn },
@@ -122,7 +124,7 @@ function AuthenticationPage() {
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+            <div key={stat.label} className="card-hover rounded-[28px] border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-slate-400">{stat.label}</span>
                 <Icon className="h-4 w-4 text-accent" />
@@ -131,10 +133,10 @@ function AuthenticationPage() {
             </div>
           );
         })}
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
-        <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.div variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
+        <section className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           {isLoggedIn ? (
             <div className="text-center py-6">
               <div className="flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-br from-accent to-secondary mx-auto mb-4 text-lg font-semibold text-white">
@@ -175,9 +177,9 @@ function AuthenticationPage() {
                       <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required />
                     </div>
                   </div>
-                  <button type="submit" disabled={authLoading} className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
-                    <LogIn className="h-4 w-4" /> {authLoading ? 'Signing in…' : 'Sign in'}
-                  </button>
+                  <Button type="submit" disabled={authLoading} loading={authLoading} loadingText="Signing in…" variant="primary" className="w-full">
+                    <LogIn className="h-4 w-4" /> Sign in
+                  </Button>
                 </form>
               ) : (
                 <form onSubmit={handleSignup} className="space-y-4">
@@ -203,25 +205,25 @@ function AuthenticationPage() {
                       <input type="password" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50" required minLength={6} />
                     </div>
                   </div>
-                  <button type="submit" disabled={authLoading} className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
-                    <UserPlus className="h-4 w-4" /> {authLoading ? 'Creating account…' : 'Create account'}
-                  </button>
+                  <Button type="submit" disabled={authLoading} loading={authLoading} loadingText="Creating account…" variant="primary" className="w-full">
+                    <UserPlus className="h-4 w-4" /> Create account
+                  </Button>
                 </form>
               )}
             </>
           )}
         </section>
 
-        <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <section className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-sm text-slate-400">API access</p>
               <h3 className="text-lg font-semibold text-white">API keys</h3>
             </div>
-            <button className="btn-press flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50" disabled={!isLoggedIn}>
+            <Button variant="primary" size="sm" disabled={!isLoggedIn}>
               <KeyRound className="h-4 w-4" />
               New key
-            </button>
+            </Button>
           </div>
           {!isLoggedIn ? (
             <div className="py-8 text-center text-sm text-slate-500">Sign in to manage API keys</div>
@@ -260,18 +262,18 @@ function AuthenticationPage() {
             </div>
           )}
         </section>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.div variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <section className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-sm text-slate-400">Team members</p>
               <h3 className="text-lg font-semibold text-white">User management</h3>
             </div>
-            <button className={`btn-press flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium transition-opacity ${isLoggedIn ? 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`} disabled={!isLoggedIn}>
+            <Button disabled={!isLoggedIn} className={!isLoggedIn ? 'opacity-50 cursor-not-allowed' : ''}>
               <Plus className="h-4 w-4" /> Invite
-            </button>
+            </Button>
           </div>
           {!isLoggedIn ? (
             <div className="py-8 text-center text-sm text-slate-500">Sign in to manage team members</div>
@@ -300,7 +302,7 @@ function AuthenticationPage() {
           )}
         </section>
 
-        <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <section className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-5">
             <p className="text-sm text-slate-400">Access control</p>
             <h3 className="text-lg font-semibold text-white">Role permissions</h3>
@@ -333,10 +335,10 @@ function AuthenticationPage() {
             </table>
           </div>
         </section>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.div variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <section className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-sm text-slate-400">Sessions</p>
@@ -375,7 +377,7 @@ function AuthenticationPage() {
           )}
         </section>
 
-        <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <section className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-5">
             <p className="text-sm text-slate-400">Audit trail</p>
             <h3 className="text-lg font-semibold text-white">Authentication log</h3>
@@ -395,9 +397,9 @@ function AuthenticationPage() {
             ))}
           </div>
         </section>
-      </div>
+      </motion.div>
 
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-5">
           <p className="text-sm text-slate-400">Security</p>
           <h3 className="text-lg font-semibold text-white">Authentication settings</h3>
@@ -422,9 +424,9 @@ function AuthenticationPage() {
             </div>
           ))}
         </div>
-      </section>
+      </motion.section>
 
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-5">
           <p className="text-sm text-slate-400">Identity providers</p>
           <h3 className="text-lg font-semibold text-white">OAuth & social login</h3>
@@ -448,7 +450,7 @@ function AuthenticationPage() {
             );
           })}
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

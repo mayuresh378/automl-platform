@@ -1,6 +1,7 @@
 import { Sidebar } from './components/Sidebar';
 import { TopNav } from './components/TopNav';
 import { CommandPalette } from './components/CommandPalette';
+import { ToastProvider } from './components/ToastProvider';
 import { Dashboard } from './pages/Dashboard';
 import UploadPage from './pages/UploadPage';
 import CleaningPage from './pages/CleaningPage';
@@ -67,13 +68,15 @@ function CurrentPage() {
 
 export default function App() {
   return (
-    <div className="flex min-h-screen bg-canvas">
-      <Sidebar />
-      <div className="flex-1 min-w-0 flex flex-col">
-        <TopNav />
-        <CurrentPage />
+    <ToastProvider>
+      <div className="flex min-h-screen bg-canvas">
+        <Sidebar />
+        <div className="flex-1 min-w-0 flex flex-col">
+          <TopNav />
+          <CurrentPage />
+        </div>
+        <CommandPalette />
       </div>
-      <CommandPalette />
-    </div>
+    </ToastProvider>
   );
 }

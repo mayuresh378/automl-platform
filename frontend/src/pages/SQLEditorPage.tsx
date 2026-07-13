@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Database, Table2, RotateCcw, AlertCircle, ChevronDown, Download } from 'lucide-react';
 import { api, downloadBlob, BASE } from '../lib/api';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function SQLEditorPage() {
   const [query, setQuery] = useState('SELECT * FROM data LIMIT 50');
@@ -45,7 +47,7 @@ function SQLEditorPage() {
   }, [query, dataset]);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-slate-400">SQL Editor</p>
@@ -53,7 +55,8 @@ function SQLEditorPage() {
         </div>
       </div>
 
-      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.div variants={staggerItem}>
+      <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-slate-400" />
@@ -68,21 +71,25 @@ function SQLEditorPage() {
               ))}
             </select>
           </div>
-          <button
+          <Button
             onClick={runQuery}
             disabled={loading}
-            className="btn-press flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            loading={loading}
+            loadingText="Running…"
+            variant="primary"
+            size="md"
           >
             <Play className="h-4 w-4" />
-            {loading ? 'Running…' : 'Run'}
-          </button>
-          <button
+            Run
+          </Button>
+          <Button
             onClick={() => setQuery('SELECT * FROM data LIMIT 50')}
-            className="btn-press flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+            variant="secondary"
+            size="md"
           >
             <RotateCcw className="h-4 w-4" />
             Reset
-          </button>
+          </Button>
         </div>
 
         <div className="relative">
@@ -97,6 +104,7 @@ function SQLEditorPage() {
           <div className="absolute bottom-3 right-3 text-xs text-slate-600">Ctrl+Enter to run</div>
         </div>
       </div>
+      </motion.div>
 
       {error && (
         <div className="rounded-3xl border border-danger/20 bg-danger/5 p-4 flex items-start gap-3">
@@ -107,7 +115,7 @@ function SQLEditorPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         {result && (
-          <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6 overflow-hidden">
+          <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6 overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Table2 className="h-4 w-4 text-primary" />

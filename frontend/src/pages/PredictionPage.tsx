@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Sparkles, Copy, TrendingUp } from 'lucide-react';
 import { api } from '../lib/api';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function PredictionPage() {
   const [models, setModels] = useState<any[]>([]);
@@ -28,9 +30,9 @@ function PredictionPage() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Inference</p>
@@ -50,13 +52,13 @@ function PredictionPage() {
               <textarea className="min-h-32 w-full rounded-2xl border border-white/10 bg-[#111827]/70 p-4 text-sm text-slate-300 outline-none font-mono"
                 value={payload} onChange={e => setPayload(e.target.value)} />
             </div>
-            <button onClick={handlePredict} disabled={loading} className="btn-press w-full rounded-2xl bg-primary/30 px-4 py-3 font-medium text-white hover:bg-primary/40 disabled:opacity-50">
-              {loading ? 'Predicting...' : 'Run prediction'}
-            </button>
+            <Button onClick={handlePredict} disabled={loading} loading={loading} loadingText="Predicting..." variant="primary" className="w-full">
+              Run prediction
+            </Button>
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Result</p>
@@ -78,7 +80,7 @@ function PredictionPage() {
             </div>
           )}
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

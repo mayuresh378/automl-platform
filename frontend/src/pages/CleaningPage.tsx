@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Sparkles, SlidersHorizontal, RefreshCw, CheckCircle2, Undo2, Download, XCircle, Loader2, Clock, AlertTriangle } from 'lucide-react';
 import { api, downloadUrl } from '../lib/api';
 import { useNotificationStore } from '../store/useNotificationStore';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function CleaningPage() {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -115,8 +117,8 @@ function CleaningPage() {
     : 0;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Data engineering</p>
@@ -226,18 +228,9 @@ function CleaningPage() {
 
             {profile && (
               <div className="mt-4 flex items-center gap-2">
-                <button onClick={applyAll} disabled={runningAll || pendingCount === 0}
-                  className={`btn-press flex-1 rounded-2xl py-2.5 text-sm font-medium transition-opacity ${
-                    runningAll
-                      ? 'bg-primary/20 text-primary/50'
-                      : 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90'
-                  } disabled:opacity-50`}>
-                  {runningAll ? (
-                    <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Applying all…</span>
-                  ) : (
-                    `Apply remaining (${pendingCount})`
-                  )}
-                </button>
+                <Button onClick={applyAll} disabled={runningAll || pendingCount === 0} loading={runningAll} loadingText="Applying all…" variant="primary" className="flex-1">
+                  Apply remaining ({pendingCount})
+                </Button>
                 {doneCount > 0 && (
                   <button onClick={resetAll} className="btn-press rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-slate-400 hover:text-white transition-colors">
                     <Undo2 className="h-4 w-4" />
@@ -296,8 +289,8 @@ function CleaningPage() {
         </div>
       </div>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Pipeline</p>
@@ -322,7 +315,7 @@ function CleaningPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Recovery</p>
@@ -335,7 +328,7 @@ function CleaningPage() {
             <p className="text-xs text-slate-500">Each action creates a new cleaned file. Download from the result panel above.</p>
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

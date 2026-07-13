@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, ArrowUp, Wand2, Loader2 } from 'lucide-react';
 import { BASE } from '../lib/api';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -58,12 +59,11 @@ export function AIAssistantPanel() {
         <span className="text-sm font-medium text-zinc-100">AI Assistant</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-3">
+      <motion.div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-3" variants={staggerContainer} initial="hidden" animate="visible">
         {messages.map((m, i) => (
           <motion.div
             key={i}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
+            variants={staggerItem}
             className={m.role === 'assistant' ? 'flex gap-2' : 'flex gap-2 justify-end'}
           >
             {m.role === 'assistant' && (
@@ -83,7 +83,7 @@ export function AIAssistantPanel() {
           </motion.div>
         ))}
         {loading && (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2">
+          <motion.div variants={staggerItem} className="flex gap-2">
             <div className="h-6 w-6 shrink-0 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <Sparkles className="h-3 w-3 text-white" />
             </div>
@@ -93,7 +93,7 @@ export function AIAssistantPanel() {
           </motion.div>
         )}
         <div ref={bottomRef} />
-      </div>
+      </motion.div>
 
       {suggestions.length > 0 && messages.length <= 2 && (
         <div className="px-3 pb-2 flex flex-wrap gap-1.5">

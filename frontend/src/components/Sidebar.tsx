@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   FolderKanban,
@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useUIStore } from '../store/useUIStore';
+import { staggerContainer, staggerItem, spring } from '../lib/animations';
 
 interface NavItem {
   label: string;
@@ -97,23 +98,37 @@ export function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2.5 space-y-4">
         {groups.map((group) => (
-          <div key={group}>
+          <motion.div
+            key={group}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
             {!sidebarCollapsed && (
-              <div className="px-2 mb-1 text-[10px] font-semibold tracking-wider uppercase text-zinc-600">
+              <motion.div
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="px-2 mb-1 text-[10px] font-semibold tracking-wider uppercase text-zinc-600"
+              >
                 {group}
-              </div>
+              </motion.div>
             )}
             <div className="space-y-0.5">
-              {NAV_ITEMS.filter((n) => n.group === group).map((item) => {
+              {NAV_ITEMS.filter((n) => n.group === group).map((item, i) => {
                 const isActive = activePage === item.label;
                 const Icon = item.icon;
                 return (
-                  <button
+                  <motion.button
                     key={item.label}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.02, duration: 0.25, ease: 'easeOut' }}
                     onClick={() => setActivePage(item.label)}
                     title={sidebarCollapsed ? item.label : undefined}
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.97 }}
                     className={cn(
-                      'btn-press group relative w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                      'group relative w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors cursor-pointer select-none',
                       sidebarCollapsed && 'justify-center px-0',
                       isActive
                         ? 'text-white bg-white/[0.06]'
@@ -124,15 +139,22 @@ export function Sidebar() {
                       <motion.span
                         layoutId="sidebar-active-indicator"
                         className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-gradient-to-b from-primary to-accent"
+                        transition={spring}
                       />
                     )}
-                    <Icon className={cn('h-[16px] w-[16px] shrink-0', isActive ? 'text-primary' : 'text-zinc-500 group-hover:text-zinc-300')} strokeWidth={2} />
+                    <motion.span
+                      whileHover={{ scale: 1.15 }}
+                      transition={{ duration: 0.2 }}
+                      className="shrink-0 inline-flex"
+                    >
+                      <Icon className={cn('h-[16px] w-[16px]', isActive ? 'text-primary' : 'text-zinc-500 group-hover:text-zinc-300')} strokeWidth={2} />
+                    </motion.span>
                     {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
-          </div>
+          </motion.div>
         ))}
       </nav>
 
@@ -141,8 +163,9 @@ export function Sidebar() {
           const Icon = item.icon;
           const TAB_MAP: Record<string, string> = { Settings: 'general', Billing: 'billing', Admin: 'admin' };
           return (
-            <button
+            <motion.button
               key={item.label}
+              whileTap={{ scale: 0.97 }}
               onClick={() => {
                 if (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin') {
                   setSettingsTab(TAB_MAP[item.label]);
@@ -151,29 +174,37 @@ export function Sidebar() {
               }}
               title={sidebarCollapsed ? item.label : undefined}
               className={cn(
-                'btn-press w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                'group w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors cursor-pointer select-none',
                 sidebarCollapsed && 'justify-center px-0',
                 activePage === (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label)
                   ? 'text-white bg-white/[0.06]'
                   : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]'
               )}
             >
-              <Icon className={cn('h-[16px] w-[16px] shrink-0', activePage === (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label) ? 'text-primary' : 'text-zinc-500')} strokeWidth={2} />
+              <motion.span whileHover={{ scale: 1.15 }} transition={{ duration: 0.2 }}>
+                <Icon className={cn('h-[16px] w-[16px] shrink-0', activePage === (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label) ? 'text-primary' : 'text-zinc-500 group-hover:text-zinc-300')} strokeWidth={2} />
+              </motion.span>
               {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-            </button>
+            </motion.button>
           );
         })}
 
-        <button
+        <motion.button
+          whileTap={{ scale: 0.95 }}
           onClick={toggleSidebar}
           className={cn(
-            'btn-press w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] transition-colors mt-1',
+            'group w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] transition-colors mt-1 cursor-pointer select-none',
             sidebarCollapsed && 'justify-center px-0'
           )}
         >
-          {sidebarCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+          <motion.span
+            animate={sidebarCollapsed ? { rotate: 180 } : { rotate: 0 }}
+            transition={{ duration: 0.22, ease: 'easeInOut' }}
+          >
+            {sidebarCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+          </motion.span>
           {!sidebarCollapsed && <span>Collapse</span>}
-        </button>
+        </motion.button>
       </div>
     </motion.aside>
   );

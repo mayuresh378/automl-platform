@@ -1,16 +1,18 @@
 import { motion } from 'framer-motion';
 import { GitBranch, GitCompare, Zap } from 'lucide-react';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function DataVersioningPage() {
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-400">Dataset management</p>
             <h2 className="text-2xl font-semibold text-white">Version control</h2>
           </div>
-          <button className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white">Create version</button>
+          <Button>Create version</Button>
         </div>
         <div className="space-y-3">
           {[
@@ -46,10 +48,10 @@ function DataVersioningPage() {
             </div>
           ))}
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Comparison</p>
@@ -72,7 +74,7 @@ function DataVersioningPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Lineage</p>
@@ -89,7 +91,7 @@ function DataVersioningPage() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Activity, ArrowUpRight, Sparkles, BrainCircuit, Clock3 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { api } from '../lib/api';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 const trendData = [
   { month: 'Jan', value: 48 }, { month: 'Feb', value: 62 },
@@ -22,17 +24,15 @@ function DashboardPage() {
   }, []);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6">
-      <section className="grid gap-6 xl:grid-cols-[1.6fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-8 shadow-glow">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <motion.section variants={staggerItem} className="grid gap-6 xl:grid-cols-[1.6fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-8 shadow-glow">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="mb-2 text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Operations Center</p>
               <h2 className="text-3xl font-semibold text-white">Your AI platform is ready for production workloads.</h2>
             </div>
-            <button className="btn-press rounded-2xl border border-primary/30 bg-primary/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/30">
-              New experiment
-            </button>
+            <Button>New experiment</Button>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {[
@@ -51,7 +51,7 @@ function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#121623]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#121623]/80 p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">AI Assistant</p>
@@ -72,10 +72,10 @@ function DashboardPage() {
             </button>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Performance</p>
@@ -101,7 +101,7 @@ function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Resource health</p>
@@ -127,10 +127,10 @@ function DashboardPage() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+      <motion.section variants={staggerItem} className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Recent activity</p>
@@ -154,7 +154,7 @@ function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+        <div className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-400">Favorites</p>
@@ -178,7 +178,7 @@ function DashboardPage() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

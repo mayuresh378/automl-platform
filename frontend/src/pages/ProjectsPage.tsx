@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { FolderOpen, Star, Database, FlaskConical, Rocket, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useUIStore } from '../store/useUIStore';
+import { Button } from '../components/Button';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 function ProjectsPage() {
   const [experiments, setExperiments] = useState<any[]>([]);
@@ -29,16 +31,16 @@ function ProjectsPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="space-y-6 p-6">
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6 p-6">
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
       ) : (
         <>
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <motion.div variants={staggerItem} className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             {statCards.map((stat) => {
               const Icon = stat.icon;
               return (
-                <div key={stat.label} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+                <div key={stat.label} className="card-hover rounded-[28px] border border-white/10 bg-white/5 p-5">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-slate-400">{stat.label}</span>
                     <Icon className="h-4 w-4 text-accent" />
@@ -47,17 +49,17 @@ function ProjectsPage() {
                 </div>
               );
             })}
-          </div>
+          </motion.div>
 
-          <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+          <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-400">Workspace organization</p>
                 <h2 className="text-2xl font-semibold text-white">Active projects</h2>
               </div>
-              <button onClick={() => setActivePage('Datasets')} className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors">
+              <Button onClick={() => setActivePage('Datasets')}>
                 New project
-              </button>
+              </Button>
             </div>
             {projects.length === 0 ? (
               <div className="py-8 text-center text-sm text-slate-500">No projects yet. Upload a dataset to start.</div>
@@ -82,9 +84,9 @@ function ProjectsPage() {
                 ))}
               </div>
             )}
-          </section>
+          </motion.section>
 
-          <section className="rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+          <motion.section variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-400">Quick actions</p>
@@ -98,7 +100,7 @@ function ProjectsPage() {
               <button onClick={() => setActivePage('Experiments')} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">View recent experiments</button>
               <button onClick={() => setActivePage('Dashboard')} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">Go to dashboard</button>
             </div>
-          </section>
+          </motion.section>
         </>
       )}
     </motion.div>

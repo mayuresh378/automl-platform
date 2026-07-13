@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Microchip, Cpu, MemoryStick, HardDrive } from 'lucide-react';
 import { api } from '../lib/api';
+import { staggerContainer, staggerItem } from '../lib/animations';
 
 const ICONS: Record<string, React.FC<any>> = { gpu: Microchip, cpu: Cpu, memory: MemoryStick, storage: HardDrive };
 const barColor = (v: number) => (v > 80 ? 'bg-danger' : v > 60 ? 'bg-warning' : 'bg-primary');
@@ -20,16 +21,14 @@ export function MetricGrid() {
   if (entries.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <motion.div className="grid grid-cols-2 lg:grid-cols-4 gap-3" variants={staggerContainer} initial="hidden" animate="visible">
       {entries.map(([key, metric], i) => {
         const Icon = ICONS[key] || Microchip;
         return (
           <motion.div
             key={key}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05, duration: 0.3 }}
-            className="rounded-xl border border-border bg-card/60 p-4 hover:border-border-strong transition-colors"
+            variants={staggerItem}
+            className="card-hover rounded-xl border border-border bg-card/60 p-4 hover:border-border-strong transition-colors"
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-zinc-400">
@@ -50,6 +49,6 @@ export function MetricGrid() {
           </motion.div>
         );
       })}
-    </div>
+    </motion.div>
   );
 }
