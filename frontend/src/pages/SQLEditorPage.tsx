@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Database, Table2, RotateCcw, AlertCircle, ChevronDown, Download } from 'lucide-react';
-import { api, downloadBlob } from '../lib/api';
+import { api, downloadBlob, BASE } from '../lib/api';
 
 function SQLEditorPage() {
   const [query, setQuery] = useState('SELECT * FROM data LIMIT 50');
@@ -24,7 +24,7 @@ function SQLEditorPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/query', {
+      const res = await fetch(`${BASE}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ query, dataset }).toString(),

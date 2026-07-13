@@ -21,7 +21,7 @@ export function AIAssistantPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch('/api/v1/ai/suggestions')
+    fetch(`${BASE}/ai/suggestions`)
       .then(r => r.json())
       .then(d => setSuggestions(d.suggestions || []))
       .catch(() => {});
