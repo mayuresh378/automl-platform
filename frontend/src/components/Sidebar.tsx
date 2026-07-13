@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -63,6 +64,7 @@ const FOOTER_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar, activePage, setActivePage, setSettingsTab } = useUIStore();
+  const [logoBlink, setLogoBlink] = useState(false);
 
   const groups = Array.from(new Set(NAV_ITEMS.map((n) => n.group)));
 
@@ -73,14 +75,24 @@ export function Sidebar() {
       className="hidden md:flex flex-col shrink-0 h-screen sticky top-0 border-r border-border bg-surface/60 backdrop-blur-sm"
     >
       <div className={cn('flex items-center h-16 px-4 gap-2.5 border-b border-border', sidebarCollapsed && 'justify-center px-0')}>
-        <div className="logo-container relative flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-primary via-secondary to-accent shrink-0 group">
-          <Zap className="logo-icon h-4 w-4 text-white transition-transform duration-500 group-hover:rotate-12" strokeWidth={2.5} />
-        </div>
-        {!sidebarCollapsed && (
-          <span className="font-semibold text-[15px] tracking-tight text-white whitespace-nowrap">
-            AutoML Studio
-          </span>
-        )}
+        <motion.button
+          onClick={() => { setActivePage('Dashboard'); setLogoBlink(true); setTimeout(() => setLogoBlink(false), 150); }}
+          className="flex items-center gap-2.5"
+        >
+          <motion.div
+            className="logo-container relative flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-primary via-secondary to-accent shrink-0"
+            animate={logoBlink ? { scale: [1, 1.3, 1], opacity: [1, 0.6, 1] } : {}}
+            transition={{ duration: 0.2 }}
+            whileTap={{ scale: 0.8 }}
+          >
+            <Zap className="logo-icon h-4 w-4 text-white" strokeWidth={2.5} />
+          </motion.div>
+          {!sidebarCollapsed && (
+            <span className="font-semibold text-[15px] tracking-tight text-white whitespace-nowrap">
+              AutoML Studio
+            </span>
+          )}
+        </motion.button>
       </div>
 
       <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2.5 space-y-4">
