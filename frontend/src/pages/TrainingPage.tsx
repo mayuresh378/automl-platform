@@ -60,7 +60,7 @@ function TrainingPage() {
                 {cols.map((c: string) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <button onClick={handleTrain} disabled={training} className="w-full rounded-2xl bg-primary/30 px-4 py-3 font-medium text-white hover:bg-primary/40 disabled:opacity-50">
+            <button onClick={handleTrain} disabled={training} className="btn-press w-full rounded-2xl bg-primary/30 px-4 py-3 font-medium text-white hover:bg-primary/40 disabled:opacity-50">
               {training ? 'Training...' : 'Start AutoML training'}
             </button>
             {result && (

@@ -84,13 +84,13 @@ export function TopNav() {
       <div className="ml-auto flex items-center gap-1.5">
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="sm:hidden p-2 rounded-lg text-zinc-400 hover:bg-white/[0.05]"
+          className="btn-press sm:hidden p-2 rounded-lg text-zinc-400 hover:bg-white/[0.05]"
           aria-label="Search"
         >
           <Search className="h-4 w-4" />
         </button>
 
-        <button className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 transition-opacity shadow-glow-sm"
+        <button className="btn-press flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 transition-opacity shadow-glow-sm"
           onClick={() => setActivePage('AI Assistant')}>
           <Sparkles className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Ask AI</span>

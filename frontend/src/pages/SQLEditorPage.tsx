@@ -71,7 +71,7 @@ function SQLEditorPage() {
           <button
             onClick={runQuery}
             disabled={loading}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="btn-press flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             <Play className="h-4 w-4" />
             {loading ? 'Running…' : 'Run'}

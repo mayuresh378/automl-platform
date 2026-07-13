@@ -96,7 +96,7 @@ function GeneralTab() {
             <button onClick={handleReset} className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white transition-colors">
               <RotateCcw className="h-3.5 w-3.5" /> Reset
             </button>
-            <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+            <button onClick={handleSave} disabled={saving} className="btn-press flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50">
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
             </button>
@@ -509,7 +509,7 @@ function BillingTab() {
           <div><p className="text-sm font-medium text-white">Free Plan</p><p className="text-xs text-slate-500">5 models · 1 user · Community support</p></div>
           <span className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary font-medium">Active</span>
         </div>
-        <button className="mt-4 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">Upgrade to Pro</button>
+        <button className="btn-press mt-4 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">Upgrade to Pro</button>
       </div>
       <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Billing history</h3>

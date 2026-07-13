@@ -273,7 +273,7 @@ function CleaningPage() {
                 <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3"><span>Rows after</span><span className="font-semibold text-white">{result.rows_after}</span></div>
                 <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3"><span>Features retained</span><span className="font-semibold text-white">{result.columns_after}</span></div>
                 <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3"><span>Saved as</span><span className="text-primary font-mono text-xs">{result.cleaned_file}</span></div>
-                <a href={downloadUrl(`/datasets/${encodeURIComponent(result.cleaned_file)}/download`)} download={result.cleaned_file} className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-medium text-white hover:opacity-90 transition-opacity">
+                <a href={downloadUrl(`/datasets/${encodeURIComponent(result.cleaned_file)}/download`)} download={result.cleaned_file} className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-medium text-white hover:opacity-90 transition-opacity">
                   <Download className="h-4 w-4" /> Download cleaned dataset
                 </a>
               </div>

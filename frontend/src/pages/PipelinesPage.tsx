@@ -121,7 +121,7 @@ function PipelinesPage() {
             <button onClick={load} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors">
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setActivePage('Datasets')} className="rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors">
+            <button onClick={() => setActivePage('Datasets')} className="btn-press rounded-2xl bg-primary/20 px-4 py-2 text-sm font-medium text-white hover:bg-primary/30 transition-colors">
               Create pipeline
             </button>
           </div>

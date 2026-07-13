@@ -50,7 +50,7 @@ function PredictionPage() {
               <textarea className="min-h-32 w-full rounded-2xl border border-white/10 bg-[#111827]/70 p-4 text-sm text-slate-300 outline-none font-mono"
                 value={payload} onChange={e => setPayload(e.target.value)} />
             </div>
-            <button onClick={handlePredict} disabled={loading} className="w-full rounded-2xl bg-primary/30 px-4 py-3 font-medium text-white hover:bg-primary/40 disabled:opacity-50">
+            <button onClick={handlePredict} disabled={loading} className="btn-press w-full rounded-2xl bg-primary/30 px-4 py-3 font-medium text-white hover:bg-primary/40 disabled:opacity-50">
               {loading ? 'Predicting...' : 'Run prediction'}
             </button>
           </div>

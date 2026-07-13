@@ -79,6 +79,14 @@
   .logo-container {
     animation: logoGlow 3s ease-in-out infinite;
   }
+
+  .btn-press {
+    @apply active:scale-[0.97] transition-transform duration-150;
+  }
+
+  .btn-press-sm {
+    @apply active:scale-[0.95] transition-transform duration-150;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

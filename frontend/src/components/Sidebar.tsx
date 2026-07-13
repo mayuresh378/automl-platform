@@ -113,7 +113,7 @@ export function Sidebar() {
                     onClick={() => setActivePage(item.label)}
                     title={sidebarCollapsed ? item.label : undefined}
                     className={cn(
-                      'group relative w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                      'btn-press group relative w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
                       sidebarCollapsed && 'justify-center px-0',
                       isActive
                         ? 'text-white bg-white/[0.06]'
@@ -151,7 +151,7 @@ export function Sidebar() {
               }}
               title={sidebarCollapsed ? item.label : undefined}
               className={cn(
-                'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                'btn-press w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
                 sidebarCollapsed && 'justify-center px-0',
                 activePage === (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label)
                   ? 'text-white bg-white/[0.06]'
@@ -167,7 +167,7 @@ export function Sidebar() {
         <button
           onClick={toggleSidebar}
           className={cn(
-            'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] transition-colors mt-1',
+            'btn-press w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] transition-colors mt-1',
             sidebarCollapsed && 'justify-center px-0'
           )}
         >

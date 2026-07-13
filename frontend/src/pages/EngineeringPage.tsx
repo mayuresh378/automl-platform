@@ -173,7 +173,7 @@ function EngineeringPage() {
                   <span>Saved as</span>
                   <span className="text-primary font-mono">{result.enhanced_file}</span>
                 </div>
-                <a href={downloadUrl(`/datasets/${encodeURIComponent(result.enhanced_file)}/download`)} download={result.enhanced_file} className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">
+                <a href={downloadUrl(`/datasets/${encodeURIComponent(result.enhanced_file)}/download`)} download={result.enhanced_file} className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">
                   <Download className="h-4 w-4" /> Download
                 </a>
                 <button
@@ -208,7 +208,7 @@ function EngineeringPage() {
                   })}
                 </div>
                 <button
-                  className="mt-4 w-full rounded-2xl bg-primary/30 px-4 py-3 text-sm font-medium text-white hover:bg-primary/40 transition-colors disabled:opacity-40"
+                  className="btn-press mt-4 w-full rounded-2xl bg-primary/30 px-4 py-3 text-sm font-medium text-white hover:bg-primary/40 transition-colors disabled:opacity-40"
                   onClick={() => handleGenerate(suggestions)}
                   disabled={!selected || running || suggestions.length === 0}
                 >
