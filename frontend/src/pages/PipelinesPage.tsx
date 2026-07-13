@@ -78,7 +78,7 @@ function PipelinesPage() {
   const handleRun = async (id: string) => {
     setRunningId(id);
     try {
-      const result = await api.pipelines.run(id);
+      const result: any = await api.pipelines.run(id);
       notify({ title: 'Pipeline run completed', message: `Status: ${result.status}`, type: result.status === 'failed' ? 'error' : 'success' });
       load();
     } catch (err: any) {

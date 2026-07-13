@@ -37,7 +37,7 @@ function EngineeringPage() {
     setRunning(true);
     setResult(null);
     try {
-      const res = await api.datasets.generateFeatures(selected, ops);
+      const res: any = await api.datasets.generateFeatures(selected, ops);
       setResult(res);
       api.datasets.suggestFeatures(selected).then(r => setSuggestions(r.suggestions)).catch(() => {});
       notify({ title: 'Features generated', message: `${res.new_columns} new features created for ${selected}`, type: 'success' });

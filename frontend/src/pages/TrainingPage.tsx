@@ -23,7 +23,7 @@ function TrainingPage() {
     setTraining(true);
     setResult(null);
     try {
-      const res = await api.training.start(selectedDataset, targetColumn);
+      const res: any = await api.training.start(selectedDataset, targetColumn);
       setResult(res);
       api.experiments.list().then(r => setExperiments(r.experiments)).catch(() => {});
       notify({ title: 'Training complete', message: `${selectedDataset} finished with score ${res.training_summary?.cv_score ?? 'N/A'}`, type: 'success' });

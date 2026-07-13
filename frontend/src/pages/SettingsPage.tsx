@@ -331,7 +331,7 @@ function AuthenticationTab() {
     const name = prompt('Enter a name for the API key:');
     if (!name) return;
     try {
-      const result = await api.apiKeys.create(name);
+      const result: any = await api.apiKeys.create(name);
       setApiKeys(prev => [...prev, { id: result.id, name: result.name, key_prefix: result.key_prefix, key: result.key, status: 'active' }]);
       if (result.key) copyKey(result.key, result.id);
     } catch (err: any) {

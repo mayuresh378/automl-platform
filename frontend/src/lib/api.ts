@@ -1,6 +1,6 @@
 import { useAuthStore } from '../store/useAuthStore';
 
-const BASE = '/api/v1';
+const BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '/api/v1';
 
 export function downloadUrl(path: string) {
   const token = useAuthStore.getState().token;
@@ -71,6 +71,8 @@ export const api = {
       fetchJSON<any>(`${BASE}/datasets/${encodeURIComponent(name)}/preview?rows=${rows}&offset=${offset}`),
     profile: (name: string) =>
       fetchJSON<any>(`${BASE}/datasets/${encodeURIComponent(name)}/profile`),
+    remove: (name: string) =>
+      fetchJSON(`${BASE}/datasets/${encodeURIComponent(name)}`, { method: 'DELETE' }),
     clean: (name: string, operations: any[]) => {
       const form = new FormData();
       form.append('operations', JSON.stringify(operations));
