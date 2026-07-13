@@ -39,11 +39,33 @@ export default {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
+        pulseSoft: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
+        },
+        logoGlow: {
+          '0%, 100%': { boxShadow: '0 0 12px rgba(99,102,241,0.3)' },
+          '50%': { boxShadow: '0 0 24px rgba(99,102,241,0.6)' },
+        },
+        drift: {
+          '0%, 100%': { transform: 'translate(0px, 0px)' },
+          '25%': { transform: 'translate(10px, -10px)' },
+          '50%': { transform: 'translate(-5px, -15px)' },
+          '75%': { transform: 'translate(-10px, 5px)' },
+        },
+        floatCard: {
+          '0%, 100%': { transform: 'translateY(0px) scale(1)' },
+          '50%': { transform: 'translateY(-4px) scale(1.01)' },
+        },
       },
       animation: {
         pulseRing: 'pulseRing 2.4s cubic-bezier(0.4,0,0.2,1) infinite',
         floatSlow: 'floatSlow 5s ease-in-out infinite',
         shimmer: 'shimmer 2.5s linear infinite',
+        pulseSoft: 'pulseSoft 3s ease-in-out infinite',
+        logoGlow: 'logoGlow 3s ease-in-out infinite',
+        drift: 'drift 12s ease-in-out infinite',
+        floatCard: 'floatCard 6s ease-in-out infinite',
       },
     },
   },

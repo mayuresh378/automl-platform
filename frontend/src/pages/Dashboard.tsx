@@ -20,8 +20,16 @@ export function Dashboard() {
       {/* Hero */}
       <section className="relative px-4 md:px-8 pt-4 pb-10 overflow-hidden">
         <div
-          className="pointer-events-none absolute -top-24 left-1/3 h-[420px] w-[420px] rounded-full opacity-20 blur-[100px]"
+          className="pointer-events-none absolute -top-24 left-1/3 h-[420px] w-[420px] rounded-full opacity-20 blur-[100px] animate-drift"
           style={{ background: 'radial-gradient(circle, #6366F1 0%, transparent 70%)' }}
+        />
+        <div
+          className="pointer-events-none absolute top-40 right-1/4 h-[300px] w-[300px] rounded-full opacity-10 blur-[80px] animate-drift"
+          style={{ background: 'radial-gradient(circle, #06B6D4 0%, transparent 70%)', animationDelay: '-4s' }}
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 left-1/6 h-[200px] w-[200px] rounded-full opacity-10 blur-[60px] animate-drift"
+          style={{ background: 'radial-gradient(circle, #7C3AED 0%, transparent 70%)', animationDelay: '-8s' }}
         />
         <div className="relative grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-center">
           <motion.div
@@ -52,7 +60,7 @@ export function Dashboard() {
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="relative rounded-2xl border border-border bg-card/40 backdrop-blur-sm p-4 h-[340px] noise-overlay"
+            className="relative rounded-2xl border border-border bg-card/40 backdrop-blur-sm p-4 h-[340px] noise-overlay card-hover"
           >
             <NeuralPulse />
           </motion.div>

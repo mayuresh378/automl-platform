@@ -73,8 +73,8 @@ export function Sidebar() {
       className="hidden md:flex flex-col shrink-0 h-screen sticky top-0 border-r border-border bg-surface/60 backdrop-blur-sm"
     >
       <div className={cn('flex items-center h-16 px-4 gap-2.5 border-b border-border', sidebarCollapsed && 'justify-center px-0')}>
-        <div className="relative flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-primary via-secondary to-accent shrink-0">
-          <Zap className="h-4 w-4 text-white" strokeWidth={2.5} />
+        <div className="logo-container relative flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-primary via-secondary to-accent shrink-0 group">
+          <Zap className="logo-icon h-4 w-4 text-white transition-transform duration-500 group-hover:rotate-12" strokeWidth={2.5} />
         </div>
         {!sidebarCollapsed && (
           <span className="font-semibold text-[15px] tracking-tight text-white whitespace-nowrap">
