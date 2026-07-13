@@ -13,12 +13,6 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: https://automl-frontend.onrender.com,https://automl-api.onrender.com
-      - key: STORAGE_DIR
-        value: /data
-    disk:
-      name: data
-      mountPath: /data
-      sizeGB: 1
     healthCheckPath: /
     autoDeploy: true
 
