@@ -9,7 +9,17 @@ interface UIState {
   setActivePage: (page: string) => void;
   settingsTab: string;
   setSettingsTab: (tab: string) => void;
+  theme: 'dark' | 'light';
+  toggleTheme: () => void;
 }
+
+const getInitialTheme = (): 'dark' | 'light' => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+  }
+  return 'dark';
+};
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: false,
@@ -20,4 +30,11 @@ export const useUIStore = create<UIState>((set) => ({
   setActivePage: (page) => set({ activePage: page }),
   settingsTab: 'general',
   setSettingsTab: (tab) => set({ settingsTab: tab }),
+  theme: getInitialTheme(),
+  toggleTheme: () => set((s) => {
+    const next = s.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', next);
+    document.documentElement.classList.toggle('light', next === 'light');
+    return { theme: next };
+  }),
 }));

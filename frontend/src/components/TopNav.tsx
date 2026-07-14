@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Bell, Sparkles, ChevronDown, KeyRound, LogIn, Check, X, Clock, AlertCircle, CheckCircle2, Info, AlertTriangle } from 'lucide-react';
+import { Search, Bell, Sparkles, ChevronDown, KeyRound, LogIn, Check, X, Clock, AlertCircle, CheckCircle2, Info, AlertTriangle, Moon, Sun } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useNotificationStore, Notification } from '../store/useNotificationStore';
@@ -31,7 +31,7 @@ function formatTimeAgo(ts: number) {
 }
 
 export function TopNav() {
-  const { setCommandPaletteOpen, setActivePage, setSettingsTab } = useUIStore();
+  const { setCommandPaletteOpen, setActivePage, setSettingsTab, theme, toggleTheme } = useUIStore();
   const { user, logout } = useAuthStore();
   const { notifications, add, markRead, markAllRead, dismiss, clearAll, unreadCount } = useNotificationStore();
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
@@ -122,6 +122,15 @@ export function TopNav() {
             <Sparkles className="h-3.5 w-3.5" />
           </motion.span>
           <span className="hidden sm:inline">Ask AI</span>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.92 }}
+          onClick={toggleTheme}
+          className="relative p-2 rounded-lg text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 transition-colors cursor-pointer select-none"
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </motion.button>
 
         <div className="relative" ref={notifRef}>
