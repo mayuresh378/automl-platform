@@ -81,16 +81,16 @@ export default function TrainingPage() {
                     onChange={(e) => { setSelectedDataset(e.target.value); setTargetColumn(''); }}
                     options={(datasets as any[]).map((d: any) => ({ value: d.name || d.filename, label: d.filename || d.name }))}
                   />
-                  {selectedDataset && selectedDatasetMeta?.column_profiles && (
+                  {(selectedDatasetMeta as any)?.column_profiles && (
                     <Select
                       label="Target Column"
                       placeholder="Select target column"
                       value={targetColumn}
                       onChange={(e) => setTargetColumn(e.target.value)}
-                      options={(selectedDatasetMeta.column_profiles || []).map((c: any) => ({ value: c.name, label: c.name }))}
+                      options={((selectedDatasetMeta as any)?.column_profiles || []).map((c: any) => ({ value: c.name, label: c.name }))}
                     />
                   )}
-                  {!selectedDatasetMeta?.column_profiles && selectedDataset && (
+                  {!(selectedDatasetMeta as any)?.column_profiles && selectedDataset && (
                     <Button variant="secondary" size="sm" onClick={async () => {
                       try {
                         const profile = await datasetsService.profile(selectedDataset);

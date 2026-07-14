@@ -33,8 +33,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50',
               'hover:border-white/20',
               error && 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500 animate-shake',
-              icon && 'pl-10',
-              iconRight && 'pr-10',
+              icon ? 'pl-10' : '',
+              iconRight ? 'pr-10' : '',
               className,
             )}
             {...props}

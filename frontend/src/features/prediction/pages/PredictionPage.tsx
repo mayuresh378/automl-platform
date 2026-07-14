@@ -9,7 +9,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui
 import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
 import { Button } from '../../../components/ui/Button';
 import { Select } from '../../../components/ui/Select';
-import { Textarea } from '../../../components/ui/Input';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { EmptyState } from '../../../components/ui/EmptyState';

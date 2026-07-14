@@ -34,7 +34,7 @@ export function Card({ children, variant = 'default', hover = false, padding = '
         hover && 'card-hover',
         className,
       )}
-      {...props}
+      {...(props as any)}
     >
       {children}
     </motion.div>

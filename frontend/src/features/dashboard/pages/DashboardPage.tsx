@@ -80,7 +80,7 @@ export default function DashboardPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-zinc-400">{stat.label}</p>
-                  <p className="text-2xl font-bold text-zinc-100 mt-1"><AnimatedCounter value={stat.value} /></p>
+                  <p className="text-2xl font-bold text-zinc-100 mt-1"><AnimatedCounter to={stat.value} /></p>
                 </div>
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
                   {stat.icon}

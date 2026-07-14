@@ -1,8 +1,9 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { authService } from '../../../services/auth.service';
+import type { AuthResponse } from '../../../types/api';
 
-export function useLogin() {
+export function useLogin(): UseMutationResult<AuthResponse, Error, { email: string; password: string }> {
   const setAuth = useAuthStore((s) => s.setAuth);
 
   return useMutation({

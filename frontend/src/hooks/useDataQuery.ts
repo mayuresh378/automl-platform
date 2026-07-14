@@ -34,7 +34,7 @@ export function useDataQuery<T>(
   const isEmpty = isSuccess && (options?.emptyCheck ? options.emptyCheck(data as T) : !data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && data !== null && Object.keys(data).length === 0));
 
   return {
-    data,
+    data: data as T | undefined,
     isLoading,
     isError,
     errorMessage: isError ? getErrorMessage(error) : null,
