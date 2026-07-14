@@ -1,136 +1,89 @@
 # AutoML Platform
 
-A full-stack automated machine learning platform with dataset management, feature engineering, model training, deployment, and monitoring.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Frontend (React + Vite)                  │
-│  localhost:3000  ───  Vite Proxy (/api)  ────  Backend      │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Backend (FastAPI + Uvicorn)               │
-│  localhost:8000  │  SQLAlchemy ORM  │  scikit-learn         │
-│                  │  DuckDB (SQL)    │  JWT Auth             │
-└─────────────────────────────────────────────────────────────┘
-         │                    │                    │
-         ▼                    ▼                    ▼
-   ┌──────────┐       ┌──────────┐       ┌──────────────┐
-   │PostgreSQL│       │  Redis   │       │  Filesystem  │
-   │(Docker)  │       │(Docker)  │       │ datasets/    │
-   │or SQLite │       │  Celery  │       │ models/      │
-   └──────────┘       └──────────┘       └──────────────┘
-```
+A full-stack automated machine learning platform with drag-and-drop dataset management, AutoML training, model registry, deployment, monitoring, and AI-powered assistance.
 
 ## Features
 
-| Page | Description |
-|------|-------------|
-| **Dashboard** | Overview of experiments, models, system health |
-| **Upload** | Upload datasets (CSV, Excel, Parquet, JSON) |
-| **Explorer** | Browse datasets with column stats, distributions, correlations |
-| **Cleaning** | Drop columns, fill missing values, remove duplicates |
-| **Feature Engineering** | Create polynomial/interaction features, binning, log transforms |
-| **Training** | AutoML with scikit-learn — classification & regression |
-| **Predictions** | Run predictions on trained models |
-| **Deployments** | Deploy models as API endpoints |
-| **Monitoring** | Model performance metrics over time |
-| **Pipelines** | Create and run multi-step ML pipelines |
-| **Automations** | Webhook-based automation triggers |
-| **SQL Editor** | Query datasets directly with DuckDB SQL engine |
-| **Projects** | Organize experiments and models by project |
-| **Marketplace** | Browse and install pre-built model templates |
-| **Settings** | Profile, API keys, teams, billing, admin audit log |
+- **Automated ML Pipeline**: Upload CSV/Excel/Parquet, auto-preprocess, train with multiple algorithms (Random Forest, XGBoost, LightGBM, CatBoost, SVR, SVC, Logistic Regression)
+- **Hyperparameter Tuning**: Grid search with cross-validation
+- **Model Registry**: Version, tag, stage, download trained models
+- **Deployment**: One-click deployment with REST endpoint generation
+- **Monitoring**: Track latency, request count, system metrics
+- **Explainable AI**: SHAP-based prediction explanations
+- **Pipeline Engine**: Multi-step ML pipelines with scheduling
+- **Data Tools**: Profiling, cleaning, feature engineering, SQL querying
+- **AI Assistant**: Natural language queries about your data and models
+- **Team Collaboration**: Projects, teams, API keys, role-based access
+- **Security**: CSRF protection, rate limiting, XSS sanitization, SQL injection prevention, security headers (Helmet-equivalent)
+- **Notifications**: Real-time alerts for training completion, deployments, errors
 
-### AutoML Pipeline
-- **Preprocessing**: Auto-detect column types, handle missing values, scale/normalize, one-hot encode (with high-cardinality drop >50 unique)
-- **Models**: LogisticRegression, RandomForest, GradientBoosting, SVC, KNN (classification); Ridge, Lasso, RandomForest, GradientBoosting, SVR, KNN (regression)
-- **Tuning**: RandomizedSearchCV with configurable iterations and cross-validation
-- **Persistence**: Models saved as `.pkl` with metadata JSON
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, TypeScript, Tailwind CSS, Framer Motion, Recharts, Zustand, TanStack React Query, Lucide Icons |
+| Backend | Python 3.11+, FastAPI, SQLAlchemy, Prisma ORM, Pydantic v2 |
+| Database | SQLite (dev), PostgreSQL 16 (prod), Redis 7 (caching) |
+| ML/AI | scikit-learn, XGBoost, LightGBM, CatBoost, SHAP, pandas, NumPy |
+| DevOps | Docker, Docker Compose, GitHub Actions CI/CD, Prometheus metrics |
+| Auth | JWT (python-jose), bcrypt, Google OAuth, MFA-ready |
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.11+
-- Node.js 20+
-- (Optional) Docker & Docker Compose
-
-### Local Development
-
 ```bash
-# 1. Backend
-cd backend
-python -m venv .venv
-.venv\Scripts\activate      # Windows
-pip install -r requirements.txt
-uvicorn main:app --host 127.0.0.1 --port 8000
+# Clone
+git clone https://github.com/your-org/automl-platform.git
+cd automl-platform
 
-# 2. Frontend (new terminal)
+# Backend
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+python -c "from database import init_db; init_db()"
+uvicorn main:app --reload --port 8000
+
+# Frontend (new terminal)
 cd frontend
 npm install
 npm run dev
 ```
 
-Open **http://localhost:3000** in your browser.
+Open http://localhost:5173 (frontend) and http://localhost:8000/docs (API).
 
-### Docker Deployment
+## Project Structure
 
-```bash
-docker-compose up --build
+```
+automl-platform/
+  backend/          # FastAPI REST API
+    main.py         # Router with 80+ endpoints
+    models.py       # SQLAlchemy ORM models
+    crud.py         # Database CRUD operations
+    auth.py         # Authentication & authorization
+    train.py        # Model training engine
+    predict.py      # Inference engine
+    middleware.py    # Security middleware
+    config.py       # Centralized configuration
+  frontend/         # React SPA
+    src/
+      pages/        # 35 page components
+      components/   # 21 reusable components
+      hooks/        # React Query hooks
+      store/        # Zustand stores
+  prisma/           # Prisma schema & migrations
+  dataset/          # Uploaded datasets
+  models/           # Trained model artifacts
+  docker-compose.yml
+  Dockerfile
 ```
 
-Open **http://localhost** (served via nginx on port 80).
+## API Overview
 
-## Database
+80+ REST endpoints at `/api/v1/*`. Full docs at `/docs` (Swagger) and `/redoc` (ReDoc).
 
-The platform uses **SQLAlchemy ORM** with automatic fallback:
-- **PostgreSQL** when `DATABASE_URL` environment variable is set
-- **SQLite** (`backend/automl.db`) by default for local development
+Core groups: Auth, Datasets, Training, Experiments, Models, Deployments, Predictions, Pipelines, Projects, Teams, Webhooks, Search, Notifications, Activity, Analytics, Admin, Monitoring, Health.
 
-Tables are auto-created on first startup via `init_db()`.
+## License
 
-## API
-
-Interactive API docs: **http://localhost:8000/docs** (Swagger UI)
-
-### Key Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/v1/auth/register` | Register user |
-| POST | `/api/v1/auth/login` | Login |
-| GET | `/api/v1/datasets` | List datasets |
-| POST | `/api/v1/datasets` | Upload dataset |
-| GET | `/api/v1/datasets/{name}/preview` | Preview dataset |
-| GET | `/api/v1/datasets/{name}/profile` | Dataset profile/stats |
-| POST | `/api/v1/datasets/{name}/clean` | Clean dataset |
-| POST | `/api/v1/training` | Start AutoML training |
-| GET | `/api/v1/experiments` | List experiments |
-| GET | `/api/v1/models` | List trained models |
-| POST | `/api/v1/deployments` | Deploy model |
-| POST | `/api/v1/predictions` | Run prediction |
-| GET | `/api/v1/monitoring/metrics` | Monitoring metrics |
-| GET | `/api/v1/monitoring/stats` | Monitoring stats |
-| POST | `/api/v1/query` | Run SQL query via DuckDB |
-| POST | `/api/v1/ai/chat` | AI assistant chat |
-
-## Testing
-
-```bash
-cd backend
-.venv\Scripts\activate
-pytest tests/ -v
-```
-
-15 tests covering auth, datasets, experiments, models, monitoring, pipelines, webhooks, and activity log.
-
-## Tech Stack
-
-**Frontend**: React 19, TypeScript, Vite, Tailwind CSS, Framer Motion, Zustand, Lucide React
-
-**Backend**: Python 3.11+, FastAPI, SQLAlchemy 2.0, scikit-learn, Pandas, DuckDB, JWT (python-jose)
-
-**Infrastructure**: Docker, Docker Compose, PostgreSQL 16, Redis 7, nginx, GitHub Actions (CI/CD)
+MIT

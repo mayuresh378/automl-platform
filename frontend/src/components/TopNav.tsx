@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Bell, Sparkles, ChevronDown, KeyRound, LogIn, Check, X, Clock, AlertCircle, CheckCircle2, Info, AlertTriangle, Moon, Sun, Folders, Plus } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
@@ -31,7 +31,7 @@ function formatTimeAgo(ts: number) {
   return `${d}d ago`;
 }
 
-export function TopNav() {
+const TopNav = memo(function TopNav() {
   const { setCommandPaletteOpen, setActivePage, setCurrentProjectId, setSettingsTab, theme, toggleTheme } = useUIStore();
   const { user, logout } = useAuthStore();
   const { notifications, add, markRead, markAllRead, dismiss, clearAll, unreadCount } = useNotificationStore();
@@ -284,4 +284,5 @@ export function TopNav() {
       </div>
     </header>
   );
-}
+});
+export { TopNav };

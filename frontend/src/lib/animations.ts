@@ -88,3 +88,21 @@ export function getRippleAnimation(
     },
   };
 }
+
+type Direction = 'up' | 'down' | 'left' | 'right' | 'scale';
+type AnimationConfig = { opacity?: number; y?: number; x?: number; scale?: number; duration?: number; delay?: number };
+
+export function fadeProps(dir: Direction = 'up', config?: AnimationConfig) {
+  const d = config?.duration ?? 0.35;
+  const dl = config?.delay ?? 0;
+  const hidden: Record<string, number> = { opacity: config?.opacity ?? 0 };
+  if (dir === 'up') hidden.y = config?.y ?? 12;
+  if (dir === 'down') hidden.y = config?.y ?? -12;
+  if (dir === 'left') hidden.x = config?.x ?? -12;
+  if (dir === 'right') hidden.x = config?.x ?? 12;
+  if (dir === 'scale') hidden.scale = config?.scale ?? 0.96;
+  return {
+    initial: hidden,
+    animate: { opacity: 1, y: 0, x: 0, scale: 1, transition: { duration: d, delay: dl, ease: 'easeOut' } },
+  };
+}

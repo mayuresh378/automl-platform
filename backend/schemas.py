@@ -1,12 +1,12 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Any
 from datetime import datetime
 
 
 class UserCreate(BaseModel):
-    email: str
-    password: str
-    name: str
+    email: str = Field(..., min_length=5, max_length=255, pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+    password: str = Field(..., min_length=6, max_length=128)
+    name: str = Field(..., min_length=1, max_length=100)
 
 
 class UserResponse(BaseModel):
@@ -73,17 +73,17 @@ class DeploymentResponse(BaseModel):
 
 
 class PipelineCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
     steps: list = []
-    schedule: Optional[str] = None
+    schedule: Optional[str] = Field(None, max_length=100)
 
 
 class PipelineUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
     steps: Optional[list] = None
-    schedule: Optional[str] = None
+    schedule: Optional[str] = Field(None, max_length=100)
 
 
 class PipelineResponse(BaseModel):
@@ -113,10 +113,10 @@ class PipelineRunResponse(BaseModel):
 
 
 class WebhookCreate(BaseModel):
-    name: str
-    url: str
+    name: str = Field(..., min_length=1, max_length=200)
+    url: str = Field(..., max_length=500)
     events: list = []
-    secret: Optional[str] = None
+    secret: Optional[str] = Field(None, max_length=500)
 
 
 class WebhookResponse(BaseModel):

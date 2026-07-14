@@ -77,7 +77,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         whileTap={isDisabled ? undefined : { scale: 0.96 }}
         transition={{ type: 'spring', stiffness: 400, damping: 17 }}
         className={cn(
-          'relative overflow-hidden inline-flex items-center justify-center font-medium transition-colors cursor-pointer select-none',
+          'relative overflow-hidden inline-flex items-center justify-center font-medium transition-all duration-200 cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
           variantStyles[variant],
           sizeStyles[size],
           isDisabled && 'opacity-50 cursor-not-allowed',

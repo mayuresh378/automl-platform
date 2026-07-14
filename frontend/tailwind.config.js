@@ -24,6 +24,9 @@ export default {
       boxShadow: {
         glow: '0 0 0 1px rgba(255,255,255,0.04), 0 20px 80px rgba(99, 102, 241, 0.18)',
         'glow-sm': '0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px rgba(99, 102, 241, 0.12)',
+        'glow-md': '0 0 0 1px rgba(255,255,255,0.06), 0 12px 48px rgba(99, 102, 241, 0.15)',
+        'glow-lg': '0 0 0 1px rgba(255,255,255,0.08), 0 24px 80px rgba(99, 102, 241, 0.2)',
+        'glow-xl': '0 0 0 1px rgba(255,255,255,0.1), 0 32px 100px rgba(99, 102, 241, 0.25)',
       },
       keyframes: {
         pulseRing: {
@@ -57,6 +60,15 @@ export default {
           '0%, 100%': { transform: 'translateY(0px) scale(1)' },
           '50%': { transform: 'translateY(-4px) scale(1.01)' },
         },
+        breathe: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+          '50%': { transform: 'scale(1.02)', opacity: '0.9' },
+        },
+        'gradient-shift': {
+          '0%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
+        },
       },
       animation: {
         pulseRing: 'pulseRing 2.4s cubic-bezier(0.4,0,0.2,1) infinite',
@@ -66,6 +78,8 @@ export default {
         logoGlow: 'logoGlow 3s ease-in-out infinite',
         drift: 'drift 12s ease-in-out infinite',
         floatCard: 'floatCard 6s ease-in-out infinite',
+        breathe: 'breathe 4s ease-in-out infinite',
+        'gradient-shift': 'gradient-shift 4s ease infinite',
       },
     },
   },

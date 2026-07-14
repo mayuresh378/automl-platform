@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle, ArrowUpDown } from 'lucide-react';
 import { api } from '../lib/api';
 import { useUIStore } from '../store/useUIStore';
 import { staggerContainer, staggerItem } from '../lib/animations';
 
-export function ExperimentsTable() {
+const ExperimentsTable = memo(function ExperimentsTable() {
   const [experiments, setExperiments] = useState<any[]>([]);
   const setActivePage = useUIStore((s) => s.setActivePage);
 
@@ -54,4 +54,5 @@ export function ExperimentsTable() {
       </div>
     </div>
   );
-}
+});
+export { ExperimentsTable };

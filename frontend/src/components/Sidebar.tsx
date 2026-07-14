@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -30,6 +30,8 @@ import {
   Shield,
   SlidersHorizontal,
   Sparkles,
+  Search,
+  Bell,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
@@ -43,6 +45,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { label: 'Search', icon: Search, group: 'Workspace' },
   { label: 'Dashboard', icon: LayoutDashboard, group: 'Workspace' },
   { label: 'Projects', icon: FolderKanban, group: 'Workspace' },
   { label: 'Datasets', icon: Database, group: 'Data' },
@@ -60,6 +63,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Models', icon: Boxes, group: 'Model' },
   { label: 'Deployment', icon: Rocket, group: 'Serve' },
   { label: 'Inference API', icon: Plug, group: 'Serve' },
+  { label: 'Activity', icon: Activity, group: 'Serve' },
+  { label: 'Notifications', icon: Bell, group: 'Serve' },
   { label: 'Analytics', icon: BarChart3, group: 'Serve' },
   { label: 'Monitoring', icon: Activity, group: 'Serve' },
   { label: 'Pipelines', icon: Workflow, group: 'Automate' },
@@ -76,11 +81,22 @@ const FOOTER_ITEMS: NavItem[] = [
   { label: 'Support', icon: LifeBuoy, group: 'System' },
 ];
 
-export function Sidebar() {
+const Sidebar = memo(function Sidebar() {
   const { sidebarCollapsed, toggleSidebar, activePage, setActivePage, setSettingsTab } = useUIStore();
   const [logoBlink, setLogoBlink] = useState(false);
 
   const groups = Array.from(new Set(NAV_ITEMS.map((n) => n.group)));
+
+  const handleLogoClick = useCallback(() => { setActivePage('Dashboard'); setLogoBlink(true); setTimeout(() => setLogoBlink(false), 150); }, [setActivePage]);
+
+  const handleNavClick = useCallback((label: string) => { setActivePage(label); }, [setActivePage]);
+
+  const handleFooterClick = useCallback((label: string) => {
+    if (label === 'Settings') { setSettingsTab('account'); setActivePage('Settings'); }
+    else if (label === 'Billing') { setSettingsTab('account'); setActivePage('Settings'); }
+    else if (label === 'Admin') { setActivePage('Admin'); }
+    else { setActivePage(label); }
+  }, [setActivePage, setSettingsTab]);
 
   return (
     <motion.aside
@@ -90,7 +106,7 @@ export function Sidebar() {
     >
       <div className={cn('flex items-center h-16 px-4 gap-2.5 border-b border-border', sidebarCollapsed && 'justify-center px-0')}>
         <motion.button
-          onClick={() => { setActivePage('Dashboard'); setLogoBlink(true); setTimeout(() => setLogoBlink(false), 150); }}
+          onClick={handleLogoClick}
           className="btn-press flex items-center gap-2.5"
         >
           <motion.div
@@ -136,7 +152,7 @@ export function Sidebar() {
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.02, duration: 0.25, ease: 'easeOut' }}
-                    onClick={() => setActivePage(item.label)}
+                    onClick={() => handleNavClick(item.label)}
                     title={sidebarCollapsed ? item.label : undefined}
                     whileHover={{ x: 4 }}
                     whileTap={{ scale: 0.97 }}
@@ -174,17 +190,11 @@ export function Sidebar() {
       <div className="border-t border-border p-2.5 space-y-0.5">
         {FOOTER_ITEMS.map((item) => {
           const Icon = item.icon;
-          const TAB_MAP: Record<string, string> = { Settings: 'general', Billing: 'billing', Admin: 'admin' };
           return (
             <motion.button
               key={item.label}
               whileTap={{ scale: 0.97 }}
-              onClick={() => {
-                if (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin') {
-                  setSettingsTab(TAB_MAP[item.label]);
-                }
-                setActivePage(item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label);
-              }}
+              onClick={() => handleFooterClick(item.label)}
               title={sidebarCollapsed ? item.label : undefined}
               className={cn(
                 'group w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors cursor-pointer select-none',
@@ -221,4 +231,5 @@ export function Sidebar() {
       </div>
     </motion.aside>
   );
-}
+});
+export { Sidebar };

@@ -1,65 +1,64 @@
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import sys
+
+# ── Environment variables MUST be set before any app module imports ──
+os.environ.setdefault("JWT_SECRET", "test-jwt-secret-key-for-ci")
+os.environ.setdefault("CSRF_SECRET", "")
+os.environ.setdefault("DATABASE_URL", "sqlite://")
+os.environ.setdefault("RATE_LIMIT_MAX", "100000")
+os.environ.setdefault("RATE_LIMIT_WINDOW_SEC", "3600")
+
+# ── Path setup ──────────────────────────────────────────────────────
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from database import Base, get_db
 from main import app
 
-TEST_DB_PATH = os.path.join(os.path.dirname(__file__), "_test.db")
-
-if os.path.exists(TEST_DB_PATH):
-    os.remove(TEST_DB_PATH)
-
-engine = create_engine(f"sqlite:///{TEST_DB_PATH}", connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create tables once at module load
-Base.metadata.create_all(bind=engine)
-
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
+_TEST_ENGINE = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+_TestSession = sessionmaker(autocommit=False, autoflush=False, bind=_TEST_ENGINE)
 
 
 @pytest.fixture(autouse=True)
-def tx_session():
-    """Wrap each test in a transaction that gets rolled back."""
-    conn = engine.connect()
-    tx = conn.begin()
-    session = TestingSessionLocal(bind=conn)
-    orig_close = session.close
-    session.close = lambda: None
+def _setup_db():
+    Base.metadata.create_all(bind=_TEST_ENGINE)
+    yield
+    Base.metadata.drop_all(bind=_TEST_ENGINE)
 
-    def _get_db_override():
+
+@pytest.fixture
+def db():
+    session = _TestSession()
+    try:
         yield session
-
-    app.dependency_overrides[get_db] = _get_db_override
-
-    yield session
-
-    session.close = orig_close
-    session.close()
-    tx.rollback()
-    conn.close()
-    app.dependency_overrides[get_db] = override_get_db
+    finally:
+        session.close()
 
 
 @pytest.fixture
-def client():
-    return TestClient(app)
+def client(db):
+    def _override():
+        yield db
+
+    app.dependency_overrides[get_db] = _override
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
-def db(tx_session):
-    return tx_session
+def dataset_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr("main.DATASET_DIR", str(tmp_path))
+    monkeypatch.setattr("cleaning.DATASET_DIR", str(tmp_path))
+    return tmp_path

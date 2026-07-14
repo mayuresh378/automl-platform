@@ -262,6 +262,7 @@ def run_tuning(X, y, task_type, model_names, param_overrides, search_method="ran
         X, y, test_size=0.2, random_state=42, stratify=y if task_type == "classification" else None
     )
     model_candidates = CLASSIFICATION_MODELS if task_type == "classification" else REGRESSION_MODELS
+    effective_cv = max(2, min(cv_folds, 10))
     results = []
     for name in model_names:
         if name not in model_candidates:
@@ -272,19 +273,19 @@ def run_tuning(X, y, task_type, model_names, param_overrides, search_method="ran
             spec = model_candidates[name]
             base_model = spec["model"]
             param_dist = param_overrides.get(name, spec["params"])
+            scoring = _default_scoring(task_type)
             if search_method == "grid":
-                cv = min(2, cv_folds)
                 search = GridSearchCV(
-                    base_model, param_dist, cv=cv,
-                    scoring=_default_scoring(task_type), n_jobs=1,
+                    base_model, param_dist, cv=effective_cv,
+                    scoring=scoring, n_jobs=1, verbose=0,
                 )
             else:
                 from math import prod
-                n_iter = min(5, prod([len(v) for v in param_dist.values()]))
-                cv = min(2, cv_folds)
+                total_combos = prod([len(v) for v in param_dist.values()])
+                n_iter = max(5, min(50, total_combos))
                 search = RandomizedSearchCV(
                     base_model, param_dist, n_iter=n_iter,
-                    cv=cv, scoring=_default_scoring(task_type),
+                    cv=effective_cv, scoring=scoring,
                     random_state=42, n_jobs=1, verbose=0,
                 )
             search.fit(X_train, y_train)
@@ -292,10 +293,20 @@ def run_tuning(X, y, task_type, model_names, param_overrides, search_method="ran
             y_pred = search.predict(X_test)
             cv_score = search.best_score_
             metrics = _compute_metrics(y_test, y_pred, task_type)
+
+            # Collect per-fold scores
+            fold_scores = None
+            if hasattr(search, "cv_results_"):
+                fold_keys = [k for k in search.cv_results_ if k.startswith("split") and k.endswith("_test_score")]
+                if fold_keys:
+                    fold_scores = [round(float(search.cv_results_[k][search.best_index_]), 4) for k in sorted(fold_keys, key=lambda x: int(x.split("split")[1].split("_")[0]))]
+
             results.append({
                 "name": name,
-                "best_params": search.best_params_,
+                "best_params": {k: (float(v) if isinstance(v, (np.floating,)) else int(v) if isinstance(v, (np.integer,)) else v) for k, v in search.best_params_.items()},
                 "cv_score": round(float(cv_score), 4),
+                "fold_scores": fold_scores,
+                "n_iter": search.n_iter if hasattr(search, "n_iter") else None,
                 "metrics": metrics,
                 "training_time": round(train_time, 2),
             })

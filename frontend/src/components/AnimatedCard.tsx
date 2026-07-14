@@ -6,6 +6,8 @@ interface AnimatedCardProps {
   className?: string;
   glow?: 'primary' | 'accent' | 'none';
   hoverLift?: boolean;
+  gradientBorder?: boolean;
+  glass?: boolean;
   as?: 'div' | 'section' | 'article';
   index?: number;
   onClick?: () => void;
@@ -22,6 +24,8 @@ export function AnimatedCard({
   className,
   glow = 'primary',
   hoverLift = true,
+  gradientBorder = false,
+  glass = false,
   as: Tag = 'div',
   index = 0,
   onClick,
@@ -30,13 +34,15 @@ export function AnimatedCard({
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.3, ease: 'easeOut' }}
-      whileHover={hoverLift ? { y: -2, transition: { duration: 0.2 } } : undefined}
-      whileTap={onClick ? { scale: 0.99 } : undefined}
+      transition={{ delay: index * 0.04, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+      whileHover={hoverLift ? { y: -3, transition: { duration: 0.2, ease: 'easeOut' } } : undefined}
+      whileTap={onClick ? { scale: 0.98 } : undefined}
       onClick={onClick}
       className={cn(
-        'transition-shadow duration-300',
+        'transition-all duration-300',
         glow !== 'none' && glowStyles[glow],
+        gradientBorder && 'gradient-border gradient-border-subtle',
+        glass && 'glass-premium',
         onClick && 'cursor-pointer',
         className,
       )}

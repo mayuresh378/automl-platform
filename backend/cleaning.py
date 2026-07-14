@@ -159,57 +159,145 @@ def clean_dataset(file_name: str, operations: list) -> dict:
 def auto_clean(file_name: str) -> dict:
     df = load_dataset(file_name)
     applied = []
+    step_stats = {}
     before_rows = len(df)
     before_cols = len(df.columns)
 
-    # 1. Remove duplicates
+    original_df = df.copy()
+    per_step = {}
+
+    # 1. Missing value handling
+    missing_cols = []
+    for col in df.columns:
+        if df[col].isnull().any():
+            missing_cols.append(col)
+            before_miss = int(df[col].isnull().sum())
+            if df[col].dtype in ["int64", "float64"]:
+                df[col] = df[col].fillna(df[col].median())
+            else:
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else "unknown")
+            applied.append(f"Imputed {before_miss} missing values in {col}")
+    step_stats["missing_values"] = len(missing_cols)
+    per_step["missing"] = {"columns": missing_cols, "count": len(missing_cols)}
+
+    # 2. Remove duplicates
     dup_before = len(df)
     df = df.drop_duplicates()
     dup_removed = dup_before - len(df)
     if dup_removed > 0:
         applied.append(f"Removed {dup_removed} duplicate rows")
-
-    # 2. Impute missing values
-    for col in df.columns:
-        if df[col].isnull().any():
-            if df[col].dtype in ["int64", "float64"]:
-                df[col] = df[col].fillna(df[col].median())
-            else:
-                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else "unknown")
-            applied.append(f"Imputed missing values in {col}")
+    step_stats["duplicates_removed"] = dup_removed
+    per_step["duplicates"] = {"removed": dup_removed}
 
     # 3. Encode categorical columns
     cat_cols = df.select_dtypes(include=["object"]).columns.tolist()
+    encoded_cols = []
     for col in cat_cols:
         df = pd.get_dummies(df, columns=[col], drop_first=True)
+        encoded_cols.append(col)
         applied.append(f"One-hot encoded {col}")
+    step_stats["categorical_encoded"] = len(encoded_cols)
+    per_step["encoding"] = {"columns": encoded_cols, "count": len(encoded_cols)}
 
-    # 4. Remove outliers (IQR)
+    # 4. Outlier detection & removal
     numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns
+    outlier_cols = []
+    total_outliers_removed = 0
     for col in numeric_cols:
         q1 = df[col].quantile(0.25)
         q3 = df[col].quantile(0.75)
         iqr = q3 - q1
         lower = q1 - 1.5 * iqr
         upper = q3 + 1.5 * iqr
-        before = len(df)
-        df = df[(df[col] >= lower) & (df[col] <= upper)]
-        removed = before - len(df)
-        if removed > 0:
-            applied.append(f"Removed {removed} outliers from {col}")
+        outlier_mask = (df[col] < lower) | (df[col] > upper)
+        outlier_count = int(outlier_mask.sum())
+        if outlier_count > 0:
+            outlier_cols.append(col)
+            total_outliers_removed += outlier_count
+            before = len(df)
+            df = df[~outlier_mask]
+            removed = before - len(df)
+            if removed > 0:
+                applied.append(f"Removed {removed} outliers from {col}")
+    step_stats["outliers_removed"] = total_outliers_removed
+    per_step["outliers"] = {"columns": outlier_cols, "total": total_outliers_removed}
 
-    # 5. Standardize numeric features
-    for col in df.select_dtypes(include=["int64", "float64"]).columns:
+    # 5. Scaling (MinMax to [0,1])
+    numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns
+    scaled_cols = []
+    for col in numeric_cols:
+        mn, mx = df[col].min(), df[col].max()
+        if mx - mn > 0:
+            df[col] = (df[col] - mn) / (mx - mn)
+            scaled_cols.append(col)
+            applied.append(f"MinMax scaled {col} to [0,1]")
+    step_stats["features_scaled"] = len(scaled_cols)
+    per_step["scaling"] = {"columns": scaled_cols, "count": len(scaled_cols)}
+
+    # 6. Normalization (L2 norm)
+    numeric_cols = df.select_dtypes(include=["float64"]).columns
+    norm_cols = []
+    for col in numeric_cols:
+        norm = (df[col] ** 2).sum() ** 0.5
+        if norm > 0:
+            df[col] = df[col] / norm
+            norm_cols.append(col)
+    if norm_cols:
+        applied.append(f"L2-normalized {len(norm_cols)} numeric features")
+    step_stats["features_normalized"] = len(norm_cols)
+    per_step["normalization"] = {"columns": norm_cols, "count": len(norm_cols)}
+
+    # 7. Standardization (Z-score)
+    numeric_cols = df.select_dtypes(include=["float64"]).columns
+    std_cols = []
+    for col in numeric_cols:
         mean, std = df[col].mean(), df[col].std()
         if std > 0:
             df[col] = (df[col] - mean) / std
-            applied.append(f"Standardized {col}")
+            std_cols.append(col)
+    if std_cols:
+        applied.append(f"Z-score standardized {len(std_cols)} numeric features")
+    step_stats["features_standardized"] = len(std_cols)
+    per_step["standardization"] = {"columns": std_cols, "count": len(std_cols)}
 
-    # 6. Drop low-variance features
-    for col in df.select_dtypes(include=["int64", "float64"]).columns:
+    # 8. Feature selection (drop low-variance)
+    dropped_cols = []
+    for col in df.select_dtypes(include=["float64"]).columns:
         if df[col].var() < 0.01:
             df = df.drop(columns=[col])
-            applied.append(f"Dropped low-variance feature {col}")
+            dropped_cols.append(col)
+            applied.append(f"Dropped low-variance feature {col} (var={df[col].var() if col in df.columns else '<0.01'})")
+    step_stats["low_variance_dropped"] = len(dropped_cols)
+    per_step["feature_selection"] = {"columns": dropped_cols, "count": len(dropped_cols)}
+
+    # Column-level comparison
+    column_changes = []
+    for col in original_df.columns:
+        if col in df.columns:
+            orig_dtype = str(original_df[col].dtype)
+            new_dtype = str(df[col].dtype)
+            missing_before = int(original_df[col].isnull().sum())
+            missing_after = int(df[col].isnull().sum())
+            if orig_dtype in ["int64", "float64"] and new_dtype in ["int64", "float64"]:
+                column_changes.append({
+                    "name": col, "dtype": new_dtype,
+                    "missing_before": missing_before, "missing_after": missing_after,
+                    "mean_before": round(float(original_df[col].mean()), 4),
+                    "mean_after": round(float(df[col].mean()), 4),
+                    "std_before": round(float(original_df[col].std()), 4),
+                    "std_after": round(float(df[col].std()), 4),
+                })
+            else:
+                column_changes.append({
+                    "name": col, "dtype": new_dtype,
+                    "missing_before": missing_before, "missing_after": missing_after,
+                })
+        else:
+            column_changes.append({
+                "name": col, "dtype": str(original_df[col].dtype),
+                "removed": True,
+                "missing_before": 0, "missing_after": 0,
+            })
 
     # Save
     cleaned_name = f"auto_cleaned_{file_name}"
@@ -223,12 +311,17 @@ def auto_clean(file_name: str) -> dict:
         "columns_before": before_cols,
         "columns_after": len(df.columns),
         "applied_operations": applied,
+        "column_changes": column_changes,
+        "step_stats": {k: v for k, v in step_stats.items() if v > 0},
+        "per_step": per_step,
         "summary": {
-            "duplicates_removed": before_rows - dup_before + dup_removed,
-            "missing_imputed": sum(1 for a in applied if a.startswith("Imputed")),
-            "categorical_encoded": sum(1 for a in applied if a.startswith("One-hot")),
-            "outliers_removed": sum(1 for a in applied if a.startswith("Removed")),
-            "features_standardized": sum(1 for a in applied if a.startswith("Standardized")),
-            "low_variance_dropped": sum(1 for a in applied if a.startswith("Dropped")),
+            "duplicates_removed": step_stats.get("duplicates_removed", 0),
+            "missing_imputed": step_stats.get("missing_values", 0),
+            "categorical_encoded": step_stats.get("categorical_encoded", 0),
+            "outliers_removed": step_stats.get("outliers_removed", 0),
+            "features_scaled": step_stats.get("features_scaled", 0),
+            "features_normalized": step_stats.get("features_normalized", 0),
+            "features_standardized": step_stats.get("features_standardized", 0),
+            "low_variance_dropped": step_stats.get("low_variance_dropped", 0),
         },
     }

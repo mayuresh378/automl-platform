@@ -1,7 +1,6 @@
 import uuid
-import enum
 from datetime import datetime, timezone
-from sqlalchemy import (Column, String, Text, Integer, Float, Boolean, DateTime, Enum,
+from sqlalchemy import (Column, String, Text, Integer, Float, Boolean, DateTime,
                         ForeignKey, JSON, UniqueConstraint)
 from sqlalchemy.orm import relationship
 from database import Base
@@ -32,6 +31,7 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     preferences = Column(JSON, default=dict)
     mfa_enabled = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 
@@ -39,6 +39,16 @@ class User(Base):
     api_keys = relationship("ApiKey", back_populates="user")
     audit_logs = relationship("AuditLog", back_populates="user")
     pipelines = relationship("Pipeline", back_populates="created_by_user")
+    experiments = relationship("Experiment", back_populates="user")
+    model_registry = relationship("ModelRegistry", back_populates="user")
+    deployments = relationship("Deployment", back_populates="user")
+    datasets = relationship("Dataset", back_populates="user")
+    prediction_logs = relationship("PredictionLog", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")
+    projects = relationship("Project", back_populates="user")
+    webhooks = relationship("Webhook", back_populates="user")
+    sessions = relationship("UserSession", back_populates="user")
+    activity_logs = relationship("ActivityLog", back_populates="user")
 
 
 class Team(Base):
@@ -48,6 +58,7 @@ class Team(Base):
     name = Column(String, nullable=False)
     slug = Column(String, unique=True, nullable=True)
     plan = Column(String, default="free")
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 
@@ -58,30 +69,53 @@ class TeamMember(Base):
     __tablename__ = "team_members"
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    team_id = Column(String, ForeignKey("teams.id"), nullable=False)
     role = Column(String, default="member")
     joined_at = Column(DateTime, default=_now)
 
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     user = relationship("User", back_populates="teams")
+    team_id = Column(String, ForeignKey("teams.id"), nullable=False)
     team = relationship("Team", back_populates="members")
 
     __table_args__ = (UniqueConstraint("user_id", "team_id"),)
+
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default="development")
+    notes = Column(Text, nullable=True)
+    tags = Column(JSON, default=list)
+    deleted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="projects")
+    experiments = relationship("Experiment", back_populates="project")
+    model_registry = relationship("ModelRegistry", back_populates="project")
+    deployments = relationship("Deployment", back_populates="project")
+    datasets = relationship("Dataset", back_populates="project")
 
 
 class ApiKey(Base):
     __tablename__ = "api_keys"
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
     key_prefix = Column(String(8), nullable=False)
     key_hash = Column(String, nullable=False)
     status = Column(String, default="active")
     last_used_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
 
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     user = relationship("User", back_populates="api_keys")
 
 
@@ -89,8 +123,6 @@ class Experiment(Base):
     __tablename__ = "experiments"
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
     name = Column(String, nullable=False)
     model = Column(String, nullable=False)
     task_type = Column(String, nullable=True)
@@ -100,21 +132,27 @@ class Experiment(Base):
     metrics = Column(JSON, nullable=True)
     training_time = Column(Float, nullable=True)
     total_time = Column(Float, nullable=True)
+    memory_usage = Column(Float, nullable=True)
+    cpu_usage = Column(Float, nullable=True)
     status = Column(String, default="success")
     params = Column(JSON, nullable=True)
     feature_importance = Column(JSON, nullable=True)
     confusion_matrix = Column(JSON, nullable=True)
-    run_at = Column(DateTime, default=_now)
+    run_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
+
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="experiments")
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
+    project = relationship("Project", back_populates="experiments")
+    model_registry = relationship("ModelRegistry", back_populates="experiment")
 
 
 class ModelRegistry(Base):
     __tablename__ = "model_registry"
 
     id = Column(String, primary_key=True, default=_uuid)
-    experiment_id = Column(String, ForeignKey("experiments.id"), nullable=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
     name = Column(String, nullable=False)
     version = Column(Integer, default=1)
     model_type = Column(String, nullable=True)
@@ -128,17 +166,23 @@ class ModelRegistry(Base):
     status = Column(String, default="staging")
     tags = Column(JSON, default=list)
     description = Column(Text, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    experiment_id = Column(String, ForeignKey("experiments.id"), nullable=True)
+    experiment = relationship("Experiment", back_populates="model_registry")
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="model_registry")
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
+    project = relationship("Project", back_populates="model_registry")
+    deployments = relationship("Deployment", back_populates="model")
 
 
 class Deployment(Base):
     __tablename__ = "deployments"
 
     id = Column(String, primary_key=True, default=_uuid)
-    model_id = Column(String, ForeignKey("model_registry.id"), nullable=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
     name = Column(String, nullable=False)
     endpoint_url = Column(String, nullable=True)
     status = Column(String, default="active")
@@ -146,23 +190,32 @@ class Deployment(Base):
     requests_count = Column(Integer, default=0)
     avg_latency_ms = Column(Float, nullable=True)
     config = Column(JSON, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    model_id = Column(String, ForeignKey("model_registry.id"), nullable=True)
+    model = relationship("ModelRegistry", back_populates="deployments")
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="deployments")
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
+    project = relationship("Project", back_populates="deployments")
 
 
 class Pipeline(Base):
     __tablename__ = "pipelines"
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     steps = Column(JSON, default=list)
     status = Column(String, default="draft")
     schedule = Column(String, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
     created_by_user = relationship("User", back_populates="pipelines")
     runs = relationship("PipelineRun", back_populates="pipeline")
 
@@ -171,7 +224,6 @@ class PipelineRun(Base):
     __tablename__ = "pipeline_runs"
 
     id = Column(String, primary_key=True, default=_uuid)
-    pipeline_id = Column(String, ForeignKey("pipelines.id"), nullable=False)
     status = Column(String, default="pending")
     current_step = Column(String, nullable=True)
     results = Column(JSON, nullable=True)
@@ -180,38 +232,99 @@ class PipelineRun(Base):
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
 
+    pipeline_id = Column(String, ForeignKey("pipelines.id"), nullable=False)
     pipeline = relationship("Pipeline", back_populates="runs")
 
 
-class Project(Base):
-    __tablename__ = "projects"
+class Dataset(Base):
+    __tablename__ = "datasets"
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
-    name = Column(String, nullable=False)
+    filename = Column(String, nullable=False)
+    original_filename = Column(String, nullable=True)
+    file_path = Column(String, nullable=True)
+    file_size_kb = Column(Float, nullable=True)
+    rows = Column(Integer, nullable=True)
+    columns = Column(JSON, nullable=True)
+    status = Column(String, default="uploaded")
     description = Column(Text, nullable=True)
-    status = Column(String, default="development")
-    notes = Column(Text, nullable=True)
-    model_ids = Column(JSON, default=list)
-    dataset_ids = Column(JSON, default=list)
-    tags = Column(JSON, default=list)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
+    project = relationship("Project", back_populates="datasets")
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="datasets")
+
+
+class PredictionLog(Base):
+    __tablename__ = "prediction_logs"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    model_name = Column(String, nullable=False)
+    input_preview = Column(String, nullable=True)
+    prediction = Column(String, nullable=True)
+    confidence = Column(Float, nullable=True)
+    batch_size = Column(Integer, default=1)
+    latency_ms = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="prediction_logs")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=True)
+    type = Column(String, default="info")
+    category = Column(String, default="system")
+    resource_type = Column(String, nullable=True)
+    resource_id = Column(String, nullable=True)
+    read = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="notifications")
+
+
+class Webhook(Base):
+    __tablename__ = "webhooks"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    name = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    events = Column(JSON, default=list)
+    secret = Column(String, nullable=True)
+    status = Column(String, default="active")
+    last_triggered_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="webhooks")
 
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     token_hash = Column(String, nullable=False)
     refresh_token_hash = Column(String, nullable=True)
     device_info = Column(String, nullable=True)
     ip_address = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     last_used_at = Column(DateTime, default=_now)
-    created_at = Column(DateTime, default=_now)
     expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user = relationship("User", back_populates="sessions")
 
 
 class MarketplaceItem(Base):
@@ -228,46 +341,14 @@ class MarketplaceItem(Base):
     rating = Column(Float, default=0.0)
     featured = Column(Boolean, default=False)
     config = Column(JSON, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
-
-
-class Webhook(Base):
-    __tablename__ = "webhooks"
-
-    id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
-    name = Column(String, nullable=False)
-    url = Column(String, nullable=False)
-    events = Column(JSON, default=list)
-    secret = Column(String, nullable=True)
-    status = Column(String, default="active")
-    last_triggered_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=_now)
-
-
-class Dataset(Base):
-    __tablename__ = "datasets"
-
-    id = Column(String, primary_key=True, default=_uuid)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
-    filename = Column(String, nullable=False)
-    original_filename = Column(String, nullable=True)
-    file_path = Column(String, nullable=True)
-    file_size_kb = Column(Float, nullable=True)
-    rows = Column(Integer, nullable=True)
-    columns = Column(JSON, nullable=True)
-    status = Column(String, default="uploaded")
-    description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=_now)
-    updated_at = Column(DateTime, default=_now, onupdate=_now)
 
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=True)
     actor = Column(String, nullable=True)
     action = Column(String, nullable=False)
     target = Column(String, nullable=True)
@@ -276,6 +357,22 @@ class AuditLog(Base):
     details = Column(JSON, nullable=True)
     ip_address = Column(String, nullable=True)
     status = Column(String, default="success")
+    severity = Column(String, default="info")
     created_at = Column(DateTime, default=_now)
 
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
     user = relationship("User", back_populates="audit_logs")
+
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    action = Column(String, nullable=False)
+    resource_type = Column(String, nullable=True)
+    resource_id = Column(String, nullable=True)
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="activity_logs")

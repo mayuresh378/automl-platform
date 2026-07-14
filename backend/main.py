@@ -4,19 +4,27 @@ import json
 import time
 import uuid
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 import pandas as pd
 
+from logging_config import setup_logging, RequestLogMiddleware
+from config import settings
+from monitoring import collect_system_metrics
+import logging
+
 from database import get_db, init_db
+from middleware import SecurityHeadersMiddleware, RateLimitMiddleware, CSRFMiddleware, rate_limiter
+from security_utils import sanitize_text, sanitize_name, validate_sql_query, validate_upload_filename
 from crud import (
     create_user, authenticate_user, get_user_by_id,
     list_experiments, create_experiment,
@@ -31,7 +39,13 @@ from crud import (
     list_projects, create_project, get_project, update_project, list_projects_by_user,
     create_dataset_record, list_dataset_records, get_dataset_record, delete_dataset_record,
     global_search,
+    create_prediction_log, list_prediction_logs,
+    create_notification, list_notifications, mark_notification_read,
+    mark_all_notifications_read, delete_notification,
+    list_marketplace_items, install_marketplace_item,
 )
+from api_responses import ok, error, created, deleted, paginated, TAGS_METADATA
+from fastapi.exceptions import RequestValidationError
 from schemas import (
     PipelineCreate, PipelineUpdate, PipelineResponse, PipelineRunResponse,
     WebhookCreate, WebhookResponse,
@@ -42,8 +56,9 @@ from predict import make_prediction, load_model_metadata
 from cleaning import profile_dataset, clean_dataset, auto_clean
 from analysis import analyze_dataset
 from analytics import dashboard_analytics
-from train import CLASSIFICATION_MODELS, REGRESSION_MODELS, run_engine_training, XGB_AVAILABLE, LGBM_AVAILABLE, CATB_AVAILABLE
+from train import CLASSIFICATION_MODELS, REGRESSION_MODELS, run_engine_training, run_tuning, XGB_AVAILABLE, LGBM_AVAILABLE, CATB_AVAILABLE
 from features import generate_features, suggest_features
+from explain import explain_prediction
 from ai_assistant import answer_question, list_datasets as ai_list_datasets, load_experiments as ai_load_experiments
 from auth import (
     register_user, login_user, refresh_token, get_current_user, get_optional_user,
@@ -52,6 +67,9 @@ from auth import (
     forgot_password, reset_password, google_login,
     list_sessions, revoke_session, logout, revoke_all_sessions,
 )
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer(auto_error=False)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -83,7 +101,11 @@ async def lifespan(app: FastAPI):
         print(f"Database init failed: {e}", flush=True)
     yield
 
-app = FastAPI(title="AutoML Platform API", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan,
+              openapi_tags=TAGS_METADATA,
+              docs_url="/docs", redoc_url="/redoc",
+              contact={"name": "AutoML Team", "url": "https://automl.local"},
+              license_info={"name": "MIT"})
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://localhost")
 app.add_middleware(
@@ -93,6 +115,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RequestLogMiddleware)
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+rate_limit_max = int(os.getenv("RATE_LIMIT_MAX", "60"))
+rate_limit_window = int(os.getenv("RATE_LIMIT_WINDOW_SEC", "60"))
+app.add_middleware(RateLimitMiddleware, max_requests=rate_limit_max, window_sec=rate_limit_window)
+
+csrf_secret = os.getenv("CSRF_SECRET", os.getenv("JWT_SECRET", ""))
+if csrf_secret:
+    app.add_middleware(CSRFMiddleware, secret=csrf_secret)
+
+trusted_hosts = os.getenv("TRUSTED_HOSTS", "localhost,127.0.0.1,0.0.0.0,testserver,testclient")
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=[h.strip() for h in trusted_hosts.split(",") if h.strip()],
+)
+
+from api_responses import global_exception_handler, validation_exception_handler
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
@@ -123,108 +167,194 @@ def _get_dataset_df(name: str) -> pd.DataFrame:
 
 # ── Root ────────────────────────────────────────────────────────────
 
-@app.get("/")
+@app.get("/", tags=["Health"], summary="Home", description="Returns API status and version info.")
 def home():
     return {
         "status": "AutoML Platform API",
-        "version": "3.0.0",
+        "version": settings.APP_VERSION,
         "docs": "/docs",
     }
 
-@app.get("/api/v1/health")
+@app.get("/api/v1/health", tags=["Health"], summary="Health check",
+         description="Returns system health including dependency checks.")
 def health():
-    dataset_count = len([f for f in os.listdir(DATASET_DIR) if any(f.endswith(e) for e in ALLOWED_EXTENSIONS)])
-    model_count = len([f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")])
-    return {
-        "status": "healthy",
-        "version": "3.0.0",
-        "timestamp": datetime.now().isoformat(),
-        "datasets_count": dataset_count,
-        "models_count": model_count,
-    }
+    import psutil
+    disk = psutil.disk_usage("/")
+    db_ok = False
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        db.close()
+        db_ok = True
+    except Exception:
+        pass
+    status = "healthy" if db_ok else "degraded"
+    return ok({
+        "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "database": "connected" if db_ok else "unreachable",
+        "disk_usage_percent": disk.percent,
+        "disk_free_gb": round(disk.free / (1024**3), 2),
+        "datasets_count": len([f for f in os.listdir(DATASET_DIR) if any(f.endswith(e) for e in ALLOWED_EXTENSIONS)]) if os.path.exists(DATASET_DIR) else 0,
+        "models_count": len([f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]) if os.path.exists(MODELS_DIR) else 0,
+    }, message=status, status_code=200 if db_ok else 503)
+
+
+@app.get("/api/v1/health/live", tags=["Health"],
+         summary="Liveness probe", description="Simple liveness check for orchestrators.")
+def liveness():
+    return {"status": "alive"}
+
+
+@app.get("/api/v1/health/ready", tags=["Health"],
+         summary="Readiness probe", description="Readiness check including database connectivity.")
+def readiness():
+    db_ok = False
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        db.close()
+        db_ok = True
+    except Exception:
+        pass
+    if not db_ok:
+        raise HTTPException(status_code=503, detail="Database not ready")
+    return {"status": "ready"}
 
 
 # ── Auth ────────────────────────────────────────────────────────────
 
-@app.post("/api/v1/auth/register")
+@app.post("/api/v1/auth/register", tags=["Auth"], summary="Register user", description="Register a new user account with email and password.")
 def auth_register(email: str = Form(...), password: str = Form(...), name: str = Form(...),
                   device_info: str = Form(None), db: Session = Depends(get_db)):
     return register_user(db, email, password, name, device_info=device_info)
 
-@app.post("/api/v1/auth/login")
+@app.post("/api/v1/auth/login", tags=["Auth"], summary="Login", description="Authenticate user and return access token.")
 def auth_login(email: str = Form(...), password: str = Form(...),
                device_info: str = Form(None), db: Session = Depends(get_db)):
     return login_user(db, email, password, device_info=device_info)
 
-@app.post("/api/v1/auth/refresh")
+@app.post("/api/v1/auth/refresh", tags=["Auth"], summary="Refresh token", description="Refresh an expired access token.")
 def auth_refresh(token: str = Form(...), db: Session = Depends(get_db)):
     return refresh_token(token, db)
 
-@app.get("/api/v1/auth/me")
+@app.get("/api/v1/auth/me", tags=["Auth"], summary="Get current user", description="Return the currently authenticated user profile.")
 def auth_me(current_user: dict = Depends(get_current_user)):
     return {"user": current_user}
 
-@app.put("/api/v1/auth/profile")
+@app.put("/api/v1/auth/profile", tags=["Auth"], summary="Update profile", description="Update the current user's name and preferences.")
 def auth_update_profile(name: str = Form(None), preferences: str = Form(None),
                         current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     prefs = json.loads(preferences) if preferences else None
     return update_user_profile(db, current_user["id"], name=name, preferences=prefs)
 
-@app.post("/api/v1/auth/change-password")
+@app.post("/api/v1/auth/change-password", tags=["Auth"], summary="Change password", description="Change the current user's password.")
 def auth_change_password(current_password: str = Form(...), new_password: str = Form(...),
                          current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     return change_password(db, current_user["id"], current_password, new_password)
 
-@app.post("/api/v1/auth/send-verification")
+@app.post("/api/v1/auth/send-verification", tags=["Auth"], summary="Send verification email", description="Send an email verification link to the current user.")
 def auth_send_verification(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     return send_verification(db, current_user["id"])
 
-@app.post("/api/v1/auth/verify-email")
+@app.post("/api/v1/auth/verify-email", tags=["Auth"], summary="Verify email", description="Verify a user's email address using the token.")
 def auth_verify_email(token: str = Form(...), db: Session = Depends(get_db)):
     return verify_email(db, token)
 
-@app.post("/api/v1/auth/forgot-password")
+@app.post("/api/v1/auth/forgot-password", tags=["Auth"], summary="Forgot password", description="Send a password reset link to the user's email.")
 def auth_forgot_password(email: str = Form(...), db: Session = Depends(get_db)):
     return forgot_password(db, email)
 
-@app.post("/api/v1/auth/reset-password")
+@app.post("/api/v1/auth/reset-password", tags=["Auth"], summary="Reset password", description="Reset user password using a valid reset token.")
 def auth_reset_password(token: str = Form(...), new_password: str = Form(...), db: Session = Depends(get_db)):
     return reset_password(db, token, new_password)
 
-@app.post("/api/v1/auth/google")
+@app.post("/api/v1/auth/google", tags=["Auth"], summary="Google login", description="Authenticate user via Google OAuth token.")
 def auth_google(id_token: str = Form(...), device_info: str = Form(None), db: Session = Depends(get_db)):
     return google_login(db, id_token, device_info=device_info)
 
-@app.get("/api/v1/auth/sessions")
-def auth_list_sessions(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    return {"sessions": list_sessions(db, current_user["id"])}
+@app.get("/api/v1/auth/sessions", tags=["Auth"], summary="List sessions", description="List all active sessions for the current user.")
+def auth_list_sessions(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
+    sessions = list_sessions(db, current_user["id"])
+    total = len(sessions)
+    sessions = sessions[offset:offset + limit]
+    return paginated(sessions, total, offset, limit, key="sessions")
 
-@app.delete("/api/v1/auth/sessions/{session_id}")
+@app.delete("/api/v1/auth/sessions/{session_id}", tags=["Auth"], summary="Revoke session", description="Revoke a specific session by ID.")
 def auth_revoke_session(session_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     return revoke_session(db, current_user["id"], session_id)
 
-@app.post("/api/v1/auth/logout")
+@app.post("/api/v1/auth/logout", tags=["Auth"], summary="Logout", description="Log out the current user and revoke the active token.")
 def auth_logout(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     return logout(db, credentials)
 
-@app.post("/api/v1/auth/logout-all")
+@app.post("/api/v1/auth/logout-all", tags=["Auth"], summary="Logout all sessions", description="Revoke all sessions for the current user.")
 def auth_logout_all(current_user: dict = Depends(get_current_user),
                     credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     return revoke_all_sessions(db, current_user["id"], exclude_token=credentials.credentials)
 
 
+# ── Security ────────────────────────────────────────────────────────
+
+@app.get("/api/v1/csrf-token", tags=["Security"], summary="Get CSRF token", description="Generate and return a CSRF protection token.")
+def get_csrf_token():
+    csrf_secret = os.getenv("CSRF_SECRET", os.getenv("JWT_SECRET", ""))
+    if not csrf_secret:
+        raise HTTPException(status_code=500, detail="CSRF not configured")
+    from security_utils import generate_csrf_token
+    token, _ = generate_csrf_token(csrf_secret)
+    return {"csrf_token": token}
+
+
 # ── Search ──────────────────────────────────────────────────────────
 
-@app.get("/api/v1/search")
+@app.get("/api/v1/search", tags=["Search"], summary="Global search", description="Search across datasets, experiments, models, and projects.")
 def search(q: str = Query("", min_length=1), db: Session = Depends(get_db)):
     results = global_search(db, q, DATASET_DIR)
     return results
 
 
+# ── Notifications ──────────────────────────────────────────────────
+
+@app.get("/api/v1/notifications", tags=["Notifications"], summary="List notifications", description="Retrieve notifications for the current user.")
+def get_notifications(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
+    uid = current_user.get("id") if current_user and current_user.get("id") != "anonymous" else None
+    notifs = list_notifications(db, uid, 999999)
+    total = len(notifs)
+    notifs = notifs[offset:offset + limit]
+    return paginated([{
+        "id": n.id, "title": n.title, "message": n.message,
+        "type": n.type, "category": n.category,
+        "resource_type": n.resource_type, "resource_id": n.resource_id,
+        "read": n.read,
+        "created_at": n.created_at.isoformat() if n.created_at else None,
+    } for n in notifs], total, offset, limit, key="notifications")
+
+@app.put("/api/v1/notifications/{notif_id}/read", tags=["Notifications"], summary="Mark notification read", description="Mark a single notification as read.")
+def read_notification(notif_id: str, db: Session = Depends(get_db)):
+    n = mark_notification_read(db, notif_id)
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"status": "ok"}
+
+@app.put("/api/v1/notifications/read-all", tags=["Notifications"], summary="Mark all read", description="Mark all notifications as read for the current user.")
+def read_all_notifications(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    uid = current_user.get("id") if current_user and current_user.get("id") != "anonymous" else None
+    mark_all_notifications_read(db, uid)
+    return {"status": "ok"}
+
+@app.delete("/api/v1/notifications/{notif_id}", tags=["Notifications"], summary="Delete notification", description="Delete a notification by ID.")
+def remove_notification(notif_id: str, db: Session = Depends(get_db)):
+    if not delete_notification(db, notif_id):
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"status": "ok"}
+
+
 # ── Datasets ─────────────────────────────────────────────────────────
 
-@app.get("/api/v1/datasets")
-def list_datasets(db: Session = Depends(get_db)):
+@app.get("/api/v1/datasets", tags=["Datasets"], summary="List datasets", description="List all uploaded datasets with metadata.")
+def list_datasets(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
     db_records = {r.filename: r for r in list_dataset_records(db)}
     files = []
     for f in sorted(os.listdir(DATASET_DIR)):
@@ -252,9 +382,11 @@ def list_datasets(db: Session = Depends(get_db)):
             })
         except Exception:
             files.append({"name": f, "size_kb": size_kb, "rows": 0, "columns": [], "uploaded_at": "", "status": "error"})
-    return {"datasets": files}
+    total = len(files)
+    files = files[offset:offset + limit]
+    return paginated(files, total, offset, limit, key="datasets")
 
-@app.post("/api/v1/datasets")
+@app.post("/api/v1/datasets", tags=["Datasets"], summary="Upload dataset", description="Upload a new dataset file.")
 async def upload_dataset(
     file: UploadFile = File(...),
     project_id: str = Form(None),
@@ -280,6 +412,18 @@ async def upload_dataset(
         raise HTTPException(status_code=400, detail=f"Failed to parse: {str(e)}")
     record = create_dataset_record(db, filename, size_kb=round(len(content) / 1024, 1), rows=len(df), columns=list(df.columns), project_id=project_id)
     log_audit(db, current_user.get("name", "User"), "dataset.uploaded", filename, "dataset", record.id)
+    try:
+        create_notification(db, {
+            "user_id": current_user.get("id"),
+            "title": "Upload Successful",
+            "message": f"Dataset '{filename}' uploaded with {len(df)} rows and {len(list(df.columns))} features",
+            "type": "success",
+            "category": "upload",
+            "resource_type": "dataset",
+            "resource_id": record.id,
+        })
+    except Exception:
+        pass
     return {
         "message": f"Uploaded {filename}",
         "filename": filename,
@@ -288,7 +432,7 @@ async def upload_dataset(
         "id": record.id,
     }
 
-@app.get("/api/v1/datasets/{name}/download")
+@app.get("/api/v1/datasets/{name}/download", tags=["Datasets"], summary="Download dataset", description="Download a dataset file by name.")
 def download_dataset(name: str):
     fpath = validate_path(name)
     if not os.path.exists(fpath):
@@ -297,7 +441,7 @@ def download_dataset(name: str):
     media_map = {".csv": "text/csv", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".parquet": "application/octet-stream", ".json": "application/json"}
     return FileResponse(fpath, filename=name, media_type=media_map.get(ext, "application/octet-stream"))
 
-@app.delete("/api/v1/datasets/{name}")
+@app.delete("/api/v1/datasets/{name}", tags=["Datasets"], summary="Delete dataset", description="Delete a dataset file by name.")
 def delete_dataset(name: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     fpath = validate_path(name)
     if not os.path.exists(fpath):
@@ -307,7 +451,7 @@ def delete_dataset(name: str, db: Session = Depends(get_db), current_user: dict 
     log_audit(db, current_user.get("name", "User"), "dataset.deleted", name, "dataset")
     return {"message": f"Deleted '{name}'"}
 
-@app.get("/api/v1/datasets/{name}/preview")
+@app.get("/api/v1/datasets/{name}/preview", tags=["Datasets"], summary="Preview dataset", description="Preview rows from a dataset with pagination.")
 def preview_dataset(name: str, rows: int = Query(50, le=500), offset: int = Query(0, ge=0)):
     try:
         from cleaning import load_dataset as _ld
@@ -324,11 +468,11 @@ def preview_dataset(name: str, rows: int = Query(50, le=500), offset: int = Quer
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@app.get("/api/v1/datasets/{name}/profile")
+@app.get("/api/v1/datasets/{name}/profile", tags=["Datasets"], summary="Dataset profile", description="Generate a data quality profile for a dataset.")
 def dataset_profile(name: str):
     return profile_dataset(name)
 
-@app.get("/api/v1/datasets/{name}/analyze")
+@app.get("/api/v1/datasets/{name}/analyze", tags=["Datasets"], summary="Analyze dataset", description="Perform statistical analysis on a dataset.")
 def dataset_analyze(name: str, target: str = None):
     try:
         return analyze_dataset(name, target)
@@ -337,7 +481,7 @@ def dataset_analyze(name: str, target: str = None):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/v1/datasets/{name}/clean")
+@app.post("/api/v1/datasets/{name}/clean", tags=["Datasets"], summary="Clean dataset", description="Apply cleaning operations to a dataset.")
 def clean(name: str, operations: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     try:
         ops = json.loads(operations)
@@ -349,7 +493,7 @@ def clean(name: str, operations: str = Form(...), db: Session = Depends(get_db),
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/v1/datasets/{name}/auto-clean")
+@app.post("/api/v1/datasets/{name}/auto-clean", tags=["Datasets"], summary="Auto-clean dataset", description="Automatically detect and clean issues in a dataset.")
 def auto_clean_endpoint(name: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     try:
         result = auto_clean(name)
@@ -358,7 +502,7 @@ def auto_clean_endpoint(name: str, db: Session = Depends(get_db), current_user: 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/v1/datasets/{name}/features/generate")
+@app.post("/api/v1/datasets/{name}/features/generate", tags=["Datasets"], summary="Generate features", description="Generate engineered features for a dataset.")
 def generate(name: str, operations: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     try:
         ops = json.loads(operations)
@@ -370,30 +514,35 @@ def generate(name: str, operations: str = Form(...), db: Session = Depends(get_d
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/api/v1/datasets/{name}/features/suggest")
+@app.get("/api/v1/datasets/{name}/features/suggest", tags=["Datasets"], summary="Suggest features", description="Suggest potential feature engineering operations for a dataset.")
 def suggest(name: str):
     return suggest_features(name)
 
 
 # ── Experiments ──────────────────────────────────────────────────────
 
-@app.get("/api/v1/experiments")
-def list_experiments_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
-    return {"experiments": [{
+@app.get("/api/v1/experiments", tags=["Experiments"], summary="List experiments", description="Return a list of all training experiment records.")
+def list_experiments_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
+    experiments = [{
         "id": e.id, "name": e.name, "model": e.model,
         "task_type": e.task_type, "dataset": e.dataset, "target": e.target,
         "cv_score": e.cv_score, "metrics": e.metrics,
         "training_time": e.training_time, "total_time": e.total_time,
+        "memory_usage": e.memory_usage, "cpu_usage": e.cpu_usage,
         "status": e.status, "runAt": e.run_at.isoformat() if e.run_at else None,
         "params": e.params, "feature_importance": e.feature_importance,
         "confusion_matrix": e.confusion_matrix,
         "user_id": e.user_id, "project_id": getattr(e, "project_id", None),
-    } for e in list_experiments(db)]}
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    } for e in list_experiments(db)]
+    total = len(experiments)
+    experiments = experiments[offset:offset + limit]
+    return paginated(experiments, total, offset, limit, key="experiments")
 
 
 # ── Training ─────────────────────────────────────────────────────────
 
-@app.post("/api/v1/training")
+@app.post("/api/v1/training", tags=["Training"], summary="Train model", description="Run AutoML training on a dataset and return results.")
 def train_model(
     file_name: str = Form(...),
     target_column: str = Form(...),
@@ -455,6 +604,18 @@ def train_model(
 
         log_audit(db, current_user.get("name", "User"), "training.completed",
                   f"{file_name} -> {results['best_model']}", "experiment", exp.id)
+        try:
+            create_notification(db, {
+                "user_id": current_user.get("id"),
+                "title": "Training Complete",
+                "message": f"Model '{results['best_model']}' trained on {file_name} with CV score {results['cv_score']:.3f}",
+                "type": "success",
+                "category": "training",
+                "resource_type": "experiment",
+                "resource_id": exp.id,
+            })
+        except Exception:
+            pass
         return {
             "status": "Success",
             "message": "Training completed!",
@@ -472,8 +633,8 @@ def train_model(
 
 # ── Models ───────────────────────────────────────────────────────────
 
-@app.get("/api/v1/models")
-def list_models_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+@app.get("/api/v1/models", tags=["Models"], summary="List models", description="List all available models from filesystem and registry.")
+def list_models_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
     db_models = list_models(db)
     fs_models = []
     for f in os.listdir(MODELS_DIR):
@@ -497,9 +658,12 @@ def list_models_api(db: Session = Depends(get_db), current_user: dict = Depends(
         "experiment_id": m.experiment_id,
         "created_at": m.created_at.isoformat() if m.created_at else None,
     } for m in db_models]
-    return {"models": fs_models, "registered_models": registered}
+    all_models = fs_models + registered
+    total = len(all_models)
+    all_models = all_models[offset:offset + limit]
+    return paginated(all_models, total, offset, limit, key="models")
 
-@app.get("/api/v1/models/{name}")
+@app.get("/api/v1/models/{name}", tags=["Models"], summary="Get model detail", description="Retrieve metadata for a specific model.")
 def get_model_detail(name: str):
     fpath = os.path.join(MODELS_DIR, name)
     if not os.path.exists(fpath):
@@ -507,7 +671,35 @@ def get_model_detail(name: str):
     meta = _load_model_meta(name)
     return {"name": name, **meta} if meta else {"name": name}
 
-@app.delete("/api/v1/models/{name}")
+@app.get("/api/v1/models/{name}/download", tags=["Models"], summary="Download model", description="Download a model file by name.")
+def download_model(name: str):
+    fpath = os.path.join(MODELS_DIR, name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    return FileResponse(fpath, filename=name, media_type="application/octet-stream")
+
+@app.put("/api/v1/models/{name}", tags=["Models"], summary="Update model", description="Update model status, tags, or description.")
+def update_model_meta(name: str, status: str = Form(None), tags: str = Form(None),
+                      description: str = Form(None), db: Session = Depends(get_db)):
+    from crud import update_model_meta as _update_model_meta
+    tags_list = json.loads(tags) if tags else None
+    m = _update_model_meta(db, name, status=status, tags=tags_list, description=description)
+    if not m:
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    return {"id": m.id, "name": m.name, "status": m.status, "tags": m.tags, "description": m.description}
+
+@app.get("/api/v1/models/{name}/meta", tags=["Models"], summary="Get model metadata", description="Return file stats and metadata JSON for a model.")
+def get_model_meta(name: str):
+    fpath = os.path.join(MODELS_DIR, name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    meta = _load_model_meta(name)
+    meta_path = fpath.replace(".pkl", "_meta.json")
+    stats = {"file_size_kb": round(os.path.getsize(fpath) / 1024, 1) if os.path.exists(fpath) else None}
+    stats["created_at"] = datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat() if os.path.exists(fpath) else None
+    return {"name": name, **stats, **meta}
+
+@app.delete("/api/v1/models/{name}", tags=["Models"], summary="Delete model", description="Delete a model file and its metadata.")
 def delete_model(name: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     fpath = os.path.join(MODELS_DIR, name)
     meta_path = fpath.replace(".pkl", "_meta.json")
@@ -535,7 +727,7 @@ FORMAT_PARAMS = {
     "SVR": {"C": {"type": "float", "range": [0.01, 100], "log": True}, "kernel": {"type": "choice", "values": ["rbf", "linear", "poly", "sigmoid"]}, "gamma": {"type": "choice", "values": ["scale", "auto"]}},
 }
 
-@app.get("/api/v1/tuning/params")
+@app.get("/api/v1/tuning/params", tags=["Training"], summary="Get tuning parameters", description="Return available hyperparameter search spaces for all models.")
 def get_tuning_params():
     return {
         "classification": {
@@ -548,7 +740,7 @@ def get_tuning_params():
         },
     }
 
-@app.post("/api/v1/tuning")
+@app.post("/api/v1/tuning", tags=["Training"], summary="Run tuning", description="Run hyperparameter tuning on specified models.")
 def run_tuning_endpoint(
     file_name: str = Form(...),
     target_column: str = Form(...),
@@ -593,6 +785,16 @@ def run_tuning_endpoint(
             exp = create_experiment(db, exp_data)
             exp_data_list.append({"id": exp.id, "name": exp.name, "model": r["name"], "cv_score": r["cv_score"], "metrics": r["metrics"]})
         log_audit(db, current_user.get("name", "User"), "tuning.completed", f"Tuned {len(exp_data_list)} models", "tuning")
+        try:
+            create_notification(db, {
+                "user_id": current_user.get("id"),
+                "title": "HPO Tuning Complete",
+                "message": f"Hyperparameter tuning on {file_name} completed: {len(exp_data_list)} models tuned",
+                "type": "success",
+                "category": "training",
+            })
+        except Exception:
+            pass
         return {"results": tuning["results"], "experiments": exp_data_list, "task_type": task}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -600,7 +802,7 @@ def run_tuning_endpoint(
 
 # ── AutoML Engine ────────────────────────────────────────────────────
 
-@app.get("/api/v1/engine/models")
+@app.get("/api/v1/engine/models", tags=["Training"], summary="List engine models", description="Return available AutoML engine models and optional framework status.")
 def get_engine_models():
     clf_names = list(CLASSIFICATION_MODELS.keys())
     reg_names = list(REGRESSION_MODELS.keys())
@@ -615,7 +817,7 @@ def get_engine_models():
         },
     }
 
-@app.post("/api/v1/engine/train")
+@app.post("/api/v1/engine/train", tags=["Training"], summary="Engine train", description="Train multiple models via the AutoML engine pipeline.")
 def run_engine(
     file_name: str = Form(...),
     target_column: str = Form(...),
@@ -679,6 +881,16 @@ def run_engine(
             exp_list.append({"id": exp.id, "name": exp.name, "model": r["name"], "cv_score": r["cv_score"], "metrics": r["metrics"]})
         log_audit(db, current_user.get("name", "User"), "engine.completed",
                   f"{file_name} trained {len(exp_list)} models", "engine")
+        try:
+            create_notification(db, {
+                "user_id": current_user.get("id"),
+                "title": "Training Complete",
+                "message": f"AutoML Engine completed on {file_name}: {len(exp_list)} models trained, best = {engine_result['best_model']}",
+                "type": "success",
+                "category": "training",
+            })
+        except Exception:
+            pass
         return {
             "results": engine_result["results"],
             "experiments": exp_list,
@@ -692,18 +904,21 @@ def run_engine(
 
 # ── Deployments ──────────────────────────────────────────────────────
 
-@app.get("/api/v1/deployments")
-def list_deployments_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+@app.get("/api/v1/deployments", tags=["Deployments"], summary="List deployments", description="List all model deployments.")
+def list_deployments_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
     deps = list_deployments(db)
-    return {"deployments": [{
+    items = [{
         "id": d.id, "model_name": d.name, "endpoint_name": d.name,
         "endpoint_url": d.endpoint_url, "status": d.status,
         "environment": d.environment, "requests_count": d.requests_count,
         "avg_latency_ms": d.avg_latency_ms,
         "created_at": d.created_at.isoformat() if d.created_at else None,
-    } for d in deps]}
+    } for d in deps]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="deployments")
 
-@app.post("/api/v1/deployments")
+@app.post("/api/v1/deployments", tags=["Deployments"], summary="Create deployment", description="Deploy a trained model as a serving endpoint.")
 def create_deployment_api(
     model_name: str = Form(...),
     endpoint_name: str = Form(...),
@@ -724,13 +939,25 @@ def create_deployment_api(
         "environment": "production",
     })
     log_audit(db, current_user.get("name", "User"), "deployment.created", endpoint_name, "deployment", dep.id)
+    try:
+        create_notification(db, {
+            "user_id": current_user.get("id"),
+            "title": "Deployment Successful",
+            "message": f"Model '{model_name}' deployed as '{endpoint_name}'",
+            "type": "success",
+            "category": "deployment",
+            "resource_type": "deployment",
+            "resource_id": dep.id,
+        })
+    except Exception:
+        pass
     return {
         "id": dep.id, "model_name": model_name, "endpoint_name": endpoint_name,
         "endpoint_url": dep.endpoint_url, "status": dep.status,
         "created_at": dep.created_at.isoformat() if dep.created_at else None,
     }
 
-@app.delete("/api/v1/deployments/{dep_id}")
+@app.delete("/api/v1/deployments/{dep_id}", tags=["Deployments"], summary="Delete deployment", description="Remove a deployment by ID.")
 def delete_deployment_api(dep_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     if not delete_deployment(db, dep_id):
         raise HTTPException(status_code=404, detail=f"Deployment '{dep_id}' not found")
@@ -740,19 +967,51 @@ def delete_deployment_api(dep_id: str, db: Session = Depends(get_db), current_us
 
 # ── Predictions ──────────────────────────────────────────────────────
 
-@app.post("/api/v1/predictions")
+@app.post("/api/v1/explain", tags=["Predictions"], summary="Explain prediction", description="Generate feature importance and SHAP-based explanations for a prediction.")
+def explain_endpoint(
+    model_name: str = Form(...),
+    payload: str = Form(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_optional_user),
+):
+    try:
+        input_data = json.loads(payload) if payload else None
+        result = explain_prediction(model_name, input_data)
+        log_audit(db, current_user.get("name", "User"), "explain.completed", model_name, "explain")
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/v1/predictions", tags=["Predictions"], summary="Make prediction", description="Run a single prediction using a trained model.")
 def predict(model_name: str = Form(...), payload: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     try:
+        import time
+        t0 = time.time()
         input_data = json.loads(payload)
         result = make_prediction(model_name, input_data)
+        elapsed = round((time.time() - t0) * 1000, 1)
         log_audit(db, current_user.get("name", "User"), "prediction.made", model_name, "prediction")
+        try:
+            create_prediction_log(db, {
+                "model_name": model_name,
+                "input_preview": json.dumps(input_data)[:200],
+                "prediction": str(result.get("prediction", "")),
+                "confidence": result.get("confidence"),
+                "batch_size": 1,
+                "latency_ms": elapsed,
+                "user_id": current_user.get("id"),
+            })
+        except Exception:
+            pass
+        result["latency_ms"] = elapsed
         return result
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/v1/batch-predictions")
+@app.post("/api/v1/batch-predictions", tags=["Predictions"], summary="Batch predict", description="Run predictions on an entire dataset file in batch.")
 def batch_predict(
     model_name: str = Form(...),
     file_name: str = Form(...),
@@ -760,32 +1019,70 @@ def batch_predict(
     current_user: dict = Depends(get_optional_user),
 ):
     try:
+        import time
+        import csv
+        t0 = time.time()
         df = _get_dataset_df(file_name)
-        results = []
+        predictions = []
         for _, row in df.iterrows():
             result = make_prediction(model_name, row.to_dict())
-            results.append(result)
+            predictions.append({
+                **row.to_dict(),
+                "prediction": result.get("prediction"),
+                "confidence": result.get("confidence"),
+            })
+        elapsed = round((time.time() - t0) * 1000, 1)
         log_audit(db, current_user.get("name", "User"), "batch_prediction.made", model_name, "prediction")
-        return {"predictions": results, "count": len(results)}
+        try:
+            create_prediction_log(db, {
+                "model_name": model_name,
+                "input_preview": f"batch {file_name} ({len(predictions)} rows)",
+                "prediction": str(predictions[0].get("prediction", "")) if predictions else "",
+                "batch_size": len(predictions),
+                "latency_ms": elapsed,
+                "user_id": current_user.get("id"),
+            })
+        except Exception:
+            pass
+        return {"predictions": predictions, "count": len(predictions), "latency_ms": elapsed}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.get("/api/v1/predictions/history", tags=["Predictions"], summary="Prediction history", description="Return a history of all past prediction requests.")
+def prediction_history(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
+    logs = list_prediction_logs(db)
+    items = [{
+        "id": l.id, "model_name": l.model_name,
+        "input_preview": l.input_preview,
+        "prediction": l.prediction,
+        "confidence": l.confidence,
+        "batch_size": l.batch_size,
+        "latency_ms": l.latency_ms,
+        "created_at": l.created_at.isoformat() if l.created_at else None,
+    } for l in logs]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="history")
+
 
 # ── Pipelines ────────────────────────────────────────────────────────
 
-@app.get("/api/v1/pipelines")
-def list_pipelines_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+@app.get("/api/v1/pipelines", tags=["Pipelines"], summary="List pipelines", description="List all ML pipelines.")
+def list_pipelines_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
     pipes = list_pipelines(db)
-    return {"pipelines": [{
+    items = [{
         "id": p.id, "name": p.name, "description": p.description,
         "steps": p.steps, "status": p.status, "schedule": p.schedule,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
-    } for p in pipes]}
+    } for p in pipes]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="pipelines")
 
-@app.post("/api/v1/pipelines")
+@app.post("/api/v1/pipelines", tags=["Pipelines"], summary="Create pipeline", description="Create a new ML pipeline with steps and optional schedule.")
 def create_pipeline_api(data: PipelineCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     pipe = create_pipeline(db, user_id=current_user.get("id") or "system",
                            name=data.name, steps=data.steps,
@@ -797,7 +1094,7 @@ def create_pipeline_api(data: PipelineCreate, db: Session = Depends(get_db), cur
         "updated_at": pipe.updated_at.isoformat() if pipe.updated_at else None,
     }
 
-@app.get("/api/v1/pipelines/{pipeline_id}")
+@app.get("/api/v1/pipelines/{pipeline_id}", tags=["Pipelines"], summary="Get pipeline", description="Retrieve a specific pipeline by ID.")
 def get_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
     pipe = get_pipeline(db, pipeline_id)
     if not pipe:
@@ -809,7 +1106,7 @@ def get_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
         "updated_at": pipe.updated_at.isoformat() if pipe.updated_at else None,
     }
 
-@app.put("/api/v1/pipelines/{pipeline_id}")
+@app.put("/api/v1/pipelines/{pipeline_id}", tags=["Pipelines"], summary="Update pipeline", description="Update pipeline configuration, steps, or schedule.")
 def update_pipeline_api(pipeline_id: str, data: PipelineUpdate, db: Session = Depends(get_db)):
     pipe = update_pipeline(db, pipeline_id, name=data.name, description=data.description,
                            steps=data.steps, schedule=data.schedule)
@@ -822,13 +1119,13 @@ def update_pipeline_api(pipeline_id: str, data: PipelineUpdate, db: Session = De
         "updated_at": pipe.updated_at.isoformat() if pipe.updated_at else None,
     }
 
-@app.delete("/api/v1/pipelines/{pipeline_id}")
+@app.delete("/api/v1/pipelines/{pipeline_id}", tags=["Pipelines"], summary="Delete pipeline", description="Delete a pipeline by ID.")
 def delete_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
     if not delete_pipeline(db, pipeline_id):
         raise HTTPException(status_code=404, detail="Pipeline not found")
     return {"status": "deleted"}
 
-@app.post("/api/v1/pipelines/{pipeline_id}/run")
+@app.post("/api/v1/pipelines/{pipeline_id}/run", tags=["Pipelines"], summary="Run pipeline", description="Execute a pipeline run.")
 def run_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
     try:
         run = run_pipeline(db, pipeline_id)
@@ -842,19 +1139,22 @@ def run_pipeline_api(pipeline_id: str, db: Session = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@app.get("/api/v1/pipelines/{pipeline_id}/runs")
-def list_runs_api(pipeline_id: str, db: Session = Depends(get_db)):
+@app.get("/api/v1/pipelines/{pipeline_id}/runs", tags=["Pipelines"], summary="List pipeline runs", description="List all runs for a specific pipeline.")
+def list_runs_api(pipeline_id: str, db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
     runs = list_pipeline_runs(db, pipeline_id)
-    return {"runs": [{
+    items = [{
         "id": r.id, "pipeline_id": r.pipeline_id,
         "status": r.status, "current_step": r.current_step,
         "results": r.results, "error": r.error,
         "started_at": r.started_at.isoformat() if r.started_at else None,
         "completed_at": r.completed_at.isoformat() if r.completed_at else None,
         "created_at": r.created_at.isoformat() if r.created_at else None,
-    } for r in runs]}
+    } for r in runs]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="runs")
 
-@app.get("/api/v1/pipeline-runs/{run_id}")
+@app.get("/api/v1/pipeline-runs/{run_id}", tags=["Pipelines"], summary="Get pipeline run", description="Retrieve details of a specific pipeline run.")
 def get_run_api(run_id: str, db: Session = Depends(get_db)):
     run = get_pipeline_run(db, run_id)
     if not run:
@@ -871,16 +1171,19 @@ def get_run_api(run_id: str, db: Session = Depends(get_db)):
 
 # ── Webhooks ─────────────────────────────────────────────────────────
 
-@app.get("/api/v1/webhooks")
-def list_webhooks_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+@app.get("/api/v1/webhooks", tags=["Webhooks"], summary="List webhooks", description="List all configured webhooks.")
+def list_webhooks_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
     whs = list_webhooks(db)
-    return {"webhooks": [{
+    items = [{
         "id": w.id, "name": w.name, "url": w.url,
         "events": w.events, "status": w.status,
         "created_at": w.created_at.isoformat() if w.created_at else None,
-    } for w in whs]}
+    } for w in whs]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="webhooks")
 
-@app.post("/api/v1/webhooks")
+@app.post("/api/v1/webhooks", tags=["Webhooks"], summary="Create webhook", description="Register a new webhook for event notifications.")
 def create_webhook_api(data: WebhookCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     wh = create_webhook(db, {**data.model_dump(), "user_id": current_user.get("id")})
     return {
@@ -889,7 +1192,7 @@ def create_webhook_api(data: WebhookCreate, db: Session = Depends(get_db), curre
         "created_at": wh.created_at.isoformat() if wh.created_at else None,
     }
 
-@app.delete("/api/v1/webhooks/{webhook_id}")
+@app.delete("/api/v1/webhooks/{webhook_id}", tags=["Webhooks"], summary="Delete webhook", description="Delete a webhook by ID.")
 def delete_webhook_api(webhook_id: str, db: Session = Depends(get_db)):
     if not delete_webhook(db, webhook_id):
         raise HTTPException(status_code=404, detail="Webhook not found")
@@ -898,16 +1201,19 @@ def delete_webhook_api(webhook_id: str, db: Session = Depends(get_db)):
 
 # ── Teams ────────────────────────────────────────────────────────────
 
-@app.get("/api/v1/teams")
-def list_teams_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+@app.get("/api/v1/teams", tags=["Teams"], summary="List teams", description="List all teams in the organization.")
+def list_teams_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
     teams = list_teams(db)
-    return {"teams": [{
+    items = [{
         "id": t.id, "name": t.name, "slug": t.slug,
         "plan": t.plan, "member_count": len(t.members),
         "created_at": t.created_at.isoformat() if t.created_at else None,
-    } for t in teams]}
+    } for t in teams]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="teams")
 
-@app.post("/api/v1/teams")
+@app.post("/api/v1/teams", tags=["Teams"], summary="Create team", description="Create a new team.")
 def create_team_api(name: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     team = create_team(db, name, owner_id=current_user.get("id") or "system")
     return {"id": team.id, "name": team.name, "slug": team.slug, "plan": team.plan}
@@ -915,23 +1221,26 @@ def create_team_api(name: str = Form(...), db: Session = Depends(get_db), curren
 
 # ── API Keys ─────────────────────────────────────────────────────────
 
-@app.get("/api/v1/api-keys")
-def list_api_keys_api(current_user: dict = Depends(get_optional_user), db: Session = Depends(get_db)):
+@app.get("/api/v1/api-keys", tags=["API Keys"], summary="List API keys", description="List all API keys for the current user.")
+def list_api_keys_api(current_user: dict = Depends(get_optional_user), db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
     if current_user.get("id") == "anonymous":
         raise HTTPException(status_code=401, detail="Authentication required")
     keys = list_api_keys(db, current_user["id"])
-    return {"api_keys": [{"id": k.id, "name": k.name, "key_prefix": k.key_prefix,
-                          "status": k.status, "created_at": k.created_at.isoformat() if k.created_at else None}
-                         for k in keys]}
+    items = [{"id": k.id, "name": k.name, "key_prefix": k.key_prefix,
+              "status": k.status, "created_at": k.created_at.isoformat() if k.created_at else None}
+             for k in keys]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="api_keys")
 
-@app.post("/api/v1/api-keys")
+@app.post("/api/v1/api-keys", tags=["API Keys"], summary="Create API key", description="Generate a new API key for the current user.")
 def create_api_key_api(name: str = Form(...), current_user: dict = Depends(get_optional_user), db: Session = Depends(get_db)):
     if current_user.get("id") == "anonymous":
         raise HTTPException(status_code=401, detail="Authentication required")
     result = create_api_key(db, current_user["id"], name)
     return result
 
-@app.delete("/api/v1/api-keys/{key_id}")
+@app.delete("/api/v1/api-keys/{key_id}", tags=["API Keys"], summary="Delete API key", description="Delete an API key by ID.")
 def delete_api_key_api(key_id: str, current_user: dict = Depends(get_optional_user), db: Session = Depends(get_db)):
     if current_user.get("id") == "anonymous":
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -942,26 +1251,12 @@ def delete_api_key_api(key_id: str, current_user: dict = Depends(get_optional_us
 
 # ── Monitoring ───────────────────────────────────────────────────────
 
-@app.get("/api/v1/monitoring/metrics")
-def system_metrics():
-    try:
-        import psutil
-        cpu = psutil.cpu_percent(interval=0.1)
-        memory = psutil.virtual_memory()
-        storage = psutil.disk_usage(os.path.abspath(os.sep))
-        return {
-            "cpu": {"label": "CPU", "value": cpu, "detail": f"{psutil.cpu_count()} logical cores"},
-            "memory": {"label": "Memory", "value": memory.percent, "detail": f"{memory.used / 1e9:.1f} GB / {memory.total / 1e9:.1f} GB"},
-            "storage": {"label": "Storage", "value": storage.percent, "detail": f"{storage.used / 1e9:.1f} GB / {storage.total / 1e9:.1f} GB"},
-            "gpu": {"label": "GPU", "value": 0, "detail": "N/A"},
-        }
-    except Exception:
-        return {"cpu": {"label": "CPU", "value": 0, "detail": "N/A"},
-                "memory": {"label": "Memory", "value": 0, "detail": "N/A"},
-                "storage": {"label": "Storage", "value": 0, "detail": "N/A"},
-                "gpu": {"label": "GPU", "value": 0, "detail": "N/A"}}
+@app.get("/api/v1/monitoring/metrics", tags=["Monitoring"],
+         summary="System metrics", description="Collects CPU, memory, disk, and network metrics.")
+def monitoring_metrics():
+    return ok(collect_system_metrics())
 
-@app.get("/api/v1/monitoring/stats")
+@app.get("/api/v1/monitoring/stats", tags=["Monitoring"], summary="Live stats", description="Return live aggregate statistics for models and experiments.")
 def live_stats(db: Session = Depends(get_db)):
     exps = list_experiments(db)
     models = [f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]
@@ -974,10 +1269,43 @@ def live_stats(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/metrics", tags=["Monitoring"],
+         summary="Prometheus metrics", description="Prometheus-scrapable metrics endpoint.")
+def prometheus_metrics():
+    metrics = collect_system_metrics()
+    lines = [
+        "# HELP automl_build_info Build information",
+        "# TYPE automl_build_info gauge",
+        f'automl_build_info{{version="{settings.APP_VERSION}",environment="{settings.ENVIRONMENT}"}} 1',
+        "",
+        "# HELP automl_cpu_percent CPU usage percentage",
+        "# TYPE automl_cpu_percent gauge",
+        f"automl_cpu_percent {metrics['cpu']['percent']}",
+        "",
+        "# HELP automl_memory_percent Memory usage percentage",
+        "# TYPE automl_memory_percent gauge",
+        f"automl_memory_percent {metrics['memory']['percent']}",
+        "",
+        "# HELP automl_memory_available_bytes Available memory bytes",
+        "# TYPE automl_memory_available_bytes gauge",
+        f"automl_memory_available_bytes {metrics['memory']['available_bytes']}",
+        "",
+        "# HELP automl_disk_percent Disk usage percentage",
+        "# TYPE automl_disk_percent gauge",
+        f"automl_disk_percent {metrics['disk']['percent']}",
+        "",
+        "# HELP automl_disk_free_bytes Free disk bytes",
+        "# TYPE automl_disk_free_bytes gauge",
+        f"automl_disk_free_bytes {metrics['disk']['free_bytes']}",
+    ]
+    return Response(content="\n".join(lines), media_type="text/plain; charset=utf-8",
+                    headers={"Content-Type": "text/plain; charset=utf-8"})
+
+
 # ── Projects ─────────────────────────────────────────────────────────
 
-@app.get("/api/v1/projects")
-def list_projects_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+@app.get("/api/v1/projects", tags=["Projects"], summary="List projects", description="List all projects with resource counts.")
+def list_projects_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
     projects = list_projects(db)
     datasets = list_dataset_records(db)
     exps = list_experiments(db)
@@ -999,7 +1327,7 @@ def list_projects_api(db: Session = Depends(get_db), current_user: dict = Depend
     for d in deploys:
         pid = getattr(d, "project_id", None) or "none"
         deploy_by_project.setdefault(pid, []).append(d)
-    return {"projects": [{
+    items = [{
         "id": p.id, "name": p.name, "description": p.description,
         "status": p.status, "notes": p.notes, "model_ids": p.model_ids,
         "dataset_ids": p.dataset_ids, "tags": p.tags,
@@ -1008,9 +1336,12 @@ def list_projects_api(db: Session = Depends(get_db), current_user: dict = Depend
         "model_count": len(model_by_project.get(p.id, [])),
         "deployment_count": len(deploy_by_project.get(p.id, [])),
         "created_at": p.created_at.isoformat() if p.created_at else None,
-    } for p in projects]}
+    } for p in projects]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="projects")
 
-@app.post("/api/v1/projects")
+@app.post("/api/v1/projects", tags=["Projects"], summary="Create project", description="Create a new project.")
 def create_project_api(name: str = Form(...), description: str = Form(None),
                        db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     p = create_project(db, name=name, description=description, user_id=current_user.get("id"))
@@ -1018,7 +1349,34 @@ def create_project_api(name: str = Form(...), description: str = Form(None),
     return {"id": p.id, "name": p.name, "description": p.description,
             "status": p.status, "created_at": p.created_at.isoformat() if p.created_at else None}
 
-@app.get("/api/v1/projects/{project_id}")
+@app.get("/api/v1/projects/templates", tags=["Projects"], summary="List project templates", description="Return a list of starter project templates.")
+def list_project_templates():
+    return {"templates": [
+        {"name": "Customer Churn", "description": "Predict which customers are likely to churn using classification models.", "status": "development", "tags": ["classification", "churn", "customer-analytics"]},
+        {"name": "Loan Prediction", "description": "Classify loan applications as approved or rejected based on applicant features.", "status": "development", "tags": ["classification", "finance", "risk"]},
+        {"name": "Heart Disease", "description": "Detect heart disease risk using patient health indicators and vital signs.", "status": "development", "tags": ["classification", "healthcare", "medical"]},
+        {"name": "House Price Prediction", "description": "Predict real estate prices from property features, location data, and market trends.", "status": "development", "tags": ["regression", "real-estate", "pricing"]},
+        {"name": "Employee Attrition", "description": "Identify employees at risk of leaving using HR data and engagement metrics.", "status": "development", "tags": ["classification", "hr", "analytics"]},
+    ]}
+
+
+@app.get("/api/v1/projects/mine", tags=["Projects"], summary="List my projects", description="List projects owned by the current user.")
+def list_my_projects_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
+    uid = current_user.get("id")
+    if not uid:
+        return paginated([], 0, offset, limit, key="projects")
+    projects = list_projects_by_user(db, uid)
+    items = [{
+        "id": p.id, "name": p.name, "description": p.description,
+        "status": p.status,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+    } for p in projects]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="projects")
+
+
+@app.get("/api/v1/projects/{project_id}", tags=["Projects"], summary="Get project", description="Retrieve a project with all associated resources.")
 def get_project_api(project_id: str, db: Session = Depends(get_db)):
     p = get_project(db, project_id)
     if not p:
@@ -1041,7 +1399,7 @@ def get_project_api(project_id: str, db: Session = Depends(get_db)):
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
     }
 
-@app.put("/api/v1/projects/{project_id}")
+@app.put("/api/v1/projects/{project_id}", tags=["Projects"], summary="Update project", description="Update project name, description, status, or notes.")
 def update_project_api(project_id: str, name: str = Form(None), description: str = Form(None),
                        status: str = Form(None), notes: str = Form(None),
                        db: Session = Depends(get_db)):
@@ -1053,7 +1411,7 @@ def update_project_api(project_id: str, name: str = Form(None), description: str
             "updated_at": p.updated_at.isoformat() if p.updated_at else None}
 
 
-@app.put("/api/v1/projects/{project_id}/notes")
+@app.put("/api/v1/projects/{project_id}/notes", tags=["Projects"], summary="Update project notes", description="Update only the notes field of a project.")
 def update_project_notes_api(project_id: str, notes: str = Form(""),
                              db: Session = Depends(get_db)):
     p = update_project(db, project_id, notes=notes)
@@ -1061,32 +1419,7 @@ def update_project_notes_api(project_id: str, notes: str = Form(""),
         raise HTTPException(status_code=404, detail="Project not found")
     return {"notes": p.notes, "updated_at": p.updated_at.isoformat() if p.updated_at else None}
 
-
-@app.get("/api/v1/projects/mine")
-def list_my_projects_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
-    uid = current_user.get("id")
-    if not uid:
-        return {"projects": []}
-    projects = list_projects_by_user(db, uid)
-    return {"projects": [{
-        "id": p.id, "name": p.name, "description": p.description,
-        "status": p.status,
-        "created_at": p.created_at.isoformat() if p.created_at else None,
-    } for p in projects]}
-
-
-@app.get("/api/v1/projects/templates")
-def list_project_templates():
-    return {"templates": [
-        {"name": "Customer Churn", "description": "Predict which customers are likely to churn using classification models.", "status": "development", "tags": ["classification", "churn", "customer-analytics"]},
-        {"name": "Loan Prediction", "description": "Classify loan applications as approved or rejected based on applicant features.", "status": "development", "tags": ["classification", "finance", "risk"]},
-        {"name": "Heart Disease", "description": "Detect heart disease risk using patient health indicators and vital signs.", "status": "development", "tags": ["classification", "healthcare", "medical"]},
-        {"name": "House Price Prediction", "description": "Predict real estate prices from property features, location data, and market trends.", "status": "development", "tags": ["regression", "real-estate", "pricing"]},
-        {"name": "Employee Attrition", "description": "Identify employees at risk of leaving using HR data and engagement metrics.", "status": "development", "tags": ["classification", "hr", "analytics"]},
-    ]}
-
-
-@app.delete("/api/v1/projects/{project_id}")
+@app.delete("/api/v1/projects/{project_id}", tags=["Projects"], summary="Delete project", description="Delete a project by ID.")
 def delete_project_api(project_id: str, db: Session = Depends(get_db)):
     p = get_project(db, project_id)
     if not p:
@@ -1098,18 +1431,21 @@ def delete_project_api(project_id: str, db: Session = Depends(get_db)):
 
 # ── Marketplace ──────────────────────────────────────────────────────
 
-@app.get("/api/v1/marketplace")
-def list_marketplace_api(category: str = Query(None), db: Session = Depends(get_db)):
-    items = list_marketplace_items(db, category)
-    return {"items": [{
+@app.get("/api/v1/marketplace", tags=["Marketplace"], summary="List marketplace items", description="Browse marketplace items optionally filtered by category.")
+def list_marketplace_api(category: str = Query(None), db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
+    items_list = list_marketplace_items(db, category)
+    items = [{
         "id": i.id, "name": i.name, "type": i.item_type,
         "description": i.description, "category": i.category,
         "author": i.author, "tags": i.tags,
         "downloads": i.downloads, "rating": i.rating,
         "featured": i.featured,
-    } for i in items]}
+    } for i in items_list]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="items")
 
-@app.post("/api/v1/marketplace/{item_id}/install")
+@app.post("/api/v1/marketplace/{item_id}/install", tags=["Marketplace"], summary="Install marketplace item", description="Install a marketplace item by ID.")
 def install_marketplace_api(item_id: str, db: Session = Depends(get_db)):
     item = install_marketplace_item(db, item_id)
     if not item:
@@ -1119,54 +1455,158 @@ def install_marketplace_api(item_id: str, db: Session = Depends(get_db)):
 
 # ── Activity ─────────────────────────────────────────────────────────
 
-@app.get("/api/v1/activity")
-def activity(db: Session = Depends(get_db)):
+@app.get("/api/v1/activity", tags=["Activity"], summary="Activity log", description="Return recent audit log activity.")
+def activity(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
     logs = list_audit_logs(db)
-    return {"activities": [{
+    items = [{
         "id": l.id, "actor": l.actor, "action": l.action,
         "target": l.target, "resource_type": l.resource_type,
         "status": l.status,
         "time": l.created_at.isoformat() if l.created_at else None,
-    } for l in logs]}
+    } for l in logs]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="activities")
 
 
-@app.get("/api/v1/analytics")
+@app.get("/api/v1/analytics", tags=["Analytics"], summary="Dashboard analytics", description="Return aggregate analytics for the dashboard over a given number of days.")
 def analytics(db: Session = Depends(get_db), days: int = 30):
     return dashboard_analytics(db, days)
 
 
-@app.get("/api/v1/admin/stats")
+# ── Admin ────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/admin/stats", tags=["Admin"], summary="Admin stats", description="Return platform-wide statistics for administrators.")
 def admin_stats(db: Session = Depends(get_db)):
     from crud import list_projects
-    from models import User
+    from models import User, AuditLog, Notification, PredictionLog
     users = db.query(User).count()
     projects = len(list_projects(db))
     experiments = len(list_experiments(db))
     models = len(list_models(db))
     datasets = len(list_dataset_records(db))
+    active_users = db.query(User).filter(User.is_active == True).count()
+    predictions = db.query(PredictionLog).count()
+    logs_30d = db.query(AuditLog).filter(AuditLog.created_at >= datetime.now(timezone.utc) - timedelta(days=30)).count()
+    unread_notifs = db.query(Notification).filter(Notification.read == False).count()
     return {
         "users": users, "projects": projects,
         "experiments": experiments, "models": models,
-        "datasets": datasets,
+        "datasets": datasets, "active_users": active_users,
+        "predictions": predictions, "logs_30d": logs_30d,
+        "unread_notifications": unread_notifs,
     }
 
 
-@app.get("/api/v1/admin/users")
-def admin_users(db: Session = Depends(get_db)):
+@app.get("/api/v1/admin/users", tags=["Admin"], summary="List users", description="List all registered users for admin management.")
+def admin_users(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
     from models import User
-    users = db.query(User).order_by(User.created_at.desc()).limit(100).all()
-    return {"users": [{"id": u.id, "email": u.email, "name": u.name, "role": u.role, "is_active": u.is_active, "created_at": u.created_at.isoformat() if u.created_at else None} for u in users]}
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    items = [{"id": u.id, "email": u.email, "name": u.name, "role": u.role, "is_active": u.is_active, "created_at": u.created_at.isoformat() if u.created_at else None} for u in users]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="users")
+
+
+@app.put("/api/v1/admin/users/{user_id}/toggle", tags=["Admin"], summary="Toggle user active", description="Toggle a user's active/inactive status.")
+def admin_toggle_user(user_id: str, db: Session = Depends(get_db)):
+    from models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_active = not user.is_active
+    db.commit()
+    return {"status": "ok", "is_active": user.is_active}
+
+
+@app.get("/api/v1/admin/projects", tags=["Admin"], summary="Admin list projects", description="List all projects with resource counts for admin view.")
+def admin_projects(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
+    from crud import list_projects
+    projects = list_projects(db)
+    result = []
+    for p in projects:
+        exp_count = db.query(Experiment).filter(Experiment.project_id == p.id).count()
+        ds_count = db.query(Dataset).filter(Dataset.project_id == p.id).count()
+        model_count = db.query(ModelRegistry).filter(ModelRegistry.project_id == p.id).count()
+        result.append({
+            "id": p.id, "name": p.name, "description": p.description,
+            "status": p.status, "tags": p.tags or [],
+            "experiments": exp_count, "datasets": ds_count, "models": model_count,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+            "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+        })
+    total = len(result)
+    result = result[offset:offset + limit]
+    return paginated(result, total, offset, limit, key="projects")
+
+
+@app.get("/api/v1/admin/datasets", tags=["Admin"], summary="Admin list datasets", description="List all dataset records for admin view.")
+def admin_datasets(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
+    records = list_dataset_records(db)
+    items = [{
+        "id": d.id, "filename": d.filename, "file_size_kb": d.file_size_kb,
+        "rows": d.rows, "columns": d.columns, "status": d.status,
+        "description": d.description,
+        "created_at": d.created_at.isoformat() if d.created_at else None,
+    } for d in records]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="datasets")
+
+
+@app.get("/api/v1/admin/logs", tags=["Admin"], summary="Admin audit logs", description="Return audit logs for admin review.")
+def admin_logs(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
+    logs = list_audit_logs(db)
+    items = [{
+        "id": l.id, "actor": l.actor, "action": l.action,
+        "target": l.target, "resource_type": l.resource_type,
+        "resource_id": l.resource_id, "details": l.details,
+        "status": l.status, "ip_address": l.ip_address,
+        "created_at": l.created_at.isoformat() if l.created_at else None,
+    } for l in logs]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="logs")
+
+
+@app.get("/api/v1/admin/storage", tags=["Admin"], summary="Storage usage", description="Return disk usage breakdown for models, datasets, and database.")
+def admin_storage(db: Session = Depends(get_db)):
+    import os
+    from pathlib import Path
+    models_dir = os.path.join(BASE_DIR, "..", "models")
+    dataset_dir = os.path.join(BASE_DIR, "..", "dataset")
+    models_size = sum(f.stat().st_size for f in Path(models_dir).rglob("*") if f.is_file()) if os.path.isdir(models_dir) else 0
+    datasets_size = sum(f.stat().st_size for f in Path(dataset_dir).rglob("*") if f.is_file()) if os.path.isdir(dataset_dir) else 0
+    db_file = os.path.join(BASE_DIR, "..", "app.db")
+    db_size = os.path.getsize(db_file) if os.path.exists(db_file) else 0
+    total = models_size + datasets_size + db_size
+    records = list_dataset_records(db)
+    total_rows = sum(d.rows or 0 for d in records)
+    return {
+        "models_bytes": models_size, "datasets_bytes": datasets_size,
+        "database_bytes": db_size, "total_bytes": total,
+        "models_mb": round(models_size / 1048576, 2),
+        "datasets_mb": round(datasets_size / 1048576, 2),
+        "database_mb": round(db_size / 1048576, 2),
+        "total_mb": round(total / 1048576, 2),
+        "model_count": len(list_models(db)),
+        "dataset_count": len(records),
+        "total_rows": total_rows,
+    }
 
 
 # ── SQL Query ────────────────────────────────────────────────────────
 
-@app.post("/api/v1/query")
-def run_sql(query: str = Form(...), dataset: str = Form(None), current_user: dict = Depends(get_optional_user)):
+@app.post("/api/v1/query", tags=["SQL"], summary="Run SQL query", description="Execute a read-only SQL query against uploaded datasets via DuckDB.")
+def run_sql(query: str = Form(...), dataset: str = Form(None),
+            current_user: dict = Depends(get_optional_user), db: Session = Depends(get_db)):
+    if not query or len(query.strip()) > 10000:
+        raise HTTPException(status_code=400, detail="Query too long or empty")
+    query = query.strip()
+    valid, msg = validate_sql_query(query)
+    if not valid:
+        raise HTTPException(status_code=400, detail=msg)
     import duckdb
-    sql_lower = query.strip().lower()
-    disallowed = ["insert", "update", "delete", "drop", "alter", "create", "grant", "attach", "detach"]
-    if any(sql_lower.startswith(kw) for kw in disallowed):
-        raise HTTPException(status_code=400, detail="Only SELECT queries are allowed")
     try:
         con = duckdb.connect()
         if dataset:
@@ -1187,6 +1627,8 @@ def run_sql(query: str = Form(...), dataset: str = Form(None), current_user: dic
         rows = result.fetchall()
         data = [dict(zip(columns, row)) for row in rows]
         con.close()
+        log_audit(db, actor=current_user.get("id", "anonymous"),
+                  action="sql.query", target=query[:200], resource_type="query", status="success")
         return {"columns": columns, "rows": len(data), "data": data, "query": query}
     except HTTPException:
         raise
@@ -1196,14 +1638,14 @@ def run_sql(query: str = Form(...), dataset: str = Form(None), current_user: dic
 
 # ── AI Assistant ─────────────────────────────────────────────────────
 
-@app.post("/api/v1/ai/chat")
+@app.post("/api/v1/ai/chat", tags=["AI Assistant"], summary="AI chat", description="Ask the AI assistant a question about your data or models.")
 def ai_chat(question: str = Form(...), current_user: dict = Depends(get_optional_user)):
     try:
         return {"answer": answer_question(question)}
     except Exception as e:
         return {"answer": f"Error: {str(e)}. Please try again."}
 
-@app.get("/api/v1/ai/suggestions")
+@app.get("/api/v1/ai/suggestions", tags=["AI Assistant"], summary="AI suggestions", description="Get contextual AI assistant suggestions based on current data.")
 def ai_suggestions():
     try:
         datasets = ai_list_datasets()

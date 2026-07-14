@@ -3,19 +3,21 @@ import hashlib
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from sqlalchemy.orm import Session
+from functools import lru_cache
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import desc
 from jose import jwt
 
 from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
-                    Deployment, Pipeline, PipelineRun, Webhook, AuditLog,
-                    Project, MarketplaceItem, Dataset)
+                    Deployment, Pipeline, PipelineRun, PredictionLog, Webhook, AuditLog,
+                    Project, MarketplaceItem, Dataset, Notification)
 
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
 ALGORITHM = "HS256"
 
 
+@lru_cache(maxsize=256)
 def _hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -72,16 +74,23 @@ def authenticate_user(db: Session, email: str, password: str) -> dict:
 
 
 def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
-    return db.query(User).filter(User.id == user_id).first()
+    return db.query(User).options(
+        selectinload(User.teams),
+        selectinload(User.api_keys),
+    ).filter(User.id == user_id).first()
 
 
 # ─── Experiments ──────────────────────────────────────────────────────
 
-def list_experiments(db: Session, limit: int = 100, project_id: str = None) -> list:
-    q = db.query(Experiment).order_by(desc(Experiment.created_at))
+def list_experiments(db: Session, limit: int = 100, offset: int = 0, project_id: str = None) -> list:
+    q = db.query(Experiment).options(
+        selectinload(Experiment.user),
+        selectinload(Experiment.project),
+        selectinload(Experiment.model_registry),
+    ).order_by(desc(Experiment.created_at))
     if project_id:
         q = q.filter(Experiment.project_id == project_id)
-    return q.limit(limit).all()
+    return q.offset(offset).limit(limit).all()
 
 
 def create_experiment(db: Session, data: dict) -> Experiment:
@@ -89,16 +98,22 @@ def create_experiment(db: Session, data: dict) -> Experiment:
     db.add(exp)
     db.commit()
     db.refresh(exp)
+    log_audit(db, data.get("user_id", "system"), "experiment.created",
+              exp.name, "experiment", exp.id)
     return exp
 
 
 # ─── Model Registry ─────────────────────────────────────────────────
 
-def list_models(db: Session, limit: int = 100, project_id: str = None) -> list:
-    q = db.query(ModelRegistry).order_by(desc(ModelRegistry.created_at))
+def list_models(db: Session, limit: int = 100, offset: int = 0, project_id: str = None) -> list:
+    q = db.query(ModelRegistry).options(
+        selectinload(ModelRegistry.user),
+        selectinload(ModelRegistry.project),
+        selectinload(ModelRegistry.experiment),
+    ).order_by(desc(ModelRegistry.created_at))
     if project_id:
         q = q.filter(ModelRegistry.project_id == project_id)
-    return q.limit(limit).all()
+    return q.offset(offset).limit(limit).all()
 
 
 def get_model(db: Session, model_id: str) -> Optional[ModelRegistry]:
@@ -110,26 +125,53 @@ def create_model(db: Session, data: dict) -> ModelRegistry:
     db.add(model)
     db.commit()
     db.refresh(model)
+    log_audit(db, data.get("user_id", "system"), "model.created",
+              model.name, "model", model.id)
     return model
 
 
 def update_model_status(db: Session, model_id: str, status: str) -> Optional[ModelRegistry]:
     model = get_model(db, model_id)
     if model:
+        old = model.status
         model.status = status
         model.updated_at = _now()
         db.commit()
         db.refresh(model)
+        log_audit(db, "system", "model.status_changed",
+                  model.name, "model", model.id, details={"from": old, "to": status})
+    return model
+
+
+def update_model_meta(db: Session, name: str, status: str = None, tags: list = None, description: str = None) -> Optional[ModelRegistry]:
+    model = db.query(ModelRegistry).filter(ModelRegistry.name == name).first()
+    if not model:
+        model = db.query(ModelRegistry).filter(ModelRegistry.name == name.replace(".pkl", "")).first()
+    if model:
+        if status is not None:
+            model.status = status
+        if tags is not None:
+            model.tags = tags
+        if description is not None:
+            model.description = description
+        model.updated_at = _now()
+        db.commit()
+        db.refresh(model)
+        log_audit(db, "system", "model.updated", model.name, "model", model.id)
     return model
 
 
 # ─── Deployments ──────────────────────────────────────────────────────
 
-def list_deployments(db: Session, limit: int = 100, project_id: str = None) -> list:
-    q = db.query(Deployment).order_by(desc(Deployment.created_at))
+def list_deployments(db: Session, limit: int = 100, offset: int = 0, project_id: str = None) -> list:
+    q = db.query(Deployment).options(
+        selectinload(Deployment.model),
+        selectinload(Deployment.user),
+        selectinload(Deployment.project),
+    ).order_by(desc(Deployment.created_at))
     if project_id:
         q = q.filter(Deployment.project_id == project_id)
-    return q.limit(limit).all()
+    return q.offset(offset).limit(limit).all()
 
 
 def create_deployment(db: Session, data: dict) -> Deployment:
@@ -137,22 +179,29 @@ def create_deployment(db: Session, data: dict) -> Deployment:
     db.add(dep)
     db.commit()
     db.refresh(dep)
+    log_audit(db, data.get("user_id", "system"), "deployment.created",
+              dep.name, "deployment", dep.id)
     return dep
 
 
 def delete_deployment(db: Session, dep_id: str) -> bool:
     dep = db.query(Deployment).filter(Deployment.id == dep_id).first()
     if dep:
+        name = dep.name
         db.delete(dep)
         db.commit()
+        log_audit(db, "system", "deployment.deleted", name, "deployment", dep_id)
         return True
     return False
 
 
 # ─── Pipelines ────────────────────────────────────────────────────────
 
-def list_pipelines(db: Session, limit: int = 100) -> list:
-    return db.query(Pipeline).order_by(desc(Pipeline.created_at)).limit(limit).all()
+def list_pipelines(db: Session, limit: int = 100, offset: int = 0) -> list:
+    return db.query(Pipeline).options(
+        selectinload(Pipeline.runs),
+        selectinload(Pipeline.created_by_user),
+    ).order_by(desc(Pipeline.created_at)).offset(offset).limit(limit).all()
 
 
 def create_pipeline(db: Session, user_id: str, name: str, steps: list,
@@ -187,6 +236,7 @@ def update_pipeline(db: Session, pipeline_id: str, name: str = None,
     pipe.updated_at = _now()
     db.commit()
     db.refresh(pipe)
+    log_audit(db, "system", "pipeline.updated", pipe.name, "pipeline", pipe.id)
     return pipe
 
 
@@ -194,9 +244,11 @@ def delete_pipeline(db: Session, pipeline_id: str) -> bool:
     pipe = get_pipeline(db, pipeline_id)
     if not pipe:
         return False
+    name = pipe.name
     db.query(PipelineRun).filter(PipelineRun.pipeline_id == pipeline_id).delete()
     db.delete(pipe)
     db.commit()
+    log_audit(db, "system", "pipeline.deleted", name, "pipeline", pipeline_id)
     return True
 
 
@@ -239,14 +291,17 @@ def run_pipeline(db: Session, pipeline_id: str) -> PipelineRun:
         db.commit()
 
     db.refresh(run)
+    log_audit(db, "system", "pipeline.run", pipeline.name, "pipeline", pipeline.id,
+              details={"run_id": run.id, "status": run.status})
     return run
 
 
-def list_pipeline_runs(db: Session, pipeline_id: str, limit: int = 20) -> list:
-    return (db.query(PipelineRun)
-            .filter(PipelineRun.pipeline_id == pipeline_id)
+def list_pipeline_runs(db: Session, pipeline_id: str, limit: int = 20, offset: int = 0) -> list:
+    return (db.query(PipelineRun).options(
+        selectinload(PipelineRun.pipeline),
+    ).filter(PipelineRun.pipeline_id == pipeline_id)
             .order_by(desc(PipelineRun.created_at))
-            .limit(limit)
+            .offset(offset).limit(limit)
             .all())
 
 
@@ -265,14 +320,17 @@ def create_webhook(db: Session, data: dict) -> Webhook:
     db.add(wh)
     db.commit()
     db.refresh(wh)
+    log_audit(db, "system", "webhook.created", wh.name, "webhook", wh.id)
     return wh
 
 
 def delete_webhook(db: Session, wh_id: str) -> bool:
     wh = db.query(Webhook).filter(Webhook.id == wh_id).first()
     if wh:
+        name = wh.name
         db.delete(wh)
         db.commit()
+        log_audit(db, "system", "webhook.deleted", name, "webhook", wh_id)
         return True
     return False
 
@@ -294,14 +352,18 @@ def create_api_key(db: Session, user_id: str, name: str) -> dict:
     db.add(api_key)
     db.commit()
     db.refresh(api_key)
+    log_audit(db, user_id, "api_key.created", name, "api_key", api_key.id)
     return {"id": api_key.id, "name": name, "key": raw_key, "key_prefix": key_prefix}
 
 
 def delete_api_key(db: Session, key_id: str) -> bool:
     ak = db.query(ApiKey).filter(ApiKey.id == key_id).first()
     if ak:
+        name = ak.name
+        user_id = ak.user_id
         db.delete(ak)
         db.commit()
+        log_audit(db, user_id, "api_key.deleted", name, "api_key", key_id)
         return True
     return False
 
@@ -320,6 +382,7 @@ def create_team(db: Session, name: str, owner_id: str) -> Team:
     member = TeamMember(id=_uid(), user_id=owner_id, team_id=team.id, role="admin")
     db.add(member)
     db.commit()
+    log_audit(db, owner_id, "team.created", name, "team", team.id)
     return team
 
 
@@ -340,11 +403,17 @@ def create_project(db: Session, name: str, user_id: str = None, description: str
     db.add(project)
     db.commit()
     db.refresh(project)
+    log_audit(db, user_id or "system", "project.created", name, "project", project.id)
     return project
 
 
 def get_project(db: Session, project_id: str) -> Optional[Project]:
-    return db.query(Project).filter(Project.id == project_id).first()
+    return db.query(Project).options(
+        selectinload(Project.experiments),
+        selectinload(Project.model_registry),
+        selectinload(Project.deployments),
+        selectinload(Project.datasets),
+    ).filter(Project.id == project_id).first()
 
 
 def update_project(db: Session, project_id: str, name: str = None,
@@ -364,6 +433,7 @@ def update_project(db: Session, project_id: str, name: str = None,
     project.updated_at = _now()
     db.commit()
     db.refresh(project)
+    log_audit(db, "system", "project.updated", project.name, "project", project.id)
     return project
 
 
@@ -384,25 +454,30 @@ def create_dataset_record(db: Session, filename: str, size_kb: float = None,
     db.add(record)
     db.commit()
     db.refresh(record)
+    log_audit(db, user_id or "system", "dataset.created", filename, "dataset", record.id)
     return record
 
 
-def list_dataset_records(db: Session, project_id: str = None) -> list:
-    q = db.query(Dataset).order_by(desc(Dataset.created_at))
+def list_dataset_records(db: Session, project_id: str = None, limit: int = 100, offset: int = 0) -> list:
+    q = db.query(Dataset).options(
+        selectinload(Dataset.user),
+        selectinload(Dataset.project),
+    ).order_by(desc(Dataset.created_at))
     if project_id:
         q = q.filter(Dataset.project_id == project_id)
-    return q.all()
+    return q.offset(offset).limit(limit).all()
 
 
 def get_dataset_record(db: Session, name: str) -> Optional[Dataset]:
     return db.query(Dataset).filter(Dataset.filename == name).first()
 
 
-def delete_dataset_record(db: Session, name: str) -> bool:
+def delete_dataset_record(db: Session, name: str, user_id: str = "system") -> bool:
     record = get_dataset_record(db, name)
     if record:
         db.delete(record)
         db.commit()
+        log_audit(db, user_id, "dataset.deleted", name, "dataset", record.id)
         return True
     return False
 
@@ -413,11 +488,43 @@ def global_search(db: Session, query: str, dataset_dir: str) -> dict:
     term = f"%{query}%"
     users = db.query(User).filter(
         (User.name.ilike(term)) | (User.email.ilike(term))
+    ).options(
+        selectinload(User.teams),
+        selectinload(User.api_keys),
     ).limit(10).all()
     projects = db.query(Project).filter(
         (Project.name.ilike(term)) | (Project.description.ilike(term))
+    ).options(
+        selectinload(Project.experiments),
+        selectinload(Project.model_registry),
+        selectinload(Project.deployments),
+        selectinload(Project.datasets),
     ).limit(10).all()
-    datasets = db.query(Dataset).filter(Dataset.filename.ilike(term)).limit(10).all()
+    datasets = db.query(Dataset).filter(Dataset.filename.ilike(term)).options(
+        selectinload(Dataset.user),
+        selectinload(Dataset.project),
+    ).limit(10).all()
+
+    experiments = db.query(Experiment).options(
+        selectinload(Experiment.user),
+        selectinload(Experiment.project),
+        selectinload(Experiment.model_registry),
+    ).filter(
+        (Experiment.name.ilike(term)) | (Experiment.model.ilike(term)) | (Experiment.dataset.ilike(term))
+    ).limit(10).all()
+
+    predictions = db.query(PredictionLog).filter(
+        (PredictionLog.model_name.ilike(term)) | (PredictionLog.input_preview.ilike(term)) | (PredictionLog.prediction.ilike(term))
+    ).limit(10).all()
+
+    registry_models = db.query(ModelRegistry).options(
+        selectinload(ModelRegistry.user),
+        selectinload(ModelRegistry.project),
+        selectinload(ModelRegistry.experiment),
+    ).filter(
+        (ModelRegistry.name.ilike(term)) | (ModelRegistry.model_type.ilike(term)) | (ModelRegistry.task_type.ilike(term))
+    ).limit(10).all()
+
     model_files = []
     if os.path.isdir(dataset_dir):
         parent = os.path.dirname(dataset_dir)
@@ -432,10 +539,49 @@ def global_search(db: Session, query: str, dataset_dir: str) -> dict:
         "projects": [{"id": p.id, "name": p.name, "description": p.description} for p in projects],
         "datasets": [{"id": d.id, "filename": d.filename, "rows": d.rows} for d in datasets],
         "models": model_files[:20],
+        "experiments": [{"id": e.id, "name": e.name, "model": e.model, "dataset": e.dataset, "cv_score": e.cv_score, "status": e.status} for e in experiments],
+        "predictions": [{"id": p.id, "model_name": p.model_name, "input_preview": p.input_preview, "prediction": p.prediction, "confidence": p.confidence, "created_at": str(p.created_at)[:19] if p.created_at else None} for p in predictions],
+        "registry_models": [{"id": m.id, "name": m.name, "model_type": m.model_type, "task_type": m.task_type, "status": m.status, "version": m.version, "cv_score": m.cv_score} for m in registry_models],
     }
 
 
 # ─── Marketplace ──────────────────────────────────────────────────────
+
+def list_datasets(db: Session, project_id: str = None, limit: int = 100, offset: int = 0) -> list:
+    q = db.query(Dataset).options(
+        selectinload(Dataset.user),
+        selectinload(Dataset.project),
+    ).order_by(desc(Dataset.created_at))
+    if project_id:
+        q = q.filter(Dataset.project_id == project_id)
+    return q.offset(offset).limit(limit).all()
+
+
+def list_model_registry(db: Session, limit: int = 100, offset: int = 0, project_id: str = None) -> list:
+    q = db.query(ModelRegistry).options(
+        selectinload(ModelRegistry.user),
+        selectinload(ModelRegistry.project),
+        selectinload(ModelRegistry.experiment),
+    ).order_by(desc(ModelRegistry.created_at))
+    if project_id:
+        q = q.filter(ModelRegistry.project_id == project_id)
+    return q.offset(offset).limit(limit).all()
+
+
+# ─── Prediction Logs ───────────────────────────────────────────────
+
+def create_prediction_log(db: Session, data: dict) -> PredictionLog:
+    log = PredictionLog(id=_uid(), created_at=_now(), **data)
+    db.add(log)
+    db.commit()
+    return log
+
+
+def list_prediction_logs(db: Session, limit: int = 100) -> list:
+    return db.query(PredictionLog).order_by(desc(PredictionLog.created_at)).limit(limit).all()
+
+
+# ─── Marketplace ────────────────────────────────────────────────────
 
 def list_marketplace_items(db: Session, category: str = None) -> list:
     q = db.query(MarketplaceItem)
@@ -444,10 +590,59 @@ def list_marketplace_items(db: Session, category: str = None) -> list:
     return q.order_by(desc(MarketplaceItem.featured), desc(MarketplaceItem.downloads)).all()
 
 
-def install_marketplace_item(db: Session, item_id: str) -> Optional[MarketplaceItem]:
+def install_marketplace_item(db: Session, item_id: str, user_id: str = "system") -> Optional[MarketplaceItem]:
     item = db.query(MarketplaceItem).filter(MarketplaceItem.id == item_id).first()
     if item:
         item.downloads = (item.downloads or 0) + 1
         db.commit()
         db.refresh(item)
+        log_audit(db, user_id, "marketplace.install", item.name, "marketplace", item.id)
     return item
+
+
+# ─── Notifications ──────────────────────────────────────────────────
+
+def create_notification(db: Session, data: dict) -> Notification:
+    notif = Notification(id=_uid(), created_at=_now(), **data)
+    db.add(notif)
+    db.commit()
+    return notif
+
+
+def list_notifications(db: Session, user_id: str = None, limit: int = 50) -> list:
+    q = db.query(Notification).order_by(desc(Notification.created_at))
+    if user_id:
+        q = q.filter(Notification.user_id == user_id)
+    return q.limit(limit).all()
+
+
+def mark_notification_read(db: Session, notif_id: str) -> Optional[Notification]:
+    n = db.query(Notification).filter(Notification.id == notif_id).first()
+    if n:
+        n.read = True
+        db.commit()
+        db.refresh(n)
+    return n
+
+
+def mark_all_notifications_read(db: Session, user_id: str = None):
+    q = db.query(Notification).filter(Notification.read == False)
+    if user_id:
+        q = q.filter(Notification.user_id == user_id)
+    q.update({Notification.read: True})
+    db.commit()
+
+
+def delete_notification(db: Session, notif_id: str) -> bool:
+    n = db.query(Notification).filter(Notification.id == notif_id).first()
+    if n:
+        db.delete(n)
+        db.commit()
+        return True
+    return False
+
+
+def batch_delete_notifications(db: Session, notif_ids: list[str]) -> int:
+    deleted = db.query(Notification).filter(Notification.id.in_(notif_ids)).delete(synchronize_session=False)
+    db.commit()
+    return deleted

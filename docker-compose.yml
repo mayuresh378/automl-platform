@@ -1,27 +1,26 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    expose:
+      - 5432
     environment:
-      POSTGRES_DB: automl
-      POSTGRES_USER: automl
-      POSTGRES_PASSWORD: automl_secret_2024
+      POSTGRES_DB: ${POSTGRES_DB:-automl}
+      POSTGRES_USER: ${POSTGRES_USER:-automl}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-automl_secret_2024}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U automl -d automl"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-automl} -d ${POSTGRES_DB:-automl}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
+    expose:
+      - 6379
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -32,25 +31,27 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-final}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - backend/.env
     environment:
-      DATABASE_URL: postgresql://automl:automl_secret_2024@postgres:5432/automl
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: super-secret-key-change-in-production-2024
-      STORAGE_DIR: /data
-      CORS_ORIGINS: http://localhost:3000,http://localhost
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-automl}:${POSTGRES_PASSWORD:-automl_secret_2024}@postgres:5432/${POSTGRES_DB:-automl}}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      PORT: 8000
     volumes:
       - dataset_data:/app/dataset
       - model_data:/app/models
       - storage_data:/data
     ports:
-      - "8000:8000"
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
+      - "${BACKEND_PORT:-8000}:8000"
 
   frontend:
     build:
@@ -60,7 +61,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
 
 volumes:
   postgres_data:

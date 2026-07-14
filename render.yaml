@@ -13,7 +13,7 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: https://automl-frontend.onrender.com,https://automl-api.onrender.com
-    healthCheckPath: /
+    healthCheckPath: /api/v1/health
     autoDeploy: true
 
   # Frontend (React static site)

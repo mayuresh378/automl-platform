@@ -1,27 +1,51 @@
+/**
+ * Legacy hooks module — delegates to the new hooks/services layer.
+ * Prefer importing from the new hooks or services directly.
+ */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { datasetsService } from '../services/datasets.service';
+import { trainingService } from '../services/training.service';
+import { experimentsService } from '../services/experiments.service';
+import { modelsService } from '../services/models.service';
+import { deploymentsService } from '../services/deployments.service';
+import { projectsService } from '../services/projects.service';
+import { pipelinesService } from '../services/pipelines.service';
+import { webhooksService } from '../services/webhooks.service';
+import { monitoringService } from '../services/monitoring.service';
+import { activityService } from '../services/activity.service';
+import { searchService } from '../services/search.service';
+import { marketplaceService } from '../services/marketplace.service';
+import { apiKeysService } from '../services/apiKeys.service';
+import { teamsService } from '../services/teams.service';
+import { aiService } from '../services/ai.service';
 
 export function useExperiments() {
   return useQuery({
     queryKey: ['experiments'],
-    queryFn: () => api.experiments.list(),
+    queryFn: () => experimentsService.list(),
     select: (data) => data.experiments,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useModels() {
   return useQuery({
     queryKey: ['models'],
-    queryFn: () => api.models.list(),
+    queryFn: () => modelsService.list(),
     select: (data) => data.models,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useDeployments() {
   return useQuery({
     queryKey: ['deployments'],
-    queryFn: () => api.deployments.list(),
+    queryFn: () => deploymentsService.list(),
     select: (data) => data.deployments,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
@@ -29,7 +53,7 @@ export function useCreateDeployment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ model_name, endpoint_name }: { model_name: string; endpoint_name: string }) =>
-      api.deployments.create(model_name, endpoint_name),
+      deploymentsService.create(model_name, endpoint_name),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['deployments'] }),
   });
 }
@@ -37,7 +61,7 @@ export function useCreateDeployment() {
 export function useDeleteDeployment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dep_id: string) => api.deployments.remove(dep_id),
+    mutationFn: (dep_id: string) => deploymentsService.remove(dep_id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['deployments'] }),
   });
 }
@@ -45,48 +69,61 @@ export function useDeleteDeployment() {
 export function useDatasets() {
   return useQuery({
     queryKey: ['datasets'],
-    queryFn: () => api.datasets.list(),
+    queryFn: () => datasetsService.list(),
     select: (data) => data.datasets,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useDatasetPreview(name: string, rows = 50, offset = 0) {
   return useQuery({
     queryKey: ['dataset', name, 'preview', rows, offset],
-    queryFn: () => api.datasets.preview(name, rows, offset),
+    queryFn: () => datasetsService.preview(name, rows, offset),
     enabled: !!name,
+    placeholderData: (prev) => prev,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useDatasetProfile(name: string) {
   return useQuery({
     queryKey: ['dataset', name, 'profile'],
-    queryFn: () => api.datasets.profile(name),
+    queryFn: () => datasetsService.profile(name),
     enabled: !!name,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useDatasetAnalysis(name: string, target?: string) {
   return useQuery({
     queryKey: ['dataset', name, 'analysis', target],
-    queryFn: () => api.datasets.analyze(name, target),
+    queryFn: () => datasetsService.analyze(name, target),
     enabled: !!name,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useProjects() {
   return useQuery({
     queryKey: ['projects'],
-    queryFn: () => api.projects.list(),
+    queryFn: () => projectsService.list(),
     select: (data) => data.projects,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useProject(id: string) {
   return useQuery({
     queryKey: ['project', id],
-    queryFn: () => api.projects.get(id),
+    queryFn: () => projectsService.get(id),
     enabled: !!id,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
@@ -94,7 +131,7 @@ export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ name, description }: { name: string; description?: string }) =>
-      api.projects.create(name, description),
+      projectsService.create(name, description),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 }
@@ -103,7 +140,7 @@ export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; status?: string }) =>
-      api.projects.update(id, data),
+      projectsService.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 }
@@ -111,7 +148,7 @@ export function useUpdateProject() {
 export function useDeleteProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.projects.remove(id),
+    mutationFn: (id: string) => projectsService.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 }
@@ -119,24 +156,30 @@ export function useDeleteProject() {
 export function useGlobalSearch(q: string) {
   return useQuery({
     queryKey: ['search', q],
-    queryFn: () => api.search(q),
+    queryFn: () => searchService.search(q),
     enabled: q.length >= 2,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function usePipelines() {
   return useQuery({
     queryKey: ['pipelines'],
-    queryFn: () => api.pipelines.list(),
+    queryFn: () => pipelinesService.list(),
     select: (data) => data.pipelines,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function usePipeline(id: string) {
   return useQuery({
     queryKey: ['pipeline', id],
-    queryFn: () => api.pipelines.get(id),
+    queryFn: () => pipelinesService.get(id),
     enabled: !!id,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
@@ -144,7 +187,7 @@ export function useCreatePipeline() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ name, steps, description }: { name: string; steps: any[]; description?: string }) =>
-      api.pipelines.create(name, steps, description),
+      pipelinesService.create(name, steps, description),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pipelines'] }),
   });
 }
@@ -152,7 +195,7 @@ export function useCreatePipeline() {
 export function useDeletePipeline() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.pipelines.delete(id),
+    mutationFn: (id: string) => pipelinesService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pipelines'] }),
   });
 }
@@ -160,7 +203,7 @@ export function useDeletePipeline() {
 export function useRunPipeline() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (pipeline_id: string) => api.pipelines.run(pipeline_id),
+    mutationFn: (pipeline_id: string) => pipelinesService.run(pipeline_id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pipeline-runs'] }),
   });
 }
@@ -168,24 +211,28 @@ export function useRunPipeline() {
 export function usePipelineRuns(pipeline_id: string) {
   return useQuery({
     queryKey: ['pipeline-runs', pipeline_id],
-    queryFn: () => api.pipelines.runs(pipeline_id),
+    queryFn: () => pipelinesService.runs(pipeline_id),
     select: (data) => data.runs,
     enabled: !!pipeline_id,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useWebhooks() {
   return useQuery({
     queryKey: ['webhooks'],
-    queryFn: () => api.webhooks.list(),
+    queryFn: () => webhooksService.list(),
     select: (data) => data.webhooks,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useCreateWebhook() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; url: string; events: string[] }) => api.webhooks.create(data),
+    mutationFn: (data: { name: string; url: string; events: string[] }) => webhooksService.create(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
   });
 }
@@ -193,7 +240,7 @@ export function useCreateWebhook() {
 export function useDeleteWebhook() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.webhooks.remove(id),
+    mutationFn: (id: string) => webhooksService.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
   });
 }
@@ -201,15 +248,17 @@ export function useDeleteWebhook() {
 export function useApiKeys() {
   return useQuery({
     queryKey: ['api-keys'],
-    queryFn: () => api.apiKeys.list(),
+    queryFn: () => apiKeysService.list(),
     select: (data) => data.api_keys,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useCreateApiKey() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => api.apiKeys.create(name),
+    mutationFn: (name: string) => apiKeysService.create(name),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
   });
 }
@@ -217,7 +266,7 @@ export function useCreateApiKey() {
 export function useDeleteApiKey() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.apiKeys.remove(id),
+    mutationFn: (id: string) => apiKeysService.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
   });
 }
@@ -225,15 +274,17 @@ export function useDeleteApiKey() {
 export function useTeams() {
   return useQuery({
     queryKey: ['teams'],
-    queryFn: () => api.teams.list(),
+    queryFn: () => teamsService.list(),
     select: (data) => data.teams,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useCreateTeam() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => api.teams.create(name),
+    mutationFn: (name: string) => teamsService.create(name),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
   });
 }
@@ -241,15 +292,17 @@ export function useCreateTeam() {
 export function useMarketplaceItems(category?: string) {
   return useQuery({
     queryKey: ['marketplace', category],
-    queryFn: () => api.marketplace.list(category),
+    queryFn: () => marketplaceService.list(category),
     select: (data) => data.items,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useInstallMarketplaceItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (item_id: string) => api.marketplace.install(item_id),
+    mutationFn: (item_id: string) => marketplaceService.install(item_id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['marketplace'] }),
   });
 }
@@ -257,29 +310,56 @@ export function useInstallMarketplaceItem() {
 export function useActivity() {
   return useQuery({
     queryKey: ['activity'],
-    queryFn: () => api.activity.list(),
+    queryFn: () => activityService.list(),
     select: (data) => data.activities,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useMonitoringMetrics() {
   return useQuery({
     queryKey: ['monitoring', 'metrics'],
-    queryFn: () => api.monitoring.metrics(),
+    queryFn: () => monitoringService.metrics(),
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useMonitoringStats() {
   return useQuery({
     queryKey: ['monitoring', 'stats'],
-    queryFn: () => api.monitoring.stats(),
+    queryFn: () => monitoringService.stats(),
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
 export function useAISuggestions() {
   return useQuery({
     queryKey: ['ai', 'suggestions'],
-    queryFn: () => api.ai.suggestions(),
+    queryFn: () => aiService.suggestions(),
     select: (data) => data.suggestions,
+    staleTime: 30_000,
+    refetchInterval: 120_000,
   });
+}
+
+export function useDashboardData() {
+  const experiments = useExperiments();
+  const models = useModels();
+  const datasets = useDatasets();
+  const deployments = useDeployments();
+  const activity = useActivity();
+
+  return {
+    experiments,
+    models,
+    datasets,
+    deployments,
+    activity,
+    isLoading: experiments.isLoading || models.isLoading || datasets.isLoading || deployments.isLoading || activity.isLoading,
+    isError: experiments.isError || models.isError || datasets.isError || deployments.isError || activity.isError,
+    error: experiments.error || models.error || datasets.error || deployments.error || activity.error,
+  };
 }

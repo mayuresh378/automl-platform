@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User, UserSession
+from security_utils import sanitize_name, sanitize_text
 
 SECRET_KEY = os.environ.get("JWT_SECRET") or os.environ.get("SECRET_KEY") or "please-set-jwt-secret-env-var"
 ALGORITHM = "HS256"
@@ -97,8 +98,10 @@ def _revoke_session(db: Session, token: str):
 
 
 def register_user(db: Session, email: str, password: str, name: str, device_info: str = None, ip_address: str = None) -> dict:
+    name = sanitize_name(name)
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
     email = email.strip().lower()
-    name = name.strip()
 
     if not validate_email(email):
         raise HTTPException(status_code=400, detail="Invalid email format")
@@ -210,7 +213,7 @@ def update_user_profile(db: Session, user_id: str, name: str = None, preferences
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if name is not None:
-        user.name = name.strip()
+        user.name = sanitize_name(name)
     if preferences is not None:
         user.preferences = {**(user.preferences or {}), **preferences}
     user.updated_at = datetime.now(timezone.utc)
