@@ -36,7 +36,7 @@ export default function MonitoringPage() {
   }
 
   if (mError) {
-    return <PageContainer><ErrorState title="Failed to load metrics" message={getErrorMessage(mErr)} onRetry={mRefetch} />;
+    return <PageContainer><ErrorState title="Failed to load metrics" message={getErrorMessage(mErr)} onRetry={mRefetch} /></PageContainer>;
   }
 
   return (

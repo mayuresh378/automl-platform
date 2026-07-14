@@ -25,7 +25,7 @@ export default function AnalyticsPage() {
   }
 
   if (isError) {
-    return <PageContainer><ErrorState title="Failed to load analytics" message={getErrorMessage(error)} onRetry={refetch} />;
+    return <PageContainer><ErrorState title="Failed to load analytics" message={getErrorMessage(error)} onRetry={refetch} /></PageContainer>;
   }
 
   return (

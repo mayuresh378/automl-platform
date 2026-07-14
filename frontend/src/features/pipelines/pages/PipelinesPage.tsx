@@ -62,7 +62,7 @@ export default function PipelinesPage() {
   }
 
   if (isError) {
-    return <PageContainer><ErrorState title="Failed to load pipelines" message={getErrorMessage(error)} onRetry={refetch} />;
+    return <PageContainer><ErrorState title="Failed to load pipelines" message={getErrorMessage(error)} onRetry={refetch} /></PageContainer>;
   }
 
   const filtered = (pipelines || []).filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase()));

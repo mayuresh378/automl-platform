@@ -60,7 +60,7 @@ export default function NotificationsPage() {
   }
 
   if (isError) {
-    return <PageContainer><ErrorState title="Failed to load notifications" message={getErrorMessage(error)} onRetry={refetch} />;
+    return <PageContainer><ErrorState title="Failed to load notifications" message={getErrorMessage(error)} onRetry={refetch} /></PageContainer>;
   }
 
   return (
