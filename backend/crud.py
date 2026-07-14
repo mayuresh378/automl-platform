@@ -77,8 +77,11 @@ def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
 
 # ─── Experiments ──────────────────────────────────────────────────────
 
-def list_experiments(db: Session, limit: int = 100) -> list:
-    return db.query(Experiment).order_by(desc(Experiment.created_at)).limit(limit).all()
+def list_experiments(db: Session, limit: int = 100, project_id: str = None) -> list:
+    q = db.query(Experiment).order_by(desc(Experiment.created_at))
+    if project_id:
+        q = q.filter(Experiment.project_id == project_id)
+    return q.limit(limit).all()
 
 
 def create_experiment(db: Session, data: dict) -> Experiment:
@@ -91,8 +94,11 @@ def create_experiment(db: Session, data: dict) -> Experiment:
 
 # ─── Model Registry ─────────────────────────────────────────────────
 
-def list_models(db: Session, limit: int = 100) -> list:
-    return db.query(ModelRegistry).order_by(desc(ModelRegistry.created_at)).limit(limit).all()
+def list_models(db: Session, limit: int = 100, project_id: str = None) -> list:
+    q = db.query(ModelRegistry).order_by(desc(ModelRegistry.created_at))
+    if project_id:
+        q = q.filter(ModelRegistry.project_id == project_id)
+    return q.limit(limit).all()
 
 
 def get_model(db: Session, model_id: str) -> Optional[ModelRegistry]:
@@ -119,8 +125,11 @@ def update_model_status(db: Session, model_id: str, status: str) -> Optional[Mod
 
 # ─── Deployments ──────────────────────────────────────────────────────
 
-def list_deployments(db: Session, limit: int = 100) -> list:
-    return db.query(Deployment).order_by(desc(Deployment.created_at)).limit(limit).all()
+def list_deployments(db: Session, limit: int = 100, project_id: str = None) -> list:
+    q = db.query(Deployment).order_by(desc(Deployment.created_at))
+    if project_id:
+        q = q.filter(Deployment.project_id == project_id)
+    return q.limit(limit).all()
 
 
 def create_deployment(db: Session, data: dict) -> Deployment:
@@ -339,7 +348,8 @@ def get_project(db: Session, project_id: str) -> Optional[Project]:
 
 
 def update_project(db: Session, project_id: str, name: str = None,
-                   description: str = None, status: str = None) -> Optional[Project]:
+                   description: str = None, status: str = None,
+                   notes: str = None) -> Optional[Project]:
     project = get_project(db, project_id)
     if not project:
         return None
@@ -349,10 +359,16 @@ def update_project(db: Session, project_id: str, name: str = None,
         project.description = description
     if status is not None:
         project.status = status
+    if notes is not None:
+        project.notes = notes
     project.updated_at = _now()
     db.commit()
     db.refresh(project)
     return project
+
+
+def list_projects_by_user(db: Session, user_id: str) -> list:
+    return db.query(Project).filter(Project.user_id == user_id).order_by(desc(Project.created_at)).all()
 
 
 # ─── Dataset Records ──────────────────────────────────────────────────

@@ -7,6 +7,8 @@ interface UIState {
   setCommandPaletteOpen: (open: boolean) => void;
   activePage: string;
   setActivePage: (page: string) => void;
+  currentProjectId: string | null;
+  setCurrentProjectId: (id: string | null) => void;
   settingsTab: string;
   setSettingsTab: (tab: string) => void;
   theme: 'dark' | 'light';
@@ -28,6 +30,8 @@ export const useUIStore = create<UIState>((set) => ({
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   activePage: 'Dashboard',
   setActivePage: (page) => set({ activePage: page }),
+  currentProjectId: null,
+  setCurrentProjectId: (id) => set({ currentProjectId: id }),
   settingsTab: 'general',
   setSettingsTab: (tab) => set({ settingsTab: tab }),
   theme: getInitialTheme(),

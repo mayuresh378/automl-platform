@@ -195,6 +195,13 @@ export const api = {
         body: JSON.stringify(data),
       }),
     remove: (id: string) => fetchJSON(`${BASE}/projects/${id}`, { method: 'DELETE' }),
+    updateNotes: (id: string, notes: string) => {
+      const form = new FormData();
+      form.append('notes', notes);
+      return fetchJSON(`${BASE}/projects/${id}/notes`, { method: 'PUT', body: form });
+    },
+    templates: () => fetchJSON<{ templates: any[] }>(`${BASE}/projects/templates`),
+    mine: () => fetchJSON<{ projects: any[] }>(`${BASE}/projects/mine`),
   },
 
   marketplace: {

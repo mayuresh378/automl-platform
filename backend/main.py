@@ -28,7 +28,7 @@ from crud import (
     list_api_keys, create_api_key, delete_api_key,
     list_teams, create_team,
     list_audit_logs, log_audit,
-    list_projects, create_project, get_project, update_project,
+    list_projects, create_project, get_project, update_project, list_projects_by_user,
     create_dataset_record, list_dataset_records, get_dataset_record, delete_dataset_record,
     global_search,
 )
@@ -334,7 +334,7 @@ def list_experiments_api(db: Session = Depends(get_db), current_user: dict = Dep
         "status": e.status, "runAt": e.run_at.isoformat() if e.run_at else None,
         "params": e.params, "feature_importance": e.feature_importance,
         "confusion_matrix": e.confusion_matrix,
-        "user_id": e.user_id, "project_id": e.project_id,
+        "user_id": e.user_id, "project_id": getattr(e, "project_id", None),
     } for e in list_experiments(db)]}
 
 
@@ -388,6 +388,7 @@ def train_model(
         create_model(db, {
             "experiment_id": exp.id,
             "user_id": current_user.get("id"),
+            "project_id": project_id,
             "name": best_model_name,
             "model_type": results["best_model"],
             "task_type": task,
@@ -611,6 +612,7 @@ def run_engine(
             create_model(db, {
                 "experiment_id": exp.id,
                 "user_id": current_user.get("id"),
+                "project_id": project_id,
                 "name": f"{file_name.split('.')[0]}_{r['name']}",
                 "model_type": r["name"],
                 "task_type": task,
@@ -652,6 +654,7 @@ def list_deployments_api(db: Session = Depends(get_db), current_user: dict = Dep
 def create_deployment_api(
     model_name: str = Form(...),
     endpoint_name: str = Form(...),
+    project_id: str = Form(None),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_optional_user),
 ):
@@ -662,6 +665,7 @@ def create_deployment_api(
         "name": endpoint_name,
         "model_id": model_name,
         "user_id": current_user.get("id"),
+        "project_id": project_id,
         "endpoint_url": f"/api/v1/predictions?model={model_name}",
         "status": "active",
         "environment": "production",
@@ -924,6 +928,8 @@ def list_projects_api(db: Session = Depends(get_db), current_user: dict = Depend
     projects = list_projects(db)
     datasets = list_dataset_records(db)
     exps = list_experiments(db)
+    models = list_models(db)
+    deploys = list_deployments(db)
     ds_by_project = {}
     for d in datasets:
         pid = d.project_id or "none"
@@ -932,12 +938,22 @@ def list_projects_api(db: Session = Depends(get_db), current_user: dict = Depend
     for e in exps:
         pid = getattr(e, "project_id", None) or "none"
         exp_by_project.setdefault(pid, []).append(e)
+    model_by_project = {}
+    for m in models:
+        pid = getattr(m, "project_id", None) or "none"
+        model_by_project.setdefault(pid, []).append(m)
+    deploy_by_project = {}
+    for d in deploys:
+        pid = getattr(d, "project_id", None) or "none"
+        deploy_by_project.setdefault(pid, []).append(d)
     return {"projects": [{
         "id": p.id, "name": p.name, "description": p.description,
-        "status": p.status, "model_ids": p.model_ids,
+        "status": p.status, "notes": p.notes, "model_ids": p.model_ids,
         "dataset_ids": p.dataset_ids, "tags": p.tags,
         "dataset_count": len(ds_by_project.get(p.id, [])),
         "experiment_count": len(exp_by_project.get(p.id, [])),
+        "model_count": len(model_by_project.get(p.id, [])),
+        "deployment_count": len(deploy_by_project.get(p.id, [])),
         "created_at": p.created_at.isoformat() if p.created_at else None,
     } for p in projects]}
 
@@ -955,26 +971,66 @@ def get_project_api(project_id: str, db: Session = Depends(get_db)):
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
     datasets = list_dataset_records(db, project_id=project_id)
-    exps = [e for e in list_experiments(db) if getattr(e, "project_id", None) == project_id]
+    exps = list_experiments(db, project_id=project_id)
+    models = list_models(db, project_id=project_id)
+    deploys = list_deployments(db, project_id=project_id)
     return {
         "id": p.id, "name": p.name, "description": p.description,
-        "status": p.status, "model_ids": p.model_ids,
+        "status": p.status, "notes": p.notes, "model_ids": p.model_ids,
         "dataset_ids": p.dataset_ids, "tags": p.tags,
-        "datasets": [{"name": d.filename, "rows": d.rows, "columns": d.columns} for d in datasets],
-        "experiments": [{"id": e.id, "model": e.model, "cv_score": e.cv_score} for e in exps],
+        "datasets": [{"name": d.filename, "rows": d.rows, "columns": d.columns, "size_kb": d.file_size_kb} for d in datasets],
+        "experiments": [{"id": e.id, "name": e.name, "model": e.model, "dataset": e.dataset, "cv_score": e.cv_score, "status": e.status, "created_at": e.created_at.isoformat() if e.created_at else None} for e in exps],
+        "models": [{"id": m.id, "name": m.name, "model_type": m.model_type, "cv_score": m.cv_score, "status": m.status, "created_at": m.created_at.isoformat() if m.created_at else None} for m in models],
+        "deployments": [{"id": d.id, "name": d.name, "status": d.status, "environment": d.environment, "endpoint_url": d.endpoint_url, "created_at": d.created_at.isoformat() if d.created_at else None} for d in deploys],
         "dataset_count": len(datasets), "experiment_count": len(exps),
+        "model_count": len(models), "deployment_count": len(deploys),
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
     }
 
 @app.put("/api/v1/projects/{project_id}")
 def update_project_api(project_id: str, name: str = Form(None), description: str = Form(None),
-                       status: str = Form(None), db: Session = Depends(get_db)):
-    p = update_project(db, project_id, name=name, description=description, status=status)
+                       status: str = Form(None), notes: str = Form(None),
+                       db: Session = Depends(get_db)):
+    p = update_project(db, project_id, name=name, description=description, status=status, notes=notes)
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"id": p.id, "name": p.name, "description": p.description, "status": p.status,
+            "notes": p.notes,
             "updated_at": p.updated_at.isoformat() if p.updated_at else None}
+
+
+@app.put("/api/v1/projects/{project_id}/notes")
+def update_project_notes_api(project_id: str, notes: str = Form(""),
+                             db: Session = Depends(get_db)):
+    p = update_project(db, project_id, notes=notes)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"notes": p.notes, "updated_at": p.updated_at.isoformat() if p.updated_at else None}
+
+
+@app.get("/api/v1/projects/mine")
+def list_my_projects_api(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    uid = current_user.get("id")
+    if not uid:
+        return {"projects": []}
+    projects = list_projects_by_user(db, uid)
+    return {"projects": [{
+        "id": p.id, "name": p.name, "description": p.description,
+        "status": p.status,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+    } for p in projects]}
+
+
+@app.get("/api/v1/projects/templates")
+def list_project_templates():
+    return {"templates": [
+        {"name": "Customer Churn", "description": "Predict which customers are likely to churn using classification models.", "status": "development", "tags": ["classification", "churn", "customer-analytics"]},
+        {"name": "Loan Prediction", "description": "Classify loan applications as approved or rejected based on applicant features.", "status": "development", "tags": ["classification", "finance", "risk"]},
+        {"name": "Heart Disease", "description": "Detect heart disease risk using patient health indicators and vital signs.", "status": "development", "tags": ["classification", "healthcare", "medical"]},
+        {"name": "House Price Prediction", "description": "Predict real estate prices from property features, location data, and market trends.", "status": "development", "tags": ["regression", "real-estate", "pricing"]},
+        {"name": "Employee Attrition", "description": "Identify employees at risk of leaving using HR data and engagement metrics.", "status": "development", "tags": ["classification", "hr", "analytics"]},
+    ]}
 
 
 @app.delete("/api/v1/projects/{project_id}")

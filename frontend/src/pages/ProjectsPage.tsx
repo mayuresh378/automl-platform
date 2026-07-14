@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FolderOpen, Star, Database, FlaskConical, Rocket, Loader2, Plus, X, Trash2, ExternalLink } from 'lucide-react';
+import { FolderOpen, Database, FlaskConical, Rocket, Loader2, Plus, X, Trash2, ExternalLink, Beaker, Boxes, ArrowRight, Sparkles, LayoutDashboard } from 'lucide-react';
 import { useProjects, useExperiments, useModels, useCreateProject, useUpdateProject, useDeleteProject } from '../hooks/useApi';
+import { api } from '../lib/api';
 import { useUIStore } from '../store/useUIStore';
 import { Button } from '../components/Button';
 import { AnimatedInput } from '../components/AnimatedInput';
@@ -15,27 +16,34 @@ function ProjectsPage() {
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
   const setActivePage = useUIStore((s) => s.setActivePage);
+  const setCurrentProjectId = useUIStore((s) => s.setCurrentProjectId);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [templates, setTemplates] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.projects.templates().then(r => setTemplates(r.templates)).catch(() => {});
+  }, []);
 
   const loading = loadingExps || loadingModels || loadingProjects;
   const successful = experiments.filter((e: any) => e.status === 'success').length;
 
   const statCards = [
     { label: 'Experiments', value: experiments.length, icon: FlaskConical },
-    { label: 'Successful runs', value: successful, icon: FolderOpen },
-    { label: 'Trained models', value: models.length, icon: Database },
+    { label: 'Successful runs', value: successful, icon: Beaker },
+    { label: 'Trained models', value: models.length, icon: Boxes },
     { label: 'Deployments', value: models.filter((m: any) => m.status === 'production' || m.status === 'active').length, icon: Rocket },
   ];
 
-  const handleCreate = async () => {
-    if (!newName.trim()) return;
+  const handleCreate = async (name?: string, desc?: string) => {
+    const n = name || newName.trim();
+    if (!n) return;
     try {
-      await createProject.mutateAsync({ name: newName.trim(), description: newDesc.trim() || undefined });
+      await createProject.mutateAsync({ name: n, description: desc || newDesc.trim() || undefined });
       setNewName('');
       setNewDesc('');
       setShowCreate(false);
@@ -56,6 +64,11 @@ function ProjectsPage() {
     try {
       await deleteProject.mutateAsync(id);
     } catch { /* toast */ }
+  };
+
+  const openProject = (project: any) => {
+    setCurrentProjectId(project.id);
+    setActivePage('Project Detail');
   };
 
   return (
@@ -112,7 +125,7 @@ function ProjectsPage() {
                       placeholder="What is this project about?"
                     />
                     <div className="flex gap-2">
-                      <Button onClick={handleCreate} loading={createProject.isPending}>Create project</Button>
+                      <Button onClick={() => handleCreate()} loading={createProject.isPending}>Create project</Button>
                       <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
                     </div>
                   </div>
@@ -120,9 +133,32 @@ function ProjectsPage() {
               )}
             </AnimatePresence>
 
-            {projects.length === 0 ? (
+            {projects.length === 0 && templates.length > 0 && (
+              <div className="mb-6">
+                <p className="text-sm text-slate-500 mb-3 flex items-center gap-2"><Sparkles className="h-3.5 w-3.5 text-amber-400" /> Start from a template</p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {templates.map((t) => (
+                    <button
+                      key={t.name}
+                      onClick={() => handleCreate(t.name, t.description)}
+                      className="btn-press rounded-2xl border border-white/10 bg-white/5 p-3 text-left transition hover:bg-white/10 hover:border-accent/30"
+                    >
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        {t.name}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{t.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {projects.length === 0 && templates.length === 0 && (
               <div className="py-8 text-center text-sm text-slate-500">No projects yet. Upload a dataset to start.</div>
-            ) : (
+            )}
+
+            {projects.length > 0 && (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {projects.map((project: any) => (
                   <motion.div
@@ -154,7 +190,12 @@ function ProjectsPage() {
                             </p>
                           </div>
                         )}
-                        <p className="text-sm text-slate-400">{project.model_ids?.length || 0} models · {project.dataset_ids?.length || 0} datasets</p>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                          <span className="flex items-center gap-1"><Database className="h-3 w-3" /> {project.dataset_count || 0}</span>
+                          <span className="flex items-center gap-1"><FlaskConical className="h-3 w-3" /> {project.experiment_count || 0}</span>
+                          <span className="flex items-center gap-1"><Boxes className="h-3 w-3" /> {project.model_count || 0}</span>
+                          <span className="flex items-center gap-1"><Rocket className="h-3 w-3" /> {project.deployment_count || 0}</span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button
@@ -165,7 +206,7 @@ function ProjectsPage() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => { setActivePage('Datasets'); }}
+                          onClick={() => openProject(project)}
                           className="btn-press rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:text-white"
                           title="View project"
                         >
@@ -189,7 +230,7 @@ function ProjectsPage() {
                 <p className="text-sm text-slate-400">Quick actions</p>
                 <h3 className="text-lg font-semibold text-white">Get started</h3>
               </div>
-              <FolderOpen className="h-5 w-5 text-accent" />
+              <LayoutDashboard className="h-5 w-5 text-accent" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <button onClick={() => setActivePage('Datasets')} className="btn-press rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10">Upload a dataset</button>

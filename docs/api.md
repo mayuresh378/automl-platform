@@ -1,6 +1,6 @@
 # AutoML Platform API Documentation
 
-*Generated on: 2026-07-14 12:31*
+*Generated on: 2026-07-14 12:42*
 
 ---
 
@@ -56,9 +56,12 @@
 | POST | `/api/v1/predictions` | `predict` |
 | GET | `/api/v1/projects` | `list_projects_api` |
 | POST | `/api/v1/projects` | `create_project_api` |
+| GET | `/api/v1/projects/mine` | `list_my_projects_api` |
+| GET | `/api/v1/projects/templates` | `list_project_templates` |
 | GET | `/api/v1/projects/{project_id}` | `get_project_api` |
 | PUT | `/api/v1/projects/{project_id}` | `update_project_api` |
 | DELETE | `/api/v1/projects/{project_id}` | `delete_project_api` |
+| PUT | `/api/v1/projects/{project_id}/notes` | `update_project_notes_api` |
 | POST | `/api/v1/query` | `run_sql` |
 | GET | `/api/v1/search` | `search` |
 | GET | `/api/v1/teams` | `list_teams_api` |
@@ -325,6 +328,16 @@
 **Handler:** `create_project_api`  
 **Name:** `create_project_api`  
 
+### GET `/api/v1/projects/mine`
+
+**Handler:** `list_my_projects_api`  
+**Name:** `list_my_projects_api`  
+
+### GET `/api/v1/projects/templates`
+
+**Handler:** `list_project_templates`  
+**Name:** `list_project_templates`  
+
 ### GET `/api/v1/projects/{project_id}`
 
 **Handler:** `get_project_api`  
@@ -339,6 +352,11 @@
 
 **Handler:** `delete_project_api`  
 **Name:** `delete_project_api`  
+
+### PUT `/api/v1/projects/{project_id}/notes`
+
+**Handler:** `update_project_notes_api`  
+**Name:** `update_project_notes_api`  
 
 ### POST `/api/v1/query`
 

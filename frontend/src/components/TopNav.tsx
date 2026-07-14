@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Bell, Sparkles, ChevronDown, KeyRound, LogIn, Check, X, Clock, AlertCircle, CheckCircle2, Info, AlertTriangle, Moon, Sun } from 'lucide-react';
+import { Search, Bell, Sparkles, ChevronDown, KeyRound, LogIn, Check, X, Clock, AlertCircle, CheckCircle2, Info, AlertTriangle, Moon, Sun, Folders, Plus } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { useProjects } from '../hooks/useApi';
 import { useNotificationStore, Notification } from '../store/useNotificationStore';
 import { cn } from '../lib/cn';
 
@@ -31,7 +32,7 @@ function formatTimeAgo(ts: number) {
 }
 
 export function TopNav() {
-  const { setCommandPaletteOpen, setActivePage, setSettingsTab, theme, toggleTheme } = useUIStore();
+  const { setCommandPaletteOpen, setActivePage, setCurrentProjectId, setSettingsTab, theme, toggleTheme } = useUIStore();
   const { user, logout } = useAuthStore();
   const { notifications, add, markRead, markAllRead, dismiss, clearAll, unreadCount } = useNotificationStore();
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
@@ -48,6 +49,7 @@ export function TopNav() {
   }, []);
   const isLoggedIn = !!user && !!user.id && user.id !== 'anonymous';
   const initials = isLoggedIn ? user!.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : '?';
+  const { data: projects = [] } = useProjects();
 
   return (
     <header className="sticky top-0 z-30 flex items-center h-16 gap-3 border-b border-border bg-canvas/80 backdrop-blur-md px-4 md:px-6">
@@ -75,12 +77,33 @@ export function TopNav() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -4 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute left-0 mt-1 w-56 rounded-xl border border-border-strong bg-card shadow-glow p-1 text-sm origin-top-left"
+              className="absolute left-0 mt-1 w-64 rounded-xl border border-border-strong bg-card shadow-glow p-1 text-sm origin-top-left"
             >
-              <div className="px-2.5 py-1.5 text-zinc-200 rounded-lg bg-white/[0.05]">{isLoggedIn ? `${user!.name}'s Workspace` : 'My Workspace'}</div>
-              <div className="px-2.5 py-1.5 text-zinc-500 rounded-lg hover:bg-white/[0.04] cursor-pointer">Personal Sandbox</div>
+              <div className="px-2.5 py-1.5 text-zinc-200 rounded-lg bg-white/[0.05] flex items-center gap-2">
+                <Folders className="h-3.5 w-3.5 text-zinc-400" />
+                Projects
+              </div>
+              <div className="max-h-48 overflow-y-auto scrollbar-thin">
+                {projects.slice(0, 8).map((p: any) => (
+                  <div
+                    key={p.id}
+                    onClick={() => { setCurrentProjectId(p.id); setActivePage('Project Detail'); setWorkspaceOpen(false); }}
+                    className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer truncate"
+                  >
+                    {p.name}
+                  </div>
+                ))}
+                {projects.length === 0 && (
+                  <div className="px-2.5 py-1.5 text-zinc-600 text-xs">No projects yet</div>
+                )}
+              </div>
               <div className="my-1 border-t border-border" />
-              <div className="px-2.5 py-1.5 text-primary rounded-lg hover:bg-white/[0.04] cursor-pointer">+ New workspace</div>
+              <div
+                onClick={() => { setActivePage('Projects'); setWorkspaceOpen(false); }}
+                className="px-2.5 py-1.5 text-primary rounded-lg hover:bg-white/[0.04] cursor-pointer flex items-center gap-2"
+              >
+                <Plus className="h-3.5 w-3.5" /> New project
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
