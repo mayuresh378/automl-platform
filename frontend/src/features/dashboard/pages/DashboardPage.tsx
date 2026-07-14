@@ -100,10 +100,10 @@ export default function DashboardPage() {
       {metrics.data && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'CPU', value: metrics.data.cpu_percent, icon: <Cpu className="w-4 h-4" />, color: metrics.data.cpu_percent > 80 ? 'text-red-400' : 'text-emerald-400' },
-            { label: 'Memory', value: metrics.data.memory_percent, icon: <Activity className="w-4 h-4" />, color: metrics.data.memory_percent > 80 ? 'text-red-400' : 'text-emerald-400' },
-            { label: 'Disk', value: metrics.data.disk_percent, icon: <Database className="w-4 h-4" />, color: metrics.data.disk_percent > 80 ? 'text-red-400' : 'text-emerald-400' },
-            { label: 'Requests/min', value: metrics.data.requests_per_minute, icon: <TrendingUp className="w-4 h-4" />, color: 'text-blue-400', suffix: ' req' },
+            { label: 'CPU', value: metrics.data.cpu?.percent, icon: <Cpu className="w-4 h-4" />, color: (metrics.data.cpu?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
+            { label: 'Memory', value: metrics.data.memory?.percent, icon: <Activity className="w-4 h-4" />, color: (metrics.data.memory?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
+            { label: 'Disk', value: metrics.data.disk?.percent, icon: <Database className="w-4 h-4" />, color: (metrics.data.disk?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
+            { label: 'Requests/min', value: metrics.data.network ? Math.round((metrics.data.network.bytes_sent + metrics.data.network.bytes_recv) / 10240) : 0, icon: <TrendingUp className="w-4 h-4" />, color: 'text-blue-400', suffix: ' req' },
           ].map((stat) => (
             <Card key={stat.label} padding="sm">
               <div className="flex items-center justify-between mb-2">
