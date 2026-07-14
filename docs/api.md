@@ -1,6 +1,6 @@
 # AutoML Platform API Documentation
 
-*Generated on: 2026-07-14 12:17*
+*Generated on: 2026-07-14 12:24*
 
 ---
 
@@ -24,6 +24,7 @@
 | POST | `/api/v1/datasets` | `upload_dataset` |
 | DELETE | `/api/v1/datasets/{name}` | `delete_dataset` |
 | GET | `/api/v1/datasets/{name}/analyze` | `dataset_analyze` |
+| POST | `/api/v1/datasets/{name}/auto-clean` | `auto_clean_endpoint` |
 | POST | `/api/v1/datasets/{name}/clean` | `clean` |
 | GET | `/api/v1/datasets/{name}/download` | `download_dataset` |
 | POST | `/api/v1/datasets/{name}/features/generate` | `generate` |
@@ -163,6 +164,11 @@
 
 **Handler:** `dataset_analyze`  
 **Name:** `dataset_analyze`  
+
+### POST `/api/v1/datasets/{name}/auto-clean`
+
+**Handler:** `auto_clean_endpoint`  
+**Name:** `auto_clean_endpoint`  
 
 ### POST `/api/v1/datasets/{name}/clean`
 

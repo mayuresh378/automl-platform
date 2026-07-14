@@ -39,7 +39,7 @@ from schemas import (
 from preprocess import auto_preprocess
 from train import run_automl_training
 from predict import make_prediction, load_model_metadata
-from cleaning import profile_dataset, clean_dataset
+from cleaning import profile_dataset, clean_dataset, auto_clean
 from analysis import analyze_dataset
 from analytics import dashboard_analytics
 from train import CLASSIFICATION_MODELS, REGRESSION_MODELS, run_engine_training, XGB_AVAILABLE, LGBM_AVAILABLE, CATB_AVAILABLE
@@ -293,6 +293,15 @@ def clean(name: str, operations: str = Form(...), db: Session = Depends(get_db),
         return result
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/datasets/{name}/auto-clean")
+def auto_clean_endpoint(name: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    try:
+        result = auto_clean(name)
+        log_audit(db, current_user.get("name", "User"), "dataset.auto_cleaned", name, "dataset")
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

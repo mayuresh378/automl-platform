@@ -29,6 +29,7 @@ import {
   BarChart3,
   Shield,
   SlidersHorizontal,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Projects', icon: FolderKanban, group: 'Workspace' },
   { label: 'Datasets', icon: Database, group: 'Data' },
   { label: 'Data Cleaning', icon: SprayCan, group: 'Data' },
+  { label: 'Auto Cleaning', icon: Sparkles, group: 'Data' },
   { label: 'Feature Engineering', icon: Wand2, group: 'Data' },
   { label: 'Dataset Analysis', icon: BrainCircuit, group: 'Data' },
   { label: 'SQL Editor', icon: TerminalSquare, group: 'Data' },

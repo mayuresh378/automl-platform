@@ -5,6 +5,7 @@ import { ToastProvider } from './components/ToastProvider';
 import { Dashboard } from './pages/Dashboard';
 import UploadPage from './pages/UploadPage';
 import CleaningPage from './pages/CleaningPage';
+import AutomaticCleaningPage from './pages/AutomaticCleaningPage';
 import EngineeringPage from './pages/EngineeringPage';
 import ExplorerPage from './pages/ExplorerPage';
 import DatasetAnalysisPage from './pages/DatasetAnalysisPage';
@@ -37,6 +38,7 @@ const PAGE_MAP: Record<string, React.FC> = {
   Projects: ProjectsPage,
   Datasets: UploadPage,
   'Data Cleaning': CleaningPage,
+  'Auto Cleaning': AutomaticCleaningPage,
   'Feature Engineering': EngineeringPage,
   Explorer: ExplorerPage,
   'Dataset Analysis': DatasetAnalysisPage,
