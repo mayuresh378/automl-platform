@@ -67,6 +67,8 @@ export default function DashboardPage() {
   const recentModels = (models.data || []).slice(0, 5);
   const recentDeployments = (deployments.data || []).slice(0, 5);
 
+  const m = metrics.data as any;
+
   const chartData = Array.from({ length: 12 }, (_, i) => ({
     time: `${i * 2}h`,
     value: 40 + Math.sin(i * 0.8) * 20 + Math.cos(i * 0.3) * 10 + (i % 3 === 0 ? 5 : 0),
@@ -100,10 +102,10 @@ export default function DashboardPage() {
       {metrics.data && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'CPU', value: metrics.data.cpu?.percent, icon: <Cpu className="w-4 h-4" />, color: (metrics.data.cpu?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
-            { label: 'Memory', value: metrics.data.memory?.percent, icon: <Activity className="w-4 h-4" />, color: (metrics.data.memory?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
-            { label: 'Disk', value: metrics.data.disk?.percent, icon: <Database className="w-4 h-4" />, color: (metrics.data.disk?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
-            { label: 'Requests/min', value: metrics.data.network ? Math.round((metrics.data.network.bytes_sent + metrics.data.network.bytes_recv) / 10240) : 0, icon: <TrendingUp className="w-4 h-4" />, color: 'text-blue-400', suffix: ' req' },
+            { label: 'CPU', value: m.cpu?.percent, icon: <Cpu className="w-4 h-4" />, color: (m.cpu?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
+            { label: 'Memory', value: m.memory?.percent, icon: <Activity className="w-4 h-4" />, color: (m.memory?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
+            { label: 'Disk', value: m.disk?.percent, icon: <Database className="w-4 h-4" />, color: (m.disk?.percent ?? 0) > 80 ? 'text-red-400' : 'text-emerald-400' },
+            { label: 'Requests/min', value: m.network ? Math.round((m.network.bytes_sent + m.network.bytes_recv) / 10240) : 0, icon: <TrendingUp className="w-4 h-4" />, color: 'text-blue-400', suffix: ' req' },
           ].map((stat) => (
             <Card key={stat.label} padding="sm">
               <div className="flex items-center justify-between mb-2">
