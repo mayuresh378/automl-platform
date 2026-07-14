@@ -44,20 +44,64 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   auth: {
-    login: (email: string, password: string) => {
+    login: (email: string, password: string, device_info?: string) => {
       const form = new FormData();
       form.append('email', email);
       form.append('password', password);
-      return fetchJSON<{ token: string; user: { id: string; email: string; name: string } }>(`${BASE}/auth/login`, { method: 'POST', body: form });
+      if (device_info) form.append('device_info', device_info);
+      return fetchJSON<{ token: string; refresh_token: string; user: any }>(`${BASE}/auth/login`, { method: 'POST', body: form });
     },
     register: (email: string, password: string, name: string) => {
       const form = new FormData();
       form.append('email', email);
       form.append('password', password);
       form.append('name', name);
-      return fetchJSON<{ token: string; user: { id: string; email: string; name: string } }>(`${BASE}/auth/register`, { method: 'POST', body: form });
+      return fetchJSON<{ token: string; refresh_token: string; user: any }>(`${BASE}/auth/register`, { method: 'POST', body: form });
     },
-    me: () => fetchJSON<{ user: { id: string; email: string; name: string } }>(`${BASE}/auth/me`),
+    me: () => fetchJSON<{ user: any }>(`${BASE}/auth/me`),
+    refresh: (token: string) => {
+      const form = new FormData();
+      form.append('token', token);
+      return fetchJSON<{ token: string; refresh_token: string }>(`${BASE}/auth/refresh`, { method: 'POST', body: form });
+    },
+    updateProfile: (data: { name?: string; preferences?: string }) => {
+      const form = new FormData();
+      if (data.name) form.append('name', data.name);
+      if (data.preferences) form.append('preferences', data.preferences);
+      return fetchJSON<any>(`${BASE}/auth/profile`, { method: 'PUT', body: form });
+    },
+    changePassword: (current_password: string, new_password: string) => {
+      const form = new FormData();
+      form.append('current_password', current_password);
+      form.append('new_password', new_password);
+      return fetchJSON<any>(`${BASE}/auth/change-password`, { method: 'POST', body: form });
+    },
+    sendVerification: () => fetchJSON<any>(`${BASE}/auth/send-verification`, { method: 'POST' }),
+    verifyEmail: (token: string) => {
+      const form = new FormData();
+      form.append('token', token);
+      return fetchJSON<any>(`${BASE}/auth/verify-email`, { method: 'POST', body: form });
+    },
+    forgotPassword: (email: string) => {
+      const form = new FormData();
+      form.append('email', email);
+      return fetchJSON<any>(`${BASE}/auth/forgot-password`, { method: 'POST', body: form });
+    },
+    resetPassword: (token: string, new_password: string) => {
+      const form = new FormData();
+      form.append('token', token);
+      form.append('new_password', new_password);
+      return fetchJSON<any>(`${BASE}/auth/reset-password`, { method: 'POST', body: form });
+    },
+    googleLogin: (id_token: string) => {
+      const form = new FormData();
+      form.append('id_token', id_token);
+      return fetchJSON<{ token: string; refresh_token: string; user: any }>(`${BASE}/auth/google`, { method: 'POST', body: form });
+    },
+    sessions: () => fetchJSON<{ sessions: any[] }>(`${BASE}/auth/sessions`),
+    revokeSession: (id: string) => fetchJSON(`${BASE}/auth/sessions/${id}`, { method: 'DELETE' }),
+    logout: () => fetchJSON(`${BASE}/auth/logout`, { method: 'POST' }).catch(() => {}),
+    logoutAll: () => fetchJSON(`${BASE}/auth/logout-all`, { method: 'POST' }),
   },
 
   datasets: {

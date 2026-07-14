@@ -48,6 +48,9 @@ from ai_assistant import answer_question, list_datasets as ai_list_datasets, loa
 from auth import (
     register_user, login_user, refresh_token, get_current_user, get_optional_user,
     decode_token, create_access_token, sanitize_filename,
+    update_user_profile, change_password, send_verification, verify_email,
+    forgot_password, reset_password, google_login,
+    list_sessions, revoke_session, logout, revoke_all_sessions,
 )
 
 security = HTTPBearer(auto_error=False)
@@ -144,12 +147,14 @@ def health():
 # ── Auth ────────────────────────────────────────────────────────────
 
 @app.post("/api/v1/auth/register")
-def auth_register(email: str = Form(...), password: str = Form(...), name: str = Form(...), db: Session = Depends(get_db)):
-    return register_user(db, email, password, name)
+def auth_register(email: str = Form(...), password: str = Form(...), name: str = Form(...),
+                  device_info: str = Form(None), db: Session = Depends(get_db)):
+    return register_user(db, email, password, name, device_info=device_info)
 
 @app.post("/api/v1/auth/login")
-def auth_login(email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    return login_user(db, email, password)
+def auth_login(email: str = Form(...), password: str = Form(...),
+               device_info: str = Form(None), db: Session = Depends(get_db)):
+    return login_user(db, email, password, device_info=device_info)
 
 @app.post("/api/v1/auth/refresh")
 def auth_refresh(token: str = Form(...), db: Session = Depends(get_db)):
@@ -158,6 +163,54 @@ def auth_refresh(token: str = Form(...), db: Session = Depends(get_db)):
 @app.get("/api/v1/auth/me")
 def auth_me(current_user: dict = Depends(get_current_user)):
     return {"user": current_user}
+
+@app.put("/api/v1/auth/profile")
+def auth_update_profile(name: str = Form(None), preferences: str = Form(None),
+                        current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    prefs = json.loads(preferences) if preferences else None
+    return update_user_profile(db, current_user["id"], name=name, preferences=prefs)
+
+@app.post("/api/v1/auth/change-password")
+def auth_change_password(current_password: str = Form(...), new_password: str = Form(...),
+                         current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return change_password(db, current_user["id"], current_password, new_password)
+
+@app.post("/api/v1/auth/send-verification")
+def auth_send_verification(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return send_verification(db, current_user["id"])
+
+@app.post("/api/v1/auth/verify-email")
+def auth_verify_email(token: str = Form(...), db: Session = Depends(get_db)):
+    return verify_email(db, token)
+
+@app.post("/api/v1/auth/forgot-password")
+def auth_forgot_password(email: str = Form(...), db: Session = Depends(get_db)):
+    return forgot_password(db, email)
+
+@app.post("/api/v1/auth/reset-password")
+def auth_reset_password(token: str = Form(...), new_password: str = Form(...), db: Session = Depends(get_db)):
+    return reset_password(db, token, new_password)
+
+@app.post("/api/v1/auth/google")
+def auth_google(id_token: str = Form(...), device_info: str = Form(None), db: Session = Depends(get_db)):
+    return google_login(db, id_token, device_info=device_info)
+
+@app.get("/api/v1/auth/sessions")
+def auth_list_sessions(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {"sessions": list_sessions(db, current_user["id"])}
+
+@app.delete("/api/v1/auth/sessions/{session_id}")
+def auth_revoke_session(session_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return revoke_session(db, current_user["id"], session_id)
+
+@app.post("/api/v1/auth/logout")
+def auth_logout(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    return logout(db, credentials)
+
+@app.post("/api/v1/auth/logout-all")
+def auth_logout_all(current_user: dict = Depends(get_current_user),
+                    credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    return revoke_all_sessions(db, current_user["id"], exclude_token=credentials.credentials)
 
 
 # ── Search ──────────────────────────────────────────────────────────

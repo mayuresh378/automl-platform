@@ -35,6 +35,11 @@ def _migrate_schema():
         ("model_registry", "project_id", "VARCHAR"),
         ("deployments", "project_id", "VARCHAR"),
         ("projects", "notes", "TEXT"),
+        ("users", "email_verified", "BOOLEAN"),
+        ("users", "verification_token", "VARCHAR"),
+        ("users", "reset_token", "VARCHAR"),
+        ("users", "reset_token_expiry", "TIMESTAMP"),
+        ("users", "google_id", "VARCHAR"),
     ]
     for table, col, col_type in migrations:
         if table in inspector.get_table_names():

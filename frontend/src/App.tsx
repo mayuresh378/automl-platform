@@ -30,6 +30,10 @@ import MarketplacePage from './pages/MarketplacePage';
 import SQLEditorPage from './pages/SQLEditorPage';
 import SettingsPage from './pages/SettingsPage';
 import APIDocumentationPage from './pages/APIDocumentationPage';
+import ProfilePage from './pages/ProfilePage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useUIStore } from './store/useUIStore';
 
@@ -63,6 +67,10 @@ const PAGE_MAP: Record<string, React.FC> = {
   Settings: SettingsPage,
   Documentation: APIDocumentationPage,
   Support: AIAssistantPage,
+  'Profile': ProfilePage,
+  'Verify Email': VerifyEmailPage,
+  'Forgot Password': ForgotPasswordPage,
+  'Reset Password': ResetPasswordPage,
 };
 
 function CurrentPage() {

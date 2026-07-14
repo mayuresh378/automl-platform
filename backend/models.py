@@ -24,6 +24,11 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, default="member")
     is_active = Column(Boolean, default=True)
+    email_verified = Column(Boolean, default=False)
+    verification_token = Column(String, nullable=True)
+    reset_token = Column(String, nullable=True)
+    reset_token_expiry = Column(DateTime, nullable=True)
+    google_id = Column(String, nullable=True, unique=True)
     avatar_url = Column(String, nullable=True)
     preferences = Column(JSON, default=dict)
     mfa_enabled = Column(Boolean, default=False)
@@ -192,6 +197,21 @@ class Project(Base):
     tags = Column(JSON, default=list)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String, nullable=False)
+    refresh_token_hash = Column(String, nullable=True)
+    device_info = Column(String, nullable=True)
+    ip_address = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    last_used_at = Column(DateTime, default=_now)
+    created_at = Column(DateTime, default=_now)
+    expires_at = Column(DateTime, nullable=True)
 
 
 class MarketplaceItem(Base):

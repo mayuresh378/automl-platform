@@ -1,6 +1,6 @@
 # AutoML Platform API Documentation
 
-*Generated on: 2026-07-14 12:42*
+*Generated on: 2026-07-14 12:51*
 
 ---
 
@@ -15,10 +15,21 @@
 | GET | `/api/v1/api-keys` | `list_api_keys_api` |
 | POST | `/api/v1/api-keys` | `create_api_key_api` |
 | DELETE | `/api/v1/api-keys/{key_id}` | `delete_api_key_api` |
+| POST | `/api/v1/auth/change-password` | `auth_change_password` |
+| POST | `/api/v1/auth/forgot-password` | `auth_forgot_password` |
+| POST | `/api/v1/auth/google` | `auth_google` |
 | POST | `/api/v1/auth/login` | `auth_login` |
+| POST | `/api/v1/auth/logout` | `auth_logout` |
+| POST | `/api/v1/auth/logout-all` | `auth_logout_all` |
 | GET | `/api/v1/auth/me` | `auth_me` |
+| PUT | `/api/v1/auth/profile` | `auth_update_profile` |
 | POST | `/api/v1/auth/refresh` | `auth_refresh` |
 | POST | `/api/v1/auth/register` | `auth_register` |
+| POST | `/api/v1/auth/reset-password` | `auth_reset_password` |
+| POST | `/api/v1/auth/send-verification` | `auth_send_verification` |
+| GET | `/api/v1/auth/sessions` | `auth_list_sessions` |
+| DELETE | `/api/v1/auth/sessions/{session_id}` | `auth_revoke_session` |
+| POST | `/api/v1/auth/verify-email` | `auth_verify_email` |
 | POST | `/api/v1/batch-predictions` | `batch_predict` |
 | GET | `/api/v1/datasets` | `list_datasets` |
 | POST | `/api/v1/datasets` | `upload_dataset` |
@@ -123,15 +134,45 @@
 **Handler:** `delete_api_key_api`  
 **Name:** `delete_api_key_api`  
 
+### POST `/api/v1/auth/change-password`
+
+**Handler:** `auth_change_password`  
+**Name:** `auth_change_password`  
+
+### POST `/api/v1/auth/forgot-password`
+
+**Handler:** `auth_forgot_password`  
+**Name:** `auth_forgot_password`  
+
+### POST `/api/v1/auth/google`
+
+**Handler:** `auth_google`  
+**Name:** `auth_google`  
+
 ### POST `/api/v1/auth/login`
 
 **Handler:** `auth_login`  
 **Name:** `auth_login`  
 
+### POST `/api/v1/auth/logout`
+
+**Handler:** `auth_logout`  
+**Name:** `auth_logout`  
+
+### POST `/api/v1/auth/logout-all`
+
+**Handler:** `auth_logout_all`  
+**Name:** `auth_logout_all`  
+
 ### GET `/api/v1/auth/me`
 
 **Handler:** `auth_me`  
 **Name:** `auth_me`  
+
+### PUT `/api/v1/auth/profile`
+
+**Handler:** `auth_update_profile`  
+**Name:** `auth_update_profile`  
 
 ### POST `/api/v1/auth/refresh`
 
@@ -142,6 +183,31 @@
 
 **Handler:** `auth_register`  
 **Name:** `auth_register`  
+
+### POST `/api/v1/auth/reset-password`
+
+**Handler:** `auth_reset_password`  
+**Name:** `auth_reset_password`  
+
+### POST `/api/v1/auth/send-verification`
+
+**Handler:** `auth_send_verification`  
+**Name:** `auth_send_verification`  
+
+### GET `/api/v1/auth/sessions`
+
+**Handler:** `auth_list_sessions`  
+**Name:** `auth_list_sessions`  
+
+### DELETE `/api/v1/auth/sessions/{session_id}`
+
+**Handler:** `auth_revoke_session`  
+**Name:** `auth_revoke_session`  
+
+### POST `/api/v1/auth/verify-email`
+
+**Handler:** `auth_verify_email`  
+**Name:** `auth_verify_email`  
 
 ### POST `/api/v1/batch-predictions`
 
