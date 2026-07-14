@@ -221,6 +221,24 @@ class Webhook(Base):
     created_at = Column(DateTime, default=_now)
 
 
+class Dataset(Base):
+    __tablename__ = "datasets"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    filename = Column(String, nullable=False)
+    original_filename = Column(String, nullable=True)
+    file_path = Column(String, nullable=True)
+    file_size_kb = Column(Float, nullable=True)
+    rows = Column(Integer, nullable=True)
+    columns = Column(JSON, nullable=True)
+    status = Column(String, default="uploaded")
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

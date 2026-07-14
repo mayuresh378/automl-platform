@@ -9,7 +9,7 @@ from jose import jwt
 
 from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
                     Deployment, Pipeline, PipelineRun, Webhook, AuditLog,
-                    Project, MarketplaceItem)
+                    Project, MarketplaceItem, Dataset)
 
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
@@ -336,6 +336,87 @@ def create_project(db: Session, name: str, user_id: str = None, description: str
 
 def get_project(db: Session, project_id: str) -> Optional[Project]:
     return db.query(Project).filter(Project.id == project_id).first()
+
+
+def update_project(db: Session, project_id: str, name: str = None,
+                   description: str = None, status: str = None) -> Optional[Project]:
+    project = get_project(db, project_id)
+    if not project:
+        return None
+    if name is not None:
+        project.name = name
+    if description is not None:
+        project.description = description
+    if status is not None:
+        project.status = status
+    project.updated_at = _now()
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+# ─── Dataset Records ──────────────────────────────────────────────────
+
+def create_dataset_record(db: Session, filename: str, size_kb: float = None,
+                          rows: int = None, columns: list = None,
+                          project_id: str = None, user_id: str = None) -> Dataset:
+    record = Dataset(
+        id=_uid(), filename=filename, file_size_kb=size_kb,
+        rows=rows, columns=columns, project_id=project_id,
+        user_id=user_id, created_at=_now()
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def list_dataset_records(db: Session, project_id: str = None) -> list:
+    q = db.query(Dataset).order_by(desc(Dataset.created_at))
+    if project_id:
+        q = q.filter(Dataset.project_id == project_id)
+    return q.all()
+
+
+def get_dataset_record(db: Session, name: str) -> Optional[Dataset]:
+    return db.query(Dataset).filter(Dataset.filename == name).first()
+
+
+def delete_dataset_record(db: Session, name: str) -> bool:
+    record = get_dataset_record(db, name)
+    if record:
+        db.delete(record)
+        db.commit()
+        return True
+    return False
+
+
+# ─── Global Search ────────────────────────────────────────────────────
+
+def global_search(db: Session, query: str, dataset_dir: str) -> dict:
+    term = f"%{query}%"
+    users = db.query(User).filter(
+        (User.name.ilike(term)) | (User.email.ilike(term))
+    ).limit(10).all()
+    projects = db.query(Project).filter(
+        (Project.name.ilike(term)) | (Project.description.ilike(term))
+    ).limit(10).all()
+    datasets = db.query(Dataset).filter(Dataset.filename.ilike(term)).limit(10).all()
+    model_files = []
+    if os.path.isdir(dataset_dir):
+        parent = os.path.dirname(dataset_dir)
+        if os.path.isdir(parent):
+            for root, dirs, files in os.walk(parent):
+                for f in files:
+                    if query.lower() in f.lower():
+                        rel = os.path.relpath(os.path.join(root, f), parent)
+                        model_files.append({"path": rel, "name": f})
+    return {
+        "users": [{"id": u.id, "name": u.name, "email": u.email} for u in users],
+        "projects": [{"id": p.id, "name": p.name, "description": p.description} for p in projects],
+        "datasets": [{"id": d.id, "filename": d.filename, "rows": d.rows} for d in datasets],
+        "models": model_files[:20],
+    }
 
 
 # ─── Marketplace ──────────────────────────────────────────────────────

@@ -175,14 +175,24 @@ export const api = {
       fetchJSON(`${BASE}/webhooks/${webhook_id}`, { method: 'DELETE' }),
   },
 
+  search: (q: string) => fetchJSON<{ users: any[]; projects: any[]; datasets: any[]; models: any[] }>(`${BASE}/search?q=${encodeURIComponent(q)}`),
+
   projects: {
     list: () => fetchJSON<{ projects: any[] }>(`${BASE}/projects`),
+    get: (id: string) => fetchJSON<any>(`${BASE}/projects/${id}`),
     create: (name: string, description?: string) => {
       const form = new FormData();
       form.append('name', name);
       if (description) form.append('description', description);
       return fetchJSON(`${BASE}/projects`, { method: 'POST', body: form });
     },
+    update: (id: string, data: { name?: string; description?: string; status?: string }) =>
+      fetchJSON(`${BASE}/projects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) => fetchJSON(`${BASE}/projects/${id}`, { method: 'DELETE' }),
   },
 
   marketplace: {

@@ -30,7 +30,7 @@ def get_db():
 def init_db():
     from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
                         Deployment, Pipeline, PipelineRun, Webhook, AuditLog,
-                        Project, MarketplaceItem)
+                        Project, MarketplaceItem, Dataset)
     for attempt in range(30):
         try:
             Base.metadata.create_all(bind=engine)
