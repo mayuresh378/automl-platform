@@ -123,11 +123,21 @@ function DatasetAnalysisPage() {
             <div className="card-hover rounded-[28px] border border-white/10 bg-white/5 p-5 col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-1">
                 <Gauge className="h-4 w-4 text-amber-400" />
-                <span className="text-[10px] uppercase tracking-wider text-slate-500">Quality</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">Health Score</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-lg font-semibold ${gradeColor(qs?.grade)}`}>{qs?.grade || '?'}</span>
-                <span className="text-sm text-slate-400">({qs?.total || '?'}/100)</span>
+              <div className="flex items-center gap-3">
+                <svg className="h-10 w-10 -rotate-90 shrink-0" viewBox="0 0 36 36">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+                  <circle
+                    cx="18" cy="18" r="15.5" fill="none"
+                    stroke={qs?.total >= 90 ? '#22C55E' : qs?.total >= 80 ? '#3B82F6' : qs?.total >= 65 ? '#F59E0B' : '#EF4444'}
+                    strokeWidth="3" strokeDasharray={`${(qs?.total || 0) * 0.31} 100`} strokeLinecap="round"
+                  />
+                </svg>
+                <div>
+                  <span className={`text-lg font-semibold ${gradeColor(qs?.grade)}`}>{qs?.grade || '?'}</span>
+                  <span className="text-sm text-slate-400 ml-1">({qs?.total || '?'}/100)</span>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -287,26 +297,104 @@ function DatasetAnalysisPage() {
             </motion.div>
           )}
 
+          {/* Distribution Histograms */}
+          {analysis.distributions?.columns?.length > 0 && (
+            <motion.div variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="h-5 w-5 text-sky-400" />
+                <h3 className="text-lg font-semibold text-white">Distribution Charts</h3>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {analysis.distributions.columns.slice(0, 6).map((col: any) => {
+                  const maxBin = Math.max(...col.bins, 1);
+                  return (
+                    <div key={col.column} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-white truncate">{col.column}</p>
+                        <span className="text-[10px] text-slate-500">skew: {col.skewness}</span>
+                      </div>
+                      <div className="flex items-end gap-0.5 h-20">
+                        {col.bins.slice(0, 30).map((b: number, i: number) => (
+                          <div
+                            key={i}
+                            className="flex-1 rounded-t bg-accent/60 hover:bg-accent/80 transition-all min-w-[2px]"
+                            style={{ height: `${(b / maxBin) * 100}%` }}
+                            title={`${col.bin_edges[i]?.toFixed(1)}-${col.bin_edges[i + 1]?.toFixed(1)}: ${b}`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex justify-between text-[9px] text-slate-600 mt-1">
+                        <span>{col.min}</span>
+                        <span>μ={col.mean.toFixed(1)}</span>
+                        <span>{col.max}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Correlation Heatmap */}
           {analysis.correlation?.columns?.length >= 2 && (
             <motion.div variants={staggerItem} className="card-hover rounded-[32px] border border-white/10 bg-[#111827]/80 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Activity className="h-5 w-5 text-cyan-400" />
-                <h3 className="text-lg font-semibold text-white">Top Correlations</h3>
+                <h3 className="text-lg font-semibold text-white">Correlation Heatmap</h3>
+                <span className="ml-auto text-[10px] text-slate-500">{analysis.correlation.size}×{analysis.correlation.size}</span>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {analysis.correlation.top_correlations?.slice(0, 12).map((c: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-slate-300 truncate">{c.x}</span>
-                      <span className="text-slate-600">×</span>
-                      <span className="text-slate-300 truncate">{c.y}</span>
-                    </div>
-                    <span className={`ml-2 font-mono text-xs shrink-0 ${Math.abs(c.value) > 0.7 ? 'text-emerald-400' : Math.abs(c.value) > 0.4 ? 'text-amber-400' : 'text-slate-500'}`}>
-                      {c.value > 0 ? '+' : ''}{c.value}
-                    </span>
+              <div className="overflow-x-auto">
+                <div className="inline-flex flex-col min-w-0">
+                  {/* Header row */}
+                  <div className="flex">
+                    <div className="w-24 shrink-0" />
+                    {analysis.correlation.columns.map((col: string) => (
+                      <div key={col} className="w-16 shrink-0 text-[9px] text-slate-500 truncate text-center px-1 mb-1" title={col}>{col}</div>
+                    ))}
                   </div>
-                ))}
+                  {/* Matrix rows */}
+                  {analysis.correlation.matrix.slice(0, 12).map((row: any, i: number) => (
+                    <div key={i} className="flex items-center">
+                      <div className="w-24 shrink-0 text-[10px] text-slate-400 truncate pr-2 text-right" title={row.column}>{row.column}</div>
+                      {analysis.correlation.columns.slice(0, 12).map((col: string) => {
+                        const val = row[col];
+                        if (val === undefined || val === null) return <div key={col} className="w-16 h-7 shrink-0" />;
+                        const abs = Math.abs(val);
+                        const r = abs > 0.7 ? 255 : abs > 0.4 ? 200 : 100;
+                        const g = val > 0 ? Math.round(255 - abs * 200) : 100;
+                        const b = val > 0 ? 100 : Math.round(255 - abs * 200);
+                        return (
+                          <div
+                            key={col}
+                            className="w-16 h-7 shrink-0 flex items-center justify-center text-[9px] font-mono border border-white/5"
+                            style={{ backgroundColor: `rgba(${r}, ${g}, ${b}, 0.25)` }}
+                            title={`${row.column} × ${col}: ${val}`}
+                          >
+                            <span className="text-[9px] text-slate-300">{val.toFixed(2)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
               </div>
+              {/* Top correlation pairs */}
+              {analysis.correlation.top_correlations?.length > 0 && (
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {analysis.correlation.top_correlations?.slice(0, 9).map((c: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-slate-300 truncate">{c.x}</span>
+                        <span className="text-slate-600">×</span>
+                        <span className="text-slate-300 truncate">{c.y}</span>
+                      </div>
+                      <span className={`ml-2 font-mono shrink-0 ${Math.abs(c.value) > 0.7 ? 'text-emerald-400' : Math.abs(c.value) > 0.4 ? 'text-amber-400' : 'text-slate-500'}`}>
+                        {c.value > 0 ? '+' : ''}{c.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
 
