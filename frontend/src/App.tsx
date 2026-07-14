@@ -14,6 +14,7 @@ import AdminPage from './pages/AdminPage';
 import ModelComparisonPage from './pages/ModelComparisonPage';
 import ExplainableAIPage from './pages/ExplainableAIPage';
 import TrainingPage from './pages/TrainingPage';
+import HyperparameterPage from './pages/HyperparameterPage';
 import PredictionPage from './pages/PredictionPage';
 import MonitoringPage from './pages/MonitoringPage';
 import ExperimentsPage from './pages/ExperimentsPage';
@@ -44,6 +45,7 @@ const PAGE_MAP: Record<string, React.FC> = {
   'Analytics': AnalyticsPage,
   'Admin': AdminPage,
   Training: TrainingPage,
+  'HPO Tuning': HyperparameterPage,
   Experiments: ExperimentsPage,
   Models: ModelRegistryPage,
   Deployment: DeploymentsPage,

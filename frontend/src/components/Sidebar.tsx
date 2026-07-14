@@ -28,6 +28,7 @@ import {
   GitCompare,
   BarChart3,
   Shield,
+  SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
@@ -49,6 +50,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dataset Analysis', icon: BrainCircuit, group: 'Data' },
   { label: 'SQL Editor', icon: TerminalSquare, group: 'Data' },
   { label: 'Training', icon: Cpu, group: 'Model' },
+  { label: 'HPO Tuning', icon: SlidersHorizontal, group: 'Model' },
   { label: 'Experiments', icon: FlaskConical, group: 'Model' },
   { label: 'Model Comparison', icon: GitCompare, group: 'Model' },
   { label: 'Explainable AI', icon: BrainCircuit, group: 'Model' },

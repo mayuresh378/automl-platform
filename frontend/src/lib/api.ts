@@ -224,6 +224,15 @@ export const api = {
     },
   },
 
+  post: (path: string, data: Record<string, any>) => {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(data)) {
+      form.append(k, String(v));
+    }
+    return fetchJSON(`${BASE}${path}`, { method: 'POST', body: form });
+  },
+  get: (path: string) => fetchJSON(`${BASE}${path}`),
+
   ai: {
     chat: (question: string) => {
       const form = new FormData();

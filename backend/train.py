@@ -3,7 +3,7 @@ import time
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV, GridSearchCV
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, confusion_matrix,
     mean_squared_error, mean_absolute_error, r2_score
@@ -186,6 +186,52 @@ def run_automl_training(X, y, task_type, model_name_prefix="automl_model", prepr
         "results": metadata["total_results"],
     }
 
+
+def run_tuning(X, y, task_type, model_names, param_overrides, search_method="random", cv_folds=5):
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y if task_type == "classification" else None
+    )
+    model_candidates = CLASSIFICATION_MODELS if task_type == "classification" else REGRESSION_MODELS
+    results = []
+    for name in model_names:
+        if name not in model_candidates:
+            results.append({"name": name, "error": f"Unknown model '{name}'"})
+            continue
+        try:
+            start = time.time()
+            spec = model_candidates[name]
+            base_model = spec["model"]
+            param_dist = param_overrides.get(name, spec["params"])
+            if search_method == "grid":
+                cv = min(2, cv_folds)
+                search = GridSearchCV(
+                    base_model, param_dist, cv=cv,
+                    scoring=_default_scoring(task_type), n_jobs=1,
+                )
+            else:
+                from math import prod
+                n_iter = min(5, prod([len(v) for v in param_dist.values()]))
+                cv = min(2, cv_folds)
+                search = RandomizedSearchCV(
+                    base_model, param_dist, n_iter=n_iter,
+                    cv=cv, scoring=_default_scoring(task_type),
+                    random_state=42, n_jobs=1, verbose=0,
+                )
+            search.fit(X_train, y_train)
+            train_time = time.time() - start
+            y_pred = search.predict(X_test)
+            cv_score = search.best_score_
+            metrics = _compute_metrics(y_test, y_pred, task_type)
+            results.append({
+                "name": name,
+                "best_params": search.best_params_,
+                "cv_score": round(float(cv_score), 4),
+                "metrics": metrics,
+                "training_time": round(train_time, 2),
+            })
+        except Exception as e:
+            results.append({"name": name, "error": str(e)})
+    return {"results": results, "task_type": task_type}
 
 def _count_params(param_dist):
     count = 1

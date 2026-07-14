@@ -42,6 +42,7 @@ from predict import make_prediction, load_model_metadata
 from cleaning import profile_dataset, clean_dataset
 from analysis import analyze_dataset
 from analytics import dashboard_analytics
+from train import CLASSIFICATION_MODELS, REGRESSION_MODELS
 from features import generate_features, suggest_features
 from ai_assistant import answer_question, list_datasets as ai_list_datasets, load_experiments as ai_load_experiments
 from auth import (
@@ -456,6 +457,82 @@ def delete_model(name: str, db: Session = Depends(get_db), current_user: dict = 
         raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
     log_audit(db, current_user.get("name", "User"), "model.deleted", name, "model")
     return {"message": f"Deleted model '{name}'"}
+
+
+# ── Hyperparameter Tuning ───────────────────────────────────────────
+
+FORMAT_PARAMS = {
+    "LogisticRegression": {"C": {"type": "float", "range": [0.001, 10], "log": True}},
+    "RandomForest": {"n_estimators": {"type": "int", "range": [10, 500]}, "max_depth": {"type": "int", "range": [1, 50]}},
+    "GradientBoosting": {"n_estimators": {"type": "int", "range": [10, 500]}, "learning_rate": {"type": "float", "range": [0.001, 1], "log": True}, "max_depth": {"type": "int", "range": [1, 10]}},
+    "SVC": {"C": {"type": "float", "range": [0.01, 100], "log": True}, "kernel": {"type": "choice", "values": ["rbf", "linear", "poly", "sigmoid"]}, "gamma": {"type": "choice", "values": ["scale", "auto"]}},
+    "KNN": {"n_neighbors": {"type": "int", "range": [1, 50]}, "weights": {"type": "choice", "values": ["uniform", "distance"]}},
+    "Ridge": {"alpha": {"type": "float", "range": [0.001, 100], "log": True}},
+    "Lasso": {"alpha": {"type": "float", "range": [0.0001, 10], "log": True}},
+    "SVR": {"C": {"type": "float", "range": [0.01, 100], "log": True}, "kernel": {"type": "choice", "values": ["rbf", "linear", "poly", "sigmoid"]}, "gamma": {"type": "choice", "values": ["scale", "auto"]}},
+}
+
+@app.get("/api/v1/tuning/params")
+def get_tuning_params():
+    return {
+        "classification": {
+            name: {"params": spec["params"], "formats": FORMAT_PARAMS.get(name, {})}
+            for name, spec in CLASSIFICATION_MODELS.items()
+        },
+        "regression": {
+            name: {"params": spec["params"], "formats": FORMAT_PARAMS.get(name, {})}
+            for name, spec in REGRESSION_MODELS.items()
+        },
+    }
+
+@app.post("/api/v1/tuning")
+def run_tuning_endpoint(
+    file_name: str = Form(...),
+    target_column: str = Form(...),
+    models: str = Form(...),
+    params: str = Form("{}"),
+    search_method: str = Form("random"),
+    cv_folds: int = Form(5),
+    task_type: str = Form(None),
+    project_id: str = Form(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_optional_user),
+):
+    try:
+        import json
+        model_list = json.loads(models)
+        param_overrides = json.loads(params)
+        preprocess_result = auto_preprocess(file_name, target_column, task_type)
+        X = preprocess_result["X"]
+        y = preprocess_result["y"]
+        task = preprocess_result["task_type"]
+        tuning = run_tuning(X, y, task, model_list, param_overrides, search_method, cv_folds)
+        exp_data_list = []
+        for r in tuning["results"]:
+            if "error" in r:
+                continue
+            exp_data = {
+                "name": f"{file_name.split('.')[0]}-{r['name']}-tuned",
+                "model": r["name"],
+                "task_type": task,
+                "cv_score": r["cv_score"],
+                "metrics": r["metrics"],
+                "dataset": file_name,
+                "target": target_column,
+                "training_time": r["training_time"],
+                "total_time": r["training_time"],
+                "status": "success",
+                "run_at": datetime.now(timezone.utc),
+                "user_id": current_user.get("id"),
+                "project_id": project_id,
+                "params": r["best_params"],
+            }
+            exp = create_experiment(db, exp_data)
+            exp_data_list.append({"id": exp.id, "name": exp.name, "model": r["name"], "cv_score": r["cv_score"], "metrics": r["metrics"]})
+        log_audit(db, current_user.get("name", "User"), "tuning.completed", f"Tuned {len(exp_data_list)} models", "tuning")
+        return {"results": tuning["results"], "experiments": exp_data_list, "task_type": task}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ── Deployments ──────────────────────────────────────────────────────
