@@ -32,3 +32,8 @@ Thumbs.db
 
 # Reports
 reports/
+
+# Misc
+response.txt
+*.tsbuildinfo
+backend/tests/
