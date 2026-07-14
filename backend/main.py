@@ -41,6 +41,7 @@ from train import run_automl_training
 from predict import make_prediction, load_model_metadata
 from cleaning import profile_dataset, clean_dataset
 from analysis import analyze_dataset
+from analytics import dashboard_analytics
 from features import generate_features, suggest_features
 from ai_assistant import answer_question, list_datasets as ai_list_datasets, load_experiments as ai_load_experiments
 from auth import (
@@ -782,7 +783,7 @@ def get_project_api(project_id: str, db: Session = Depends(get_db)):
         "id": p.id, "name": p.name, "description": p.description,
         "status": p.status, "model_ids": p.model_ids,
         "dataset_ids": p.dataset_ids, "tags": p.tags,
-        "datasets": [{"name": d.name, "rows": d.rows, "columns": d.columns} for d in datasets],
+        "datasets": [{"name": d.filename, "rows": d.rows, "columns": d.columns} for d in datasets],
         "experiments": [{"id": e.id, "model": e.model, "cv_score": e.cv_score} for e in exps],
         "dataset_count": len(datasets), "experiment_count": len(exps),
         "created_at": p.created_at.isoformat() if p.created_at else None,
@@ -797,6 +798,16 @@ def update_project_api(project_id: str, name: str = Form(None), description: str
         raise HTTPException(status_code=404, detail="Project not found")
     return {"id": p.id, "name": p.name, "description": p.description, "status": p.status,
             "updated_at": p.updated_at.isoformat() if p.updated_at else None}
+
+
+@app.delete("/api/v1/projects/{project_id}")
+def delete_project_api(project_id: str, db: Session = Depends(get_db)):
+    p = get_project(db, project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    db.delete(p)
+    db.commit()
+    return {"status": "deleted"}
 
 
 # ── Marketplace ──────────────────────────────────────────────────────
@@ -831,6 +842,34 @@ def activity(db: Session = Depends(get_db)):
         "status": l.status,
         "time": l.created_at.isoformat() if l.created_at else None,
     } for l in logs]}
+
+
+@app.get("/api/v1/analytics")
+def analytics(db: Session = Depends(get_db), days: int = 30):
+    return dashboard_analytics(db, days)
+
+
+@app.get("/api/v1/admin/stats")
+def admin_stats(db: Session = Depends(get_db)):
+    from crud import list_projects
+    from models import User
+    users = db.query(User).count()
+    projects = len(list_projects(db))
+    experiments = len(list_experiments(db))
+    models = len(list_models(db))
+    datasets = len(list_dataset_records(db))
+    return {
+        "users": users, "projects": projects,
+        "experiments": experiments, "models": models,
+        "datasets": datasets,
+    }
+
+
+@app.get("/api/v1/admin/users")
+def admin_users(db: Session = Depends(get_db)):
+    from models import User
+    users = db.query(User).order_by(User.created_at.desc()).limit(100).all()
+    return {"users": [{"id": u.id, "email": u.email, "name": u.name, "role": u.role, "is_active": u.is_active, "created_at": u.created_at.isoformat() if u.created_at else None} for u in users]}
 
 
 # ── SQL Query ────────────────────────────────────────────────────────

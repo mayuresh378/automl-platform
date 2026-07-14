@@ -25,6 +25,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
   BrainCircuit,
+  GitCompare,
+  BarChart3,
+  Shield,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
@@ -47,9 +50,12 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'SQL Editor', icon: TerminalSquare, group: 'Data' },
   { label: 'Training', icon: Cpu, group: 'Model' },
   { label: 'Experiments', icon: FlaskConical, group: 'Model' },
+  { label: 'Model Comparison', icon: GitCompare, group: 'Model' },
+  { label: 'Explainable AI', icon: BrainCircuit, group: 'Model' },
   { label: 'Models', icon: Boxes, group: 'Model' },
   { label: 'Deployment', icon: Rocket, group: 'Serve' },
   { label: 'Inference API', icon: Plug, group: 'Serve' },
+  { label: 'Analytics', icon: BarChart3, group: 'Serve' },
   { label: 'Monitoring', icon: Activity, group: 'Serve' },
   { label: 'Pipelines', icon: Workflow, group: 'Automate' },
   { label: 'Automations', icon: Zap, group: 'Automate' },
@@ -60,7 +66,7 @@ const NAV_ITEMS: NavItem[] = [
 const FOOTER_ITEMS: NavItem[] = [
   { label: 'Settings', icon: Settings, group: 'System' },
   { label: 'Billing', icon: CreditCard, group: 'System' },
-  { label: 'Admin', icon: ShieldCheck, group: 'System' },
+  { label: 'Admin', icon: Shield, group: 'System' },
   { label: 'Documentation', icon: BookOpen, group: 'System' },
   { label: 'Support', icon: LifeBuoy, group: 'System' },
 ];

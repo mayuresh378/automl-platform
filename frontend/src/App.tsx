@@ -8,6 +8,11 @@ import CleaningPage from './pages/CleaningPage';
 import EngineeringPage from './pages/EngineeringPage';
 import ExplorerPage from './pages/ExplorerPage';
 import DatasetAnalysisPage from './pages/DatasetAnalysisPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import AdminPage from './pages/AdminPage';
+import ModelComparisonPage from './pages/ModelComparisonPage';
+import ExplainableAIPage from './pages/ExplainableAIPage';
 import TrainingPage from './pages/TrainingPage';
 import PredictionPage from './pages/PredictionPage';
 import MonitoringPage from './pages/MonitoringPage';
@@ -33,6 +38,11 @@ const PAGE_MAP: Record<string, React.FC> = {
   'Feature Engineering': EngineeringPage,
   Explorer: ExplorerPage,
   'Dataset Analysis': DatasetAnalysisPage,
+  'Project Detail': ProjectDetailPage,
+  'Model Comparison': ModelComparisonPage,
+  'Explainable AI': ExplainableAIPage,
+  'Analytics': AnalyticsPage,
+  'Admin': AdminPage,
   Training: TrainingPage,
   Experiments: ExperimentsPage,
   Models: ModelRegistryPage,

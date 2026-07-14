@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { CloudUpload, FileSpreadsheet, CheckCircle2, Sparkles, DatabaseZap, AlertCircle, Search, Eye, Trash2, Table, BarChart3, Columns, HardDrive, Download } from 'lucide-react';
+import { CloudUpload, FileSpreadsheet, CheckCircle2, Sparkles, DatabaseZap, AlertCircle, Search, Eye, Trash2, Table, BarChart3, Columns, HardDrive, Download, Upload, FileWarning, Loader2 } from 'lucide-react';
 import { api, downloadUrl } from '../lib/api';
 import { useUIStore } from '../store/useUIStore';
 import { useNotificationStore } from '../store/useNotificationStore';
@@ -9,8 +9,11 @@ import { staggerContainer, staggerItem } from '../lib/animations';
 function UploadPage() {
   const [datasets, setDatasets] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [search, setSearch] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+  const [validationError, setValidationError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const setActivePage = useUIStore((s) => s.setActivePage);
   const notify = useNotificationStore((s) => s.add);
@@ -19,22 +22,60 @@ function UploadPage() {
 
   useEffect(() => { load(); }, []);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const ALLOWED_EXTS = ['.csv', '.xlsx', '.xls', '.parquet', '.json'];
+  const MAX_SIZE = 500 * 1024 * 1024; // 500MB
+
+  const validateFile = (file: File): string | null => {
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!ALLOWED_EXTS.includes(ext)) return `Unsupported file type "${ext}". Allowed: ${ALLOWED_EXTS.join(', ')}`;
+    if (file.size === 0) return 'File is empty';
+    if (file.size > MAX_SIZE) return `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max: 500 MB`;
+    const dup = datasets.find((d: any) => d.name === file.name);
+    if (dup) return `"${file.name}" already exists. Delete it first or rename the file.`;
+    return null;
+  };
+
+  const doUpload = async (file: File) => {
+    setValidationError('');
+    const err = validateFile(file);
+    if (err) { setValidationError(err); return; }
     setUploading(true);
+    setUploadProgress(0);
     setFeedback(null);
+    const interval = setInterval(() => setUploadProgress(p => Math.min(p + 10, 90)), 300);
     try {
       const res = await api.datasets.upload(file);
+      clearInterval(interval);
+      setUploadProgress(100);
+      setTimeout(() => setUploadProgress(0), 1000);
       setFeedback({ type: 'success', msg: `Uploaded "${file.name}" successfully` });
-      notify({ title: 'Dataset uploaded', message: `${file.name} uploaded (${(file.size / 1024).toFixed(1)} KB)`, type: 'success' });
+      notify({ title: 'Dataset uploaded', message: `${file.name} (${(file.size / 1024).toFixed(1)} KB)`, type: 'success' });
       await load();
     } catch (err: any) {
+      clearInterval(interval);
+      setUploadProgress(0);
       setFeedback({ type: 'error', msg: err.message || 'Upload failed' });
     }
     setUploading(false);
     if (inputRef.current) inputRef.current.value = '';
   };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await doUpload(file);
+  };
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await doUpload(file);
+  }, [datasets]);
+
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); };
+  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); };
 
   const handleDelete = async (name: string) => {
     if (!confirm(`Delete "${name}"?`)) return;
@@ -95,17 +136,41 @@ function UploadPage() {
           )}
 
           <div
-            className="cursor-pointer rounded-[28px] border border-dashed border-primary/30 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 p-10 text-center"
-            onClick={() => inputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={`cursor-pointer rounded-[28px] border-2 border-dashed p-10 text-center transition-all ${
+              dragOver
+                ? 'border-accent bg-accent/10'
+                : uploading
+                ? 'border-primary/30 bg-primary/10'
+                : 'border-primary/30 bg-gradient-to-br from-primary/10 via-transparent to-accent/10'
+            }`}
+            onClick={() => !uploading && inputRef.current?.click()}
           >
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-white/10">
-              <DatabaseZap className="h-8 w-8 text-accent" />
+            <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full transition-all ${dragOver ? 'bg-accent/20 scale-110' : 'bg-white/10'}`}>
+              {uploading ? <Loader2 className="h-8 w-8 text-accent animate-spin" /> : dragOver ? <Upload className="h-8 w-8 text-accent" /> : <DatabaseZap className="h-8 w-8 text-accent" />}
             </div>
             <h3 className="text-xl font-semibold text-white">
-              {uploading ? 'Uploading...' : 'Drop files here or click to browse'}
+              {uploading ? `Uploading... ${uploadProgress}%` : dragOver ? 'Drop to upload' : 'Drop files here or click to browse'}
             </h3>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400">CSV, Excel, Parquet, and JSON datasets are supported.</p>
-            <input ref={inputRef} type="file" accept=".csv,.xlsx,.parquet,.json" className="hidden" onChange={handleUpload} disabled={uploading} />
+            <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400">CSV, Excel, Parquet, and JSON datasets supported (max 500MB).</p>
+            {uploading && (
+              <div className="mx-auto mt-4 max-w-xs h-2 rounded-full bg-white/10 overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${uploadProgress}%` }}
+                  className="h-full rounded-full bg-gradient-to-r from-accent to-emerald-400"
+                />
+              </div>
+            )}
+            {validationError && (
+              <div className="mx-auto mt-4 max-w-md flex items-center gap-2 rounded-2xl bg-red-500/10 px-4 py-2 text-xs text-red-400">
+                <FileWarning className="h-3.5 w-3.5 shrink-0" />
+                {validationError}
+              </div>
+            )}
+            <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls,.parquet,.json" className="hidden" onChange={handleUpload} disabled={uploading} />
           </div>
         </div>
 
