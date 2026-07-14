@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { PageContainer } from '../../../components/layout/PageContainer';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { motion } from 'framer-motion';
-import { LogIn, Brain, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { LogIn, Brain, Eye, EyeOff } from 'lucide-react';
 import { loginSchema } from '../../../lib/validators';
 import { useNotification } from '../../../hooks/useNotification';
 import { getErrorMessage } from '../../../services/http';
@@ -102,13 +102,6 @@ export default function LoginPage() {
                 }
                 autoComplete="current-password"
               />
-
-              {login.error && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{getErrorMessage(login.error)}</span>
-                </div>
-              )}
 
               <Button type="submit" loading={login.isPending} className="w-full" size="lg" icon={<LogIn className="w-4 h-4" />}>
                 Sign In
