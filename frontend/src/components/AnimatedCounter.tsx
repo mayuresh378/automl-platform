@@ -25,7 +25,7 @@ export function AnimatedCounter({
   const ref = useRef<HTMLSpanElement>(null);
   const motionValue = useMotionValue(enabled ? from : to);
   const spring = useSpring(motionValue, { stiffness: 80, damping: 20 });
-  const rounded = useTransform(spring, (v) => `${prefix}${v.toFixed(decimals)}${suffix}`);
+  const rounded = useTransform(spring, (v) => `${prefix}${(v ?? 0).toFixed(decimals)}${suffix}`);
 
   useEffect(() => {
     motionValue.set(enabled ? to : from);
