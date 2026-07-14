@@ -1,6 +1,6 @@
 # AutoML Platform API Documentation
 
-*Generated on: 2026-07-14 12:10*
+*Generated on: 2026-07-14 12:17*
 
 ---
 
@@ -33,6 +33,8 @@
 | GET | `/api/v1/deployments` | `list_deployments_api` |
 | POST | `/api/v1/deployments` | `create_deployment_api` |
 | DELETE | `/api/v1/deployments/{dep_id}` | `delete_deployment_api` |
+| GET | `/api/v1/engine/models` | `get_engine_models` |
+| POST | `/api/v1/engine/train` | `run_engine` |
 | GET | `/api/v1/experiments` | `list_experiments_api` |
 | GET | `/api/v1/health` | `health` |
 | GET | `/api/v1/marketplace` | `list_marketplace_api` |
@@ -206,6 +208,16 @@
 
 **Handler:** `delete_deployment_api`  
 **Name:** `delete_deployment_api`  
+
+### GET `/api/v1/engine/models`
+
+**Handler:** `get_engine_models`  
+**Name:** `get_engine_models`  
+
+### POST `/api/v1/engine/train`
+
+**Handler:** `run_engine`  
+**Name:** `run_engine`  
 
 ### GET `/api/v1/experiments`
 

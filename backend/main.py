@@ -42,7 +42,7 @@ from predict import make_prediction, load_model_metadata
 from cleaning import profile_dataset, clean_dataset
 from analysis import analyze_dataset
 from analytics import dashboard_analytics
-from train import CLASSIFICATION_MODELS, REGRESSION_MODELS
+from train import CLASSIFICATION_MODELS, REGRESSION_MODELS, run_engine_training, XGB_AVAILABLE, LGBM_AVAILABLE, CATB_AVAILABLE
 from features import generate_features, suggest_features
 from ai_assistant import answer_question, list_datasets as ai_list_datasets, load_experiments as ai_load_experiments
 from auth import (
@@ -531,6 +531,97 @@ def run_tuning_endpoint(
             exp_data_list.append({"id": exp.id, "name": exp.name, "model": r["name"], "cv_score": r["cv_score"], "metrics": r["metrics"]})
         log_audit(db, current_user.get("name", "User"), "tuning.completed", f"Tuned {len(exp_data_list)} models", "tuning")
         return {"results": tuning["results"], "experiments": exp_data_list, "task_type": task}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── AutoML Engine ────────────────────────────────────────────────────
+
+@app.get("/api/v1/engine/models")
+def get_engine_models():
+    clf_names = list(CLASSIFICATION_MODELS.keys())
+    reg_names = list(REGRESSION_MODELS.keys())
+    return {
+        "classification": clf_names,
+        "regression": reg_names,
+        "all": list(dict.fromkeys(clf_names + reg_names)),
+        "optional": {
+            "XGBoost": XGB_AVAILABLE,
+            "LightGBM": LGBM_AVAILABLE,
+            "CatBoost": CATB_AVAILABLE,
+        },
+    }
+
+@app.post("/api/v1/engine/train")
+def run_engine(
+    file_name: str = Form(...),
+    target_column: str = Form(...),
+    models: str = Form(...),
+    task_type: str = Form(None),
+    project_id: str = Form(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_optional_user),
+):
+    try:
+        import json
+        model_list = json.loads(models)
+        start = time.time()
+        preprocess_result = auto_preprocess(file_name, target_column, task_type)
+        X = preprocess_result["X"]
+        y = preprocess_result["y"]
+        preprocessor = preprocess_result["preprocessor"]
+        task = preprocess_result["task_type"]
+        engine_result = run_engine_training(X, y, task, model_list,
+                                            model_name_prefix=file_name.split('.')[0],
+                                            preprocessor=preprocessor)
+        elapsed = round(time.time() - start, 2)
+        exp_list = []
+        for r in engine_result["results"]:
+            if "error" in r:
+                continue
+            exp_data = {
+                "name": f"{file_name.split('.')[0]}-{r['name']}",
+                "model": r["name"],
+                "task_type": task,
+                "cv_score": r["cv_score"],
+                "metrics": r["metrics"],
+                "dataset": file_name,
+                "target": target_column,
+                "training_time": r["training_time"],
+                "total_time": elapsed,
+                "status": "success",
+                "run_at": datetime.now(timezone.utc),
+                "user_id": current_user.get("id"),
+                "project_id": project_id,
+                "params": r.get("best_params"),
+                "feature_importance": r.get("feature_importance"),
+            }
+            exp = create_experiment(db, exp_data)
+            model_path = os.path.join(MODELS_DIR, f"{file_name.split('.')[0]}_{r['name']}.pkl")
+            model_size = round(os.path.getsize(model_path) / 1024, 1) if os.path.exists(model_path) else None
+            create_model(db, {
+                "experiment_id": exp.id,
+                "user_id": current_user.get("id"),
+                "name": f"{file_name.split('.')[0]}_{r['name']}",
+                "model_type": r["name"],
+                "task_type": task,
+                "file_path": model_path,
+                "file_size_kb": model_size,
+                "cv_score": r["cv_score"],
+                "metrics": r["metrics"],
+                "params": r.get("best_params"),
+                "status": "staging",
+            })
+            exp_list.append({"id": exp.id, "name": exp.name, "model": r["name"], "cv_score": r["cv_score"], "metrics": r["metrics"]})
+        log_audit(db, current_user.get("name", "User"), "engine.completed",
+                  f"{file_name} trained {len(exp_list)} models", "engine")
+        return {
+            "results": engine_result["results"],
+            "experiments": exp_list,
+            "best_model": engine_result["best_model"],
+            "task_type": task,
+            "elapsed": elapsed,
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

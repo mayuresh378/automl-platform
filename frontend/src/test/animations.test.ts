@@ -12,9 +12,9 @@ describe('animations', () => {
     expect(staggerItem.visible).toBeDefined();
   });
 
-  it('spring is a Transition object', () => {
+  it('spring has type spring', () => {
     expect(spring.type).toBe('spring');
-    expect(spring.stiffness).toBe(400);
-    expect(spring.damping).toBe(20);
+    expect((spring as any).stiffness).toBe(400);
+    expect((spring as any).damping).toBe(20);
   });
 });

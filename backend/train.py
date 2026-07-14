@@ -15,12 +15,34 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
 
 # Regression models
 from sklearn.linear_model import Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+
+# Optional models
+try:
+    from xgboost import XGBClassifier, XGBRegressor
+    XGB_AVAILABLE = True
+except ImportError:
+    XGB_AVAILABLE = False
+
+try:
+    from lightgbm import LGBMClassifier, LGBMRegressor
+    LGBM_AVAILABLE = True
+except ImportError:
+    LGBM_AVAILABLE = False
+
+try:
+    from catboost import CatBoostClassifier, CatBoostRegressor
+    CATB_AVAILABLE = True
+except ImportError:
+    CATB_AVAILABLE = False
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "..", "models")
@@ -39,6 +61,10 @@ CLASSIFICATION_MODELS = {
         "model": GradientBoostingClassifier(random_state=42),
         "params": {"n_estimators": [50, 100], "learning_rate": [0.01, 0.1], "max_depth": [3, 5]},
     },
+    "DecisionTree": {
+        "model": DecisionTreeClassifier(random_state=42),
+        "params": {"max_depth": [None, 5, 10, 20], "min_samples_split": [2, 5, 10]},
+    },
     "SVC": {
         "model": SVC(random_state=42),
         "params": {"C": [0.1, 1, 10], "kernel": ["rbf", "linear"], "gamma": ["scale", "auto"]},
@@ -47,7 +73,29 @@ CLASSIFICATION_MODELS = {
         "model": KNeighborsClassifier(),
         "params": {"n_neighbors": [3, 5, 7, 11], "weights": ["uniform", "distance"]},
     },
+    "NaiveBayes": {
+        "model": GaussianNB(),
+        "params": {"var_smoothing": [1e-09, 1e-08, 1e-07]},
+    },
 }
+
+if XGB_AVAILABLE:
+    CLASSIFICATION_MODELS["XGBoost"] = {
+        "model": XGBClassifier(random_state=42, verbosity=0),
+        "params": {"n_estimators": [50, 100], "max_depth": [3, 6, 9], "learning_rate": [0.01, 0.1, 0.3]},
+    }
+
+if LGBM_AVAILABLE:
+    CLASSIFICATION_MODELS["LightGBM"] = {
+        "model": LGBMClassifier(random_state=42, verbose=-1),
+        "params": {"n_estimators": [50, 100], "num_leaves": [15, 31, 63], "learning_rate": [0.01, 0.1]},
+    }
+
+if CATB_AVAILABLE:
+    CLASSIFICATION_MODELS["CatBoost"] = {
+        "model": CatBoostClassifier(random_state=42, verbose=0),
+        "params": {"iterations": [50, 100], "depth": [4, 6, 8], "learning_rate": [0.01, 0.1]},
+    }
 
 REGRESSION_MODELS = {
     "Ridge": {
@@ -66,6 +114,10 @@ REGRESSION_MODELS = {
         "model": GradientBoostingRegressor(random_state=42),
         "params": {"n_estimators": [50, 100], "learning_rate": [0.01, 0.1], "max_depth": [3, 5]},
     },
+    "DecisionTree": {
+        "model": DecisionTreeRegressor(random_state=42),
+        "params": {"max_depth": [None, 5, 10, 20], "min_samples_split": [2, 5, 10]},
+    },
     "SVR": {
         "model": SVR(),
         "params": {"C": [0.1, 1, 10], "kernel": ["rbf", "linear"], "gamma": ["scale", "auto"]},
@@ -75,6 +127,24 @@ REGRESSION_MODELS = {
         "params": {"n_neighbors": [3, 5, 7, 11], "weights": ["uniform", "distance"]},
     },
 }
+
+if XGB_AVAILABLE:
+    REGRESSION_MODELS["XGBoost"] = {
+        "model": XGBRegressor(random_state=42, verbosity=0),
+        "params": {"n_estimators": [50, 100], "max_depth": [3, 6, 9], "learning_rate": [0.01, 0.1, 0.3]},
+    }
+
+if LGBM_AVAILABLE:
+    REGRESSION_MODELS["LightGBM"] = {
+        "model": LGBMRegressor(random_state=42, verbose=-1),
+        "params": {"n_estimators": [50, 100], "num_leaves": [15, 31, 63], "learning_rate": [0.01, 0.1]},
+    }
+
+if CATB_AVAILABLE:
+    REGRESSION_MODELS["CatBoost"] = {
+        "model": CatBoostRegressor(random_state=42, verbose=0),
+        "params": {"iterations": [50, 100], "depth": [4, 6, 8], "learning_rate": [0.01, 0.1]},
+    }
 
 
 def run_automl_training(X, y, task_type, model_name_prefix="automl_model", preprocessor=None, cv_folds=5):
@@ -232,6 +302,46 @@ def run_tuning(X, y, task_type, model_names, param_overrides, search_method="ran
         except Exception as e:
             results.append({"name": name, "error": str(e)})
     return {"results": results, "task_type": task_type}
+
+def run_engine_training(X, y, task_type, model_names, model_name_prefix="automl_engine", preprocessor=None):
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y if task_type == "classification" else None
+    )
+    model_candidates = CLASSIFICATION_MODELS if task_type == "classification" else REGRESSION_MODELS
+    results = []
+    for name in model_names:
+        if name not in model_candidates:
+            continue
+        try:
+            start = time.time()
+            spec = model_candidates[name]
+            base_model = spec["model"]
+            base_model.fit(X_train, y_train)
+            train_time = time.time() - start
+            y_pred = base_model.predict(X_test)
+            metrics = _compute_metrics(y_test, y_pred, task_type)
+            cv_scores = cross_val_score(base_model, X_train, y_train, cv=min(2, 3), scoring=_default_scoring(task_type))
+            cv_score = round(float(cv_scores.mean()), 4)
+            fi = _get_feature_importance(base_model, X.columns, task_type)
+            results.append({
+                "name": name,
+                "cv_score": cv_score,
+                "metrics": metrics,
+                "training_time": round(train_time, 2),
+                "feature_importance": fi,
+                "best_params": {},
+            })
+            model_filename = f"{model_name_prefix}_{name}.pkl"
+            save_path = os.path.join(MODELS_DIR, model_filename)
+            full_pipeline = Pipeline([("preprocessor", preprocessor), ("model", base_model)]) if preprocessor else base_model
+            joblib.dump(full_pipeline, save_path)
+        except Exception as e:
+            results.append({"name": name, "error": str(e)})
+    successful = [r for r in results if "error" not in r]
+    if successful:
+        sort_key = "accuracy" if task_type == "classification" else "r2"
+        successful.sort(key=lambda r: r["metrics"].get(sort_key, 0), reverse=True)
+    return {"results": results, "best_model": successful[0]["name"] if successful else None, "task_type": task_type}
 
 def _count_params(param_dist):
     count = 1
