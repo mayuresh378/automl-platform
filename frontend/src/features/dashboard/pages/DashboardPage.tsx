@@ -18,6 +18,7 @@ import { ActivityTimeline } from '../../../components/ActivityTimeline';
 import { AnimatedCounter } from '../../../components/AnimatedCounter';
 import { staggerContainer, staggerItem } from '../../../lib/animations';
 import { formatNumber } from '../../../lib/formatters';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -65,6 +66,11 @@ export default function DashboardPage() {
 
   const recentModels = (models.data || []).slice(0, 5);
   const recentDeployments = (deployments.data || []).slice(0, 5);
+
+  const chartData = Array.from({ length: 12 }, (_, i) => ({
+    time: `${i * 2}h`,
+    value: 40 + Math.sin(i * 0.8) * 20 + Math.cos(i * 0.3) * 10 + (i % 3 === 0 ? 5 : 0),
+  }));
 
   return (
     <PageContainer>
@@ -185,24 +191,21 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {projects.data && projects.data.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle>Projects</CardTitle></CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {(projects.data as any[]).slice(0, 4).map((p: any) => (
-                    <div key={p.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer" onClick={() => { useUIStore.getState().setCurrentProjectId(p.id); setActivePage('Project Detail'); }}>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-zinc-200 truncate">{p.name}</p>
-                        <p className="text-xs text-zinc-500">{new Date(p.created_at).toLocaleDateString()}</p>
-                      </div>
-                      <StatusBadge status={p.status} />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader><CardTitle>Performance</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#71717a' }} axisLine={false} tickLine={false} />
+                    <YAxis hide domain={[0, 100]} />
+                    <Line type="monotone" dataKey="value" stroke="#6366F1" strokeWidth={2} dot={{ r: 3, fill: '#6366F1', strokeWidth: 0 }} activeDot={{ r: 5, fill: '#818cf8' }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </PageContainer>
