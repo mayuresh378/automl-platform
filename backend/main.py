@@ -40,6 +40,7 @@ from preprocess import auto_preprocess
 from train import run_automl_training
 from predict import make_prediction, load_model_metadata
 from cleaning import profile_dataset, clean_dataset
+from analysis import analyze_dataset
 from features import generate_features, suggest_features
 from ai_assistant import answer_question, list_datasets as ai_list_datasets, load_experiments as ai_load_experiments
 from auth import (
@@ -271,6 +272,15 @@ def preview_dataset(name: str, rows: int = Query(50, le=500), offset: int = Quer
 @app.get("/api/v1/datasets/{name}/profile")
 def dataset_profile(name: str):
     return profile_dataset(name)
+
+@app.get("/api/v1/datasets/{name}/analyze")
+def dataset_analyze(name: str, target: str = None):
+    try:
+        return analyze_dataset(name, target)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/v1/datasets/{name}/clean")
 def clean(name: str, operations: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):

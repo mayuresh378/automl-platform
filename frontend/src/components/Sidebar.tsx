@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   ChevronsLeft,
   ChevronsRight,
+  BrainCircuit,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
@@ -42,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Datasets', icon: Database, group: 'Data' },
   { label: 'Data Cleaning', icon: SprayCan, group: 'Data' },
   { label: 'Feature Engineering', icon: Wand2, group: 'Data' },
+  { label: 'Dataset Analysis', icon: BrainCircuit, group: 'Data' },
   { label: 'SQL Editor', icon: TerminalSquare, group: 'Data' },
   { label: 'Training', icon: Cpu, group: 'Model' },
   { label: 'Experiments', icon: FlaskConical, group: 'Model' },

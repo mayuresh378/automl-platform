@@ -78,6 +78,8 @@ export const api = {
       form.append('operations', JSON.stringify(operations));
       return fetchJSON(`${BASE}/datasets/${encodeURIComponent(name)}/clean`, { method: 'POST', body: form });
     },
+    analyze: (name: string, target?: string) =>
+      fetchJSON<any>(`${BASE}/datasets/${encodeURIComponent(name)}/analyze${target ? `?target=${encodeURIComponent(target)}` : ''}`),
     suggestFeatures: (name: string) =>
       fetchJSON<any>(`${BASE}/datasets/${encodeURIComponent(name)}/features/suggest`),
     generateFeatures: (name: string, operations: any[]) => {

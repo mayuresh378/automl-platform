@@ -7,6 +7,7 @@ import UploadPage from './pages/UploadPage';
 import CleaningPage from './pages/CleaningPage';
 import EngineeringPage from './pages/EngineeringPage';
 import ExplorerPage from './pages/ExplorerPage';
+import DatasetAnalysisPage from './pages/DatasetAnalysisPage';
 import TrainingPage from './pages/TrainingPage';
 import PredictionPage from './pages/PredictionPage';
 import MonitoringPage from './pages/MonitoringPage';
@@ -31,6 +32,7 @@ const PAGE_MAP: Record<string, React.FC> = {
   'Data Cleaning': CleaningPage,
   'Feature Engineering': EngineeringPage,
   Explorer: ExplorerPage,
+  'Dataset Analysis': DatasetAnalysisPage,
   Training: TrainingPage,
   Experiments: ExperimentsPage,
   Models: ModelRegistryPage,

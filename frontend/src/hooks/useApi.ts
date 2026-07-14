@@ -66,6 +66,14 @@ export function useDatasetProfile(name: string) {
   });
 }
 
+export function useDatasetAnalysis(name: string, target?: string) {
+  return useQuery({
+    queryKey: ['dataset', name, 'analysis', target],
+    queryFn: () => api.datasets.analyze(name, target),
+    enabled: !!name,
+  });
+}
+
 export function useProjects() {
   return useQuery({
     queryKey: ['projects'],
