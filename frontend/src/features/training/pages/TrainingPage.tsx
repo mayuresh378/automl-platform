@@ -81,22 +81,22 @@ export default function TrainingPage() {
                     onChange={(e) => { setSelectedDataset(e.target.value); setTargetColumn(''); }}
                     options={(datasets as any[]).map((d: any) => ({ value: d.name || d.filename, label: d.filename || d.name }))}
                   />
-                  {(selectedDatasetMeta as any)?.column_profiles && (
+                  {(selectedDatasetMeta as any)?.column_details && (
                     <Select
                       label="Target Column"
                       placeholder="Select target column"
                       value={targetColumn}
                       onChange={(e) => setTargetColumn(e.target.value)}
-                      options={((selectedDatasetMeta as any)?.column_profiles || []).map((c: any) => ({ value: c.name, label: c.name }))}
+                      options={((selectedDatasetMeta as any)?.column_details || []).map((c: any) => ({ value: c.name, label: c.name }))}
                     />
                   )}
-                  {!(selectedDatasetMeta as any)?.column_profiles && selectedDataset && (
+                  {!(selectedDatasetMeta as any)?.column_details && selectedDataset && (
                     <Button variant="secondary" size="sm" onClick={async () => {
                       try {
                         const profile = await datasetsService.profile(selectedDataset);
                         qc.setQueryData(['datasets'], (old: any) => {
                           if (!old) return old;
-                          return { ...old, datasets: (old.datasets || []).map((d: any) => d.name === selectedDataset || d.filename === selectedDataset ? { ...d, column_profiles: profile.column_profiles } : d) };
+                          return { ...old, datasets: (old.datasets || []).map((d: any) => d.name === selectedDataset || d.filename === selectedDataset ? { ...d, column_details: profile.column_details } : d) };
                         });
                       } catch {}
                     }}>Load Columns</Button>
