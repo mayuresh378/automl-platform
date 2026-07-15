@@ -18,6 +18,7 @@ const ProjectsPage = lazy(() => import('./features/projects/pages/ProjectsPage')
 const ProjectDetailPage = lazy(() => import('./features/projects/pages/ProjectDetailPage'));
 const DatasetsPage = lazy(() => import('./features/datasets/pages/DatasetsPage'));
 const CleaningPage = lazy(() => import('./features/datasets/pages/CleaningPage'));
+const FeatureEngineeringPage = lazy(() => import('./features/datasets/pages/FeatureEngineeringPage'));
 const ExplorerPage = lazy(() => import('./features/datasets/pages/ExplorerPage'));
 const DatasetAnalysisPage = lazy(() => import('./features/datasets/pages/DatasetAnalysisPage'));
 const TrainingPage = lazy(() => import('./features/training/pages/TrainingPage'));
@@ -56,6 +57,7 @@ const PAGE_MAP: Record<string, FC> = {
   Datasets: DatasetsPage,
   'Data Cleaning': CleaningPage,
   'Auto Cleaning': CleaningPage,
+  'Feature Engineering': FeatureEngineeringPage,
   Explorer: ExplorerPage,
   'Dataset Analysis': DatasetAnalysisPage,
   Training: TrainingPage,
