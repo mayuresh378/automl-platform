@@ -1200,7 +1200,7 @@ def get_deployment_api(dep_id: str, db: Session = Depends(get_db)):
 @app.put("/api/v1/deployments/{dep_id}", tags=["Deployments"], summary="Update deployment", description="Update deployment configuration.")
 def update_deployment_api(dep_id: str, min_replicas: int = Form(None), max_replicas: int = Form(None),
                           db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
-    dep = update_deployment(db, dep_id)
+    dep = update_deployment(db, dep_id, min_replicas=min_replicas, max_replicas=max_replicas)
     if not dep:
         raise HTTPException(status_code=404, detail="Deployment not found")
     return {
@@ -1662,8 +1662,8 @@ def list_projects_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0
         deploy_by_project.setdefault(pid, []).append(d)
     items = [{
         "id": p.id, "name": p.name, "description": p.description,
-        "status": p.status, "notes": p.notes, "model_ids": p.model_ids,
-        "dataset_ids": p.dataset_ids, "tags": p.tags,
+        "status": p.status, "notes": p.notes, "model_ids": [m.id for m in p.model_registry],
+        "dataset_ids": [d.id for d in p.datasets], "tags": p.tags,
         "dataset_count": len(ds_by_project.get(p.id, [])),
         "experiment_count": len(exp_by_project.get(p.id, [])),
         "model_count": len(model_by_project.get(p.id, [])),
@@ -1720,8 +1720,8 @@ def get_project_api(project_id: str, db: Session = Depends(get_db)):
     deploys = list_deployments(db, project_id=project_id)
     return {
         "id": p.id, "name": p.name, "description": p.description,
-        "status": p.status, "notes": p.notes, "model_ids": p.model_ids,
-        "dataset_ids": p.dataset_ids, "tags": p.tags,
+        "status": p.status, "notes": p.notes, "model_ids": [m.id for m in p.model_registry],
+        "dataset_ids": [d.id for d in p.datasets], "tags": p.tags,
         "datasets": [{"name": d.filename, "rows": d.rows, "columns": d.columns, "size_kb": d.file_size_kb} for d in datasets],
         "experiments": [{"id": e.id, "name": e.name, "model": e.model, "dataset": e.dataset, "cv_score": e.cv_score, "status": e.status, "created_at": e.created_at.isoformat() if e.created_at else None} for e in exps],
         "models": [{"id": m.id, "name": m.name, "model_type": m.model_type, "cv_score": m.cv_score, "status": m.status, "created_at": m.created_at.isoformat() if m.created_at else None} for m in models],
@@ -1997,6 +1997,7 @@ def run_sql(query: str = Form(...), dataset: str = Form(None),
     if not valid:
         raise HTTPException(status_code=400, detail=msg)
     import duckdb
+    con = None
     try:
         con = duckdb.connect()
         if dataset:
@@ -2016,7 +2017,6 @@ def run_sql(query: str = Form(...), dataset: str = Form(None),
         columns = [desc[0] for desc in result.description] if result.description else []
         rows = result.fetchall()
         data = [dict(zip(columns, row)) for row in rows]
-        con.close()
         log_audit(db, actor=current_user.get("id", "anonymous"),
                   action="sql.query", target=query[:200], resource_type="query", status="success")
         return {"columns": columns, "rows": len(data), "data": data, "query": query}
@@ -2024,6 +2024,9 @@ def run_sql(query: str = Form(...), dataset: str = Form(None),
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        if con:
+            con.close()
 
 
 # ── AI Assistant ─────────────────────────────────────────────────────
