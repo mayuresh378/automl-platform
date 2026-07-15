@@ -61,24 +61,25 @@ export interface DatasetProfile {
   name: string;
   rows: number;
   columns: number;
-  column_profiles: ColumnProfile[];
-  missing_cells: number;
-  duplicate_rows: number;
+  column_details: ColumnProfile[];
+  missing_values: number;
+  missing_pct: number;
+  duplicates: number;
+  dtypes: Record<string, string>;
 }
 
 export interface ColumnProfile {
   name: string;
   dtype: string;
   missing: number;
-  missing_pct: number;
-  unique: number;
   mean?: number;
-  std?: number;
+  median?: number;
   min?: number;
   max?: number;
-  q25?: number;
-  q50?: number;
-  q75?: number;
+  std?: number;
+  outliers?: number;
+  unique_values?: number;
+  top_values?: Record<string, number>;
 }
 
 export interface DatasetAnalysis {
