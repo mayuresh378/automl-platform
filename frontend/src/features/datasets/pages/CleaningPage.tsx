@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Sparkles, Eraser, AlertTriangle, CheckCircle2, RotateCcw, FileText } from 'lucide-react';
+import { Sparkles, Eraser, AlertTriangle, CheckCircle2, RotateCcw, FileText, Download } from 'lucide-react';
 import { datasetsService } from '../../../services/datasets.service';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
@@ -10,7 +10,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { useNotification } from '../../../hooks/useNotification';
-import { getErrorMessage } from '../../../services/http';
+import { getErrorMessage, downloadUrl } from '../../../services/http';
 
 export default function CleaningPage() {
   const { notifySuccess, notifyError } = useNotification();
@@ -242,7 +242,16 @@ export default function CleaningPage() {
                 </Card>
               )}
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                {result?.cleaned_file && (
+                  <Button
+                    variant="secondary" size="sm"
+                    icon={<Download className="w-4 h-4" />}
+                    onClick={() => window.open(downloadUrl(`/datasets/${encodeURIComponent(result.cleaned_file)}/download`), '_blank')}
+                  >
+                    Download Cleaned File
+                  </Button>
+                )}
                 <Button
                   variant="secondary" size="sm"
                   icon={<RotateCcw className="w-4 h-4" />}
