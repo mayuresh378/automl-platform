@@ -30,7 +30,7 @@ export const datasetsService = {
     http.get<DatasetAnalysis>(`/datasets/${encodeURIComponent(name)}/analyze`, target ? { target } : undefined),
 
   suggestFeatures: (name: string) =>
-    http.get<{ features: any[] }>(`/datasets/${encodeURIComponent(name)}/features/suggest`),
+    http.get<{ suggestions: any[] }>(`/datasets/${encodeURIComponent(name)}/features/suggest`),
 
   generateFeatures: (name: string, operations: any[]) => {
     const form = new FormData();
