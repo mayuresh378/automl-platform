@@ -1,11 +1,10 @@
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Play, Download, Database, AlertCircle, Table as TableIcon } from 'lucide-react';
+import { Play, Download, Database, Table as TableIcon, AlertCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
 import { Button } from '../../../components/ui/Button';
 import { Select } from '../../../components/ui/Select';
-import { ErrorState } from '../../../components/ui/ErrorState';
 import { useNotification } from '../../../hooks/useNotification';
 import { datasetsService } from '../../../services/datasets.service';
 import { http, downloadBlob } from '../../../services/http';
@@ -16,6 +15,7 @@ export default function SQLEditorPage() {
   const [selectedDataset, setSelectedDataset] = useState('');
   const [results, setResults] = useState<{ columns: string[]; rows: number; data: Record<string, any>[] } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: datasets } = useQuery({
     queryKey: ['datasets'],
@@ -27,15 +27,22 @@ export default function SQLEditorPage() {
     if (!query.trim()) return;
     setIsRunning(true);
     setResults(null);
+    setError(null);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
       const form = new FormData();
       form.append('query', query.trim());
       if (selectedDataset) form.append('dataset', selectedDataset);
-      const data = await http.post('/query', form);
+      const data = await http.post('/query', form, { signal: controller.signal });
+      clearTimeout(timeout);
       setResults(data);
       notifySuccess('Query completed', `${data.rows} row(s) returned`);
     } catch (err: any) {
-      notifyError('Query failed', err.message);
+      const msg = err.name === 'AbortError' ? 'Query timed out after 30s'
+        : err.message || String(err);
+      setError(msg);
+      notifyError('Query failed', msg);
     } finally {
       setIsRunning(false);
     }
@@ -43,8 +50,7 @@ export default function SQLEditorPage() {
 
   const handleExport = useCallback(() => {
     if (!results?.data?.length) return;
-    const filename = `sql_export_${Date.now()}.csv`;
-    downloadBlob(results.data, filename);
+    downloadBlob(results.data, `sql_export_${Date.now()}.csv`);
   }, [results]);
 
   return (
@@ -77,6 +83,17 @@ export default function SQLEditorPage() {
           spellCheck={false}
         />
       </Card>
+
+      {error && !isRunning && (
+        <Card className="mb-4 border-red-500/30">
+          <CardContent>
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <p className="text-sm">{error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isRunning && (
         <Card>
