@@ -1,35 +1,59 @@
-import { useState } from 'react';
-import { Play, Download, Database, AlertCircle } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Play, Download, Database, AlertCircle, Table as TableIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
 import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
+import { Select } from '../../../components/ui/Select';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { useNotification } from '../../../hooks/useNotification';
+import { datasetsService } from '../../../services/datasets.service';
+import { downloadBlob } from '../../../services/http';
 
 export default function SQLEditorPage() {
-  const { notifyError } = useNotification();
+  const { notifyError, notifySuccess } = useNotification();
   const [query, setQuery] = useState('SELECT * FROM datasets LIMIT 10;');
-  const [results, setResults] = useState<any[] | null>(null);
+  const [selectedDataset, setSelectedDataset] = useState('');
+  const [results, setResults] = useState<{ columns: string[]; rows: number; data: Record<string, any>[] } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
 
-  const handleRun = async () => {
+  const { data: datasets } = useQuery({
+    queryKey: ['datasets'],
+    queryFn: () => datasetsService.list(),
+    select: (d: any) => d.datasets,
+  });
+
+  const handleRun = useCallback(async () => {
+    if (!query.trim()) return;
     setIsRunning(true);
+    setResults(null);
     try {
-      const res = await fetch(`/api/v1/sql/query`, {
+      const form = new FormData();
+      form.append('query', query.trim());
+      if (selectedDataset) form.append('dataset', selectedDataset);
+      const res = await fetch(`/api/v1/query`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: form,
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(errBody?.detail || `Query failed (${res.status})`);
+      }
       const data = await res.json();
-      setResults(data.results || []);
+      setResults(data);
+      notifySuccess('Query completed', `${data.rows} row(s) returned`);
     } catch (err: any) {
       notifyError('Query failed', err.message);
     } finally {
       setIsRunning(false);
     }
-  };
+  }, [query, selectedDataset, notifySuccess, notifyError]);
+
+  const handleExport = useCallback(() => {
+    if (!results?.data?.length) return;
+    const filename = `sql_export_${Date.now()}.csv`;
+    downloadBlob(results.data, filename);
+  }, [results]);
 
   return (
     <PageContainer maxWidth="xl">
@@ -41,7 +65,16 @@ export default function SQLEditorPage() {
             <Database className="w-4 h-4" />
             Query Editor
           </div>
-          <Button size="sm" onClick={handleRun} loading={isRunning} icon={<Play className="w-3.5 h-3.5" />}>Run</Button>
+          <div className="flex items-center gap-3">
+            <Select
+              placeholder="All datasets"
+              value={selectedDataset}
+              onChange={(e) => setSelectedDataset(e.target.value)}
+              options={(datasets || []).map((d: any) => ({ value: d.name || d.filename, label: d.filename || d.name }))}
+              className="w-48"
+            />
+            <Button size="sm" onClick={handleRun} loading={isRunning} icon={<Play className="w-3.5 h-3.5" />}>Run</Button>
+          </div>
         </div>
         <textarea
           value={query}
@@ -53,29 +86,47 @@ export default function SQLEditorPage() {
         />
       </Card>
 
-      {results && (
+      {isRunning && (
+        <Card>
+          <CardContent>
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
+              <div className="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+              Running query...
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {results && !isRunning && (
         <Card>
           <CardHeader>
-            <CardTitle>Results ({results.length} rows)</CardTitle>
-            <Button size="sm" variant="ghost" icon={<Download className="w-3.5 h-3.5" />}>Export</Button>
+            <div className="flex items-center gap-2">
+              <TableIcon className="w-4 h-4 text-zinc-400" />
+              <CardTitle>Results ({results.rows} row{results.rows !== 1 ? 's' : ''})</CardTitle>
+            </div>
+            {results.data?.length > 0 && (
+              <Button size="sm" variant="ghost" onClick={handleExport} icon={<Download className="w-3.5 h-3.5" />}>Export CSV</Button>
+            )}
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            {results.length === 0 ? (
+            {!results.data?.length ? (
               <p className="text-sm text-zinc-500 text-center py-8">Query returned no results</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/10">
-                    {Object.keys(results[0]).map((col) => (
-                      <th key={col} className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase tracking-wider">{col}</th>
+                    {results.columns.map((col) => (
+                      <th key={col} className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase tracking-wider whitespace-nowrap">{col}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((row, i) => (
+                  {results.data.map((row: any, i: number) => (
                     <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
-                      {Object.values(row).map((val: any, j) => (
-                        <td key={j} className="px-3 py-2 text-zinc-300 whitespace-nowrap">{val != null ? String(val) : 'NULL'}</td>
+                      {results.columns.map((col: string) => (
+                        <td key={col} className="px-3 py-2 text-zinc-300 whitespace-nowrap font-mono text-xs">
+                          {row[col] != null ? String(row[col]) : <span className="text-zinc-600 italic">NULL</span>}
+                        </td>
                       ))}
                     </tr>
                   ))}
