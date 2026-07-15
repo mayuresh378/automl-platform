@@ -135,7 +135,7 @@ csrf_secret = os.getenv("CSRF_SECRET", os.getenv("JWT_SECRET", ""))
 if csrf_secret:
     app.add_middleware(CSRFMiddleware, secret=csrf_secret)
 
-trusted_hosts = os.getenv("TRUSTED_HOSTS", "localhost,127.0.0.1,0.0.0.0,testserver,testclient")
+trusted_hosts = os.getenv("TRUSTED_HOSTS", ".onrender.com,localhost,127.0.0.1,0.0.0.0")
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=[h.strip() for h in trusted_hosts.split(",") if h.strip()],
