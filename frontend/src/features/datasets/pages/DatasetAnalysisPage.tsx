@@ -26,7 +26,7 @@ export default function DatasetAnalysisPage() {
     enabled: !!selectedDataset,
   });
 
-  const { data: analysis, isLoading: analysisLoading } = useQuery({
+  const { data: analysis, isLoading: analysisLoading, isError: analysisError } = useQuery({
     queryKey: ['dataset', selectedDataset, 'analysis', targetColumn],
     queryFn: () => datasetsService.analyze(selectedDataset, targetColumn || undefined),
     enabled: !!selectedDataset,
@@ -64,7 +64,7 @@ export default function DatasetAnalysisPage() {
         <div className="lg:col-span-3 space-y-6">
           {!selectedDataset ? (
             <EmptyState icon={<BarChart3 className="w-8 h-8" />} title="Select a dataset" description="Choose a dataset to analyze" />
-          ) : profileLoading ? (
+          ) : profileLoading || (!profile && !profileError) ? (
             <LoadingSpinner size="lg" />
           ) : profileError ? (
             <div className="flex flex-col items-center justify-center py-16">
@@ -122,7 +122,7 @@ export default function DatasetAnalysisPage() {
                 </CardContent>
               </Card>
 
-              {analysisLoading && profile && (
+              {(analysisLoading || (!analysis && !analysisError)) && profile && (
                 <div className="flex justify-center py-8">
                   <LoadingSpinner />
                 </div>
