@@ -14,7 +14,7 @@ services:
       - key: CORS_ORIGINS
         value: https://automl-frontend.onrender.com,https://automl-api-ukq3.onrender.com
       - key: TRUSTED_HOSTS
-        value: .onrender.com,localhost,127.0.0.1
+        value: '*.onrender.com,localhost,127.0.0.1'
       - key: PORT
         value: "10000"
     healthCheckPath: /api/v1/health
