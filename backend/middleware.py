@@ -100,6 +100,14 @@ CSRF_SKIP_PATHS = {"/api/v1/auth/login", "/api/v1/auth/register",
                    "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
                    "/api/v1/auth/verify-email"}
 
+# API paths that are exempt from CSRF (uses JWT Bearer token which is CSRF-safe)
+CSRF_SKIP_PREFIXES = {"/api/v1/datasets", "/api/v1/query", "/api/v1/cleaning",
+                      "/api/v1/feature-engineering", "/api/v1/models",
+                      "/api/v1/explain", "/api/v1/deployments", "/api/v1/projects",
+                      "/api/v1/experiments", "/api/v1/pipelines", "/api/v1/marketplace",
+                      "/api/v1/monitoring", "/api/v1/admin", "/api/v1/profile",
+                      "/api/v1/notifications", "/api/v1/automations", "/api/v1/search"}
+
 CSRF_SKIP_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
@@ -113,6 +121,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         path = request.url.path.rstrip("/")
         if path in CSRF_SKIP_PATHS:
+            return await call_next(request)
+        if any(path.startswith(p) for p in CSRF_SKIP_PREFIXES):
             return await call_next(request)
         csrf_token = request.headers.get("x-csrf-token") or request.headers.get("x-xsrf-token")
         if not csrf_token:
