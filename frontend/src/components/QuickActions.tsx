@@ -1,7 +1,7 @@
 import { Upload, Cpu, Rocket } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useUIStore } from '../store/useUIStore';
-import { Button } from '../components/Button';
+import { Button } from '../components/ui/Button';
 import { staggerContainer, staggerItem } from '../lib/animations';
 
 const ACTIONS = [

@@ -43,6 +43,13 @@ from crud import (
     create_notification, list_notifications, mark_notification_read,
     mark_all_notifications_read, delete_notification,
     list_marketplace_items, install_marketplace_item,
+    get_prediction_log, delete_prediction_log,
+    get_experiment, delete_experiment, compare_experiments,
+    get_deployment, update_deployment,
+    count_unread_notifications,
+    get_audit_log,
+    get_team, update_team, delete_team,
+    list_models as list_model_registry_entries,
 )
 from api_responses import ok, error, created, deleted, paginated, TAGS_METADATA
 from fastapi.exceptions import RequestValidationError
@@ -298,7 +305,7 @@ def auth_logout_all(current_user: dict = Depends(get_current_user),
 # ── Security ────────────────────────────────────────────────────────
 
 @app.get("/api/v1/csrf-token", tags=["Security"], summary="Get CSRF token", description="Generate and return a CSRF protection token.")
-def get_csrf_token():
+def get_csrf_token(current_user: dict = Depends(get_current_user)):
     csrf_secret = os.getenv("CSRF_SECRET", os.getenv("JWT_SECRET", ""))
     if not csrf_secret:
         raise HTTPException(status_code=500, detail="CSRF not configured")
@@ -338,6 +345,13 @@ def read_notification(notif_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Notification not found")
     return {"status": "ok"}
 
+@app.post("/api/v1/notifications/{notif_id}/read", tags=["Notifications"], summary="Mark notification read (POST)", description="Mark a single notification as read (POST alias).")
+def read_notification_post(notif_id: str, db: Session = Depends(get_db)):
+    n = mark_notification_read(db, notif_id)
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"status": "ok"}
+
 @app.put("/api/v1/notifications/read-all", tags=["Notifications"], summary="Mark all read", description="Mark all notifications as read for the current user.")
 def read_all_notifications(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     uid = current_user.get("id") if current_user and current_user.get("id") != "anonymous" else None
@@ -349,6 +363,12 @@ def remove_notification(notif_id: str, db: Session = Depends(get_db)):
     if not delete_notification(db, notif_id):
         raise HTTPException(status_code=404, detail="Notification not found")
     return {"status": "ok"}
+
+@app.get("/api/v1/notifications/unread-count", tags=["Notifications"], summary="Unread count", description="Get the count of unread notifications for the current user.")
+def get_unread_count(db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    uid = current_user.get("id") if current_user and current_user.get("id") != "anonymous" else None
+    count = count_unread_notifications(db, uid)
+    return {"count": count}
 
 
 # ── Datasets ─────────────────────────────────────────────────────────
@@ -431,6 +451,26 @@ async def upload_dataset(
         "rows": len(df),
         "id": record.id,
     }
+
+@app.get("/api/v1/datasets/{name}", tags=["Datasets"], summary="Get dataset", description="Get metadata for a specific dataset.")
+def get_dataset_api(name: str, db: Session = Depends(get_db)):
+    fpath = validate_path(name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    size_kb = round(os.path.getsize(fpath) / 1024, 1)
+    try:
+        df = _get_dataset_df(name)
+        record = get_dataset_record(db, name)
+        return {
+            "name": name, "size_kb": size_kb,
+            "rows": len(df), "columns": list(df.columns),
+            "dtypes": {c: str(dt) for c, dt in df.dtypes.items()},
+            "uploaded_at": record.created_at.isoformat() if record else datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
+            "project_id": record.project_id if record else None,
+            "status": record.status if record else "ready",
+        }
+    except Exception:
+        return {"name": name, "size_kb": size_kb, "rows": 0, "columns": [], "status": "error"}
 
 @app.get("/api/v1/datasets/{name}/download", tags=["Datasets"], summary="Download dataset", description="Download a dataset file by name.")
 def download_dataset(name: str):
@@ -540,6 +580,67 @@ def list_experiments_api(db: Session = Depends(get_db), offset: int = Query(0, g
     return paginated(experiments, total, offset, limit, key="experiments")
 
 
+@app.get("/api/v1/experiments/{exp_id}", tags=["Experiments"], summary="Get experiment", description="Retrieve a specific experiment by ID.")
+def get_experiment_api(exp_id: str, db: Session = Depends(get_db)):
+    e = get_experiment(db, exp_id)
+    if not e:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return {
+        "id": e.id, "name": e.name, "model": e.model,
+        "task_type": e.task_type, "dataset": e.dataset, "target": e.target,
+        "cv_score": e.cv_score, "metrics": e.metrics,
+        "training_time": e.training_time, "total_time": e.total_time,
+        "memory_usage": e.memory_usage, "cpu_usage": e.cpu_usage,
+        "status": e.status, "runAt": e.run_at.isoformat() if e.run_at else None,
+        "params": e.params, "feature_importance": e.feature_importance,
+        "confusion_matrix": e.confusion_matrix,
+        "user_id": e.user_id, "project_id": getattr(e, "project_id", None),
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+
+@app.delete("/api/v1/experiments/{exp_id}", tags=["Experiments"], summary="Delete experiment", description="Delete an experiment by ID.")
+def delete_experiment_api(exp_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    if not delete_experiment(db, exp_id):
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    log_audit(db, current_user.get("name", "User"), "experiment.deleted", exp_id, "experiment")
+    return {"status": "deleted"}
+
+
+@app.post("/api/v1/experiments/compare", tags=["Experiments"], summary="Compare experiments", description="Compare multiple experiments by their IDs.")
+def compare_experiments_api(ids: str = Form(...), db: Session = Depends(get_db)):
+    try:
+        id_list = json.loads(ids)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid IDs format")
+    exps = compare_experiments(db, id_list)
+    return {
+        "experiments": [{
+            "id": e.id, "name": e.name, "model": e.model,
+            "task_type": e.task_type, "dataset": e.dataset, "target": e.target,
+            "cv_score": e.cv_score, "metrics": e.metrics,
+            "training_time": e.training_time, "total_time": e.total_time,
+            "status": e.status, "runAt": e.run_at.isoformat() if e.run_at else None,
+            "params": e.params, "feature_importance": e.feature_importance,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        } for e in exps]
+    }
+
+
+@app.post("/api/v1/experiments/{exp_id}/stop", tags=["Experiments"], summary="Stop experiment", description="Stop a running experiment.")
+def stop_experiment_api(exp_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    e = get_experiment(db, exp_id)
+    if not e:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    if e.status not in ("running", "queued"):
+        raise HTTPException(status_code=400, detail=f"Cannot stop experiment with status '{e.status}'")
+    e.status = "stopped"
+    e.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    log_audit(db, current_user.get("name", "User"), "experiment.stopped", e.name, "experiment", e.id)
+    return {"id": e.id, "status": e.status}
+
+
 # ── Training ─────────────────────────────────────────────────────────
 
 @app.post("/api/v1/training", tags=["Training"], summary="Train model", description="Run AutoML training on a dataset and return results.")
@@ -631,7 +732,61 @@ def train_model(
         raise HTTPException(status_code=500, detail=detail)
 
 
-# ── Models ───────────────────────────────────────────────────────────
+@app.get("/api/v1/training", tags=["Training"], summary="List training jobs", description="List all training experiments as training jobs.")
+def list_training_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
+    experiments = list_experiments(db)
+    items = [{
+        "id": e.id, "experiment_name": e.name,
+        "dataset_name": e.dataset, "target_column": e.target,
+        "algorithm": e.model, "status": e.status,
+        "progress": 100 if e.status == "success" else 0,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    } for e in experiments]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="jobs")
+
+
+@app.get("/api/v1/training/{exp_id}", tags=["Training"], summary="Get training job", description="Retrieve a specific training job by ID.")
+def get_training_api(exp_id: str, db: Session = Depends(get_db)):
+    e = get_experiment(db, exp_id)
+    if not e:
+        raise HTTPException(status_code=404, detail="Training job not found")
+    return {
+        "id": e.id, "experiment_name": e.name,
+        "dataset_name": e.dataset, "target_column": e.target,
+        "algorithm": e.model, "status": e.status,
+        "progress": 100 if e.status == "success" else 0,
+        "metrics": e.metrics,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+
+@app.post("/api/v1/training/{exp_id}/cancel", tags=["Training"], summary="Cancel training", description="Cancel a running or queued training job.")
+def cancel_training_api(exp_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    e = get_experiment(db, exp_id)
+    if not e:
+        raise HTTPException(status_code=404, detail="Training job not found")
+    if e.status not in ("running", "queued"):
+        raise HTTPException(status_code=400, detail=f"Cannot cancel training with status '{e.status}'")
+    e.status = "cancelled"
+    e.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    log_audit(db, current_user.get("name", "User"), "training.cancelled", e.name, "experiment", e.id)
+    return {"id": e.id, "status": e.status}
+
+
+@app.get("/api/v1/training/queue", tags=["Training"], summary="Training queue", description="Return the training job queue.")
+def training_queue_api(db: Session = Depends(get_db)):
+    experiments = list_experiments(db)
+    queued = [{
+        "id": e.id, "experiment_name": e.name,
+        "dataset_name": e.dataset, "target_column": e.target,
+        "algorithm": e.model, "status": e.status,
+        "progress": 100 if e.status == "success" else 0,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    } for e in experiments if e.status in ("running", "queued")]
+    return {"jobs": queued}
 
 @app.get("/api/v1/models", tags=["Models"], summary="List models", description="List all available models from filesystem and registry.")
 def list_models_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
@@ -714,7 +869,69 @@ def delete_model(name: str, db: Session = Depends(get_db), current_user: dict = 
     return {"message": f"Deleted model '{name}'"}
 
 
-# ── Hyperparameter Tuning ───────────────────────────────────────────
+@app.post("/api/v1/models/compare", tags=["Models"], summary="Compare models", description="Compare multiple models by name.")
+def compare_models_api(names: str = Form(...), db: Session = Depends(get_db)):
+    try:
+        name_list = json.loads(names)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid names format")
+    fs_models = []
+    for n in name_list:
+        fpath = os.path.join(MODELS_DIR, n)
+        if os.path.exists(fpath):
+            meta = _load_model_meta(n)
+            fs_models.append({
+                "name": n, "size_kb": round(os.path.getsize(fpath) / 1024, 1),
+                "task_type": meta.get("task_type"),
+                "best_score": meta.get("cv_score"),
+                "metrics": meta.get("metrics"),
+                "created_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
+            })
+    return {"models": fs_models}
+
+
+@app.get("/api/v1/models/registry", tags=["Models"], summary="List model registry", description="List all registered models from the database registry.")
+def list_model_registry_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
+    db_models = list_model_registry_entries(db)
+    items = [{
+        "id": m.id, "name": m.name, "version": m.version,
+        "model_type": m.model_type, "task_type": m.task_type,
+        "framework": m.framework, "file_size_kb": m.file_size_kb,
+        "cv_score": m.cv_score, "status": m.status,
+        "tags": m.tags, "description": m.description,
+        "experiment_id": m.experiment_id,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    } for m in db_models]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="models")
+
+
+@app.post("/api/v1/models/registry", tags=["Models"], summary="Register model", description="Register a model file in the model registry.")
+def register_model_api(model_name: str = Form(...), version: str = Form(None), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    fpath = os.path.join(MODELS_DIR, model_name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found")
+    meta = _load_model_meta(model_name)
+    existing = db.query(ModelRegistry).filter(ModelRegistry.name == model_name).first()
+    if existing:
+        existing.version = (existing.version or 1) + 1
+        existing.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(existing)
+        return {"id": existing.id, "name": existing.name, "version": existing.version}
+    m = create_model(db, {
+        "user_id": current_user.get("id"),
+        "name": model_name,
+        "model_type": meta.get("task_type"),
+        "task_type": meta.get("task_type"),
+        "file_path": fpath,
+        "file_size_kb": round(os.path.getsize(fpath) / 1024, 1),
+        "cv_score": meta.get("cv_score"),
+        "metrics": meta.get("metrics"),
+        "status": "staging",
+    })
+    return {"id": m.id, "name": m.name, "version": m.version}
 
 FORMAT_PARAMS = {
     "LogisticRegression": {"C": {"type": "float", "range": [0.001, 10], "log": True}},
@@ -965,7 +1182,31 @@ def delete_deployment_api(dep_id: str, db: Session = Depends(get_db), current_us
     return {"message": f"Removed deployment '{dep_id}'"}
 
 
-# ── Predictions ──────────────────────────────────────────────────────
+@app.get("/api/v1/deployments/{dep_id}", tags=["Deployments"], summary="Get deployment", description="Retrieve a specific deployment by ID.")
+def get_deployment_api(dep_id: str, db: Session = Depends(get_db)):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    return {
+        "id": dep.id, "model_name": dep.name, "endpoint_name": dep.name,
+        "endpoint_url": dep.endpoint_url, "status": dep.status,
+        "environment": dep.environment, "requests_count": dep.requests_count,
+        "avg_latency_ms": dep.avg_latency_ms,
+        "created_at": dep.created_at.isoformat() if dep.created_at else None,
+    }
+
+
+@app.put("/api/v1/deployments/{dep_id}", tags=["Deployments"], summary="Update deployment", description="Update deployment configuration.")
+def update_deployment_api(dep_id: str, min_replicas: int = Form(None), max_replicas: int = Form(None),
+                          db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    dep = update_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    return {
+        "id": dep.id, "model_name": dep.name, "endpoint_name": dep.name,
+        "endpoint_url": dep.endpoint_url, "status": dep.status,
+        "created_at": dep.created_at.isoformat() if dep.created_at else None,
+    }
 
 @app.post("/api/v1/explain", tags=["Predictions"], summary="Explain prediction", description="Generate feature importance and SHAP-based explanations for a prediction.")
 def explain_endpoint(
@@ -1065,6 +1306,49 @@ def prediction_history(db: Session = Depends(get_db), offset: int = Query(0, ge=
     total = len(items)
     items = items[offset:offset + limit]
     return paginated(items, total, offset, limit, key="history")
+
+
+@app.get("/api/v1/predictions", tags=["Predictions"], summary="List predictions", description="List all prediction logs with pagination.")
+def list_predictions_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
+    logs = list_prediction_logs(db)
+    items = [{
+        "id": l.id, "model_name": l.model_name,
+        "input_preview": l.input_preview,
+        "prediction": l.prediction,
+        "confidence": l.confidence,
+        "batch_size": l.batch_size,
+        "latency_ms": l.latency_ms,
+        "user_id": l.user_id,
+        "created_at": l.created_at.isoformat() if l.created_at else None,
+    } for l in logs]
+    total = len(items)
+    items = items[offset:offset + limit]
+    return paginated(items, total, offset, limit, key="predictions")
+
+
+@app.get("/api/v1/predictions/{pred_id}", tags=["Predictions"], summary="Get prediction", description="Retrieve a specific prediction log by ID.")
+def get_prediction_api(pred_id: str, db: Session = Depends(get_db)):
+    log = get_prediction_log(db, pred_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    return {
+        "id": log.id, "model_name": log.model_name,
+        "input_preview": log.input_preview,
+        "prediction": log.prediction,
+        "confidence": log.confidence,
+        "batch_size": log.batch_size,
+        "latency_ms": log.latency_ms,
+        "user_id": log.user_id,
+        "created_at": log.created_at.isoformat() if log.created_at else None,
+    }
+
+
+@app.delete("/api/v1/predictions/{pred_id}", tags=["Predictions"], summary="Delete prediction", description="Delete a prediction log by ID.")
+def delete_prediction_api(pred_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    if not delete_prediction_log(db, pred_id):
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    log_audit(db, current_user.get("name", "User"), "prediction.deleted", pred_id, "prediction")
+    return {"status": "deleted"}
 
 
 # ── Pipelines ────────────────────────────────────────────────────────
@@ -1198,6 +1482,15 @@ def delete_webhook_api(webhook_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Webhook not found")
     return {"message": f"Deleted webhook '{webhook_id}'"}
 
+@app.post("/api/v1/webhooks/{webhook_id}/test", tags=["Webhooks"], summary="Test webhook", description="Send a test payload to a webhook.")
+def test_webhook_api(webhook_id: str, db: Session = Depends(get_db)):
+    whs = list_webhooks(db)
+    wh = next((w for w in whs if w.id == webhook_id), None)
+    if not wh:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    log_audit(db, "system", "webhook.tested", wh.name, "webhook", wh.id)
+    return {"status": "ok", "message": f"Test payload sent to {wh.url}"}
+
 
 # ── Teams ────────────────────────────────────────────────────────────
 
@@ -1217,6 +1510,30 @@ def list_teams_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), 
 def create_team_api(name: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     team = create_team(db, name, owner_id=current_user.get("id") or "system")
     return {"id": team.id, "name": team.name, "slug": team.slug, "plan": team.plan}
+
+@app.get("/api/v1/teams/{team_id}", tags=["Teams"], summary="Get team", description="Retrieve a specific team by ID.")
+def get_team_api(team_id: str, db: Session = Depends(get_db)):
+    team = get_team(db, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return {
+        "id": team.id, "name": team.name, "slug": team.slug,
+        "plan": team.plan, "member_count": len(team.members),
+        "created_at": team.created_at.isoformat() if team.created_at else None,
+    }
+
+@app.put("/api/v1/teams/{team_id}", tags=["Teams"], summary="Update team", description="Update a team's name.")
+def update_team_api(team_id: str, name: str = Form(None), db: Session = Depends(get_db)):
+    team = update_team(db, team_id, name=name)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return {"id": team.id, "name": team.name, "slug": team.slug, "plan": team.plan}
+
+@app.delete("/api/v1/teams/{team_id}", tags=["Teams"], summary="Delete team", description="Delete a team by ID.")
+def delete_team_api(team_id: str, db: Session = Depends(get_db)):
+    if not delete_team(db, team_id):
+        raise HTTPException(status_code=404, detail="Team not found")
+    return {"status": "deleted"}
 
 
 # ── API Keys ─────────────────────────────────────────────────────────
@@ -1267,6 +1584,21 @@ def live_stats(db: Session = Depends(get_db)):
         "inferenceRequestsToday": sum(1 for e in exps if e.run_at and e.run_at.strftime("%Y-%m-%d") == today_prefix),
         "avgLatencyMs": round(sum((e.training_time or 0) for e in exps) / max(len(exps), 1) * 1000, 1),
     }
+
+
+@app.get("/api/v1/monitoring/metrics/export", tags=["Monitoring"], summary="Export metrics", description="Export system metrics as CSV or JSON.")
+def export_metrics(format: str = Query("json", enum=["json", "csv"])):
+    metrics = collect_system_metrics()
+    if format == "csv":
+        lines = ["metric,value"]
+        lines.append(f"cpu_percent,{metrics['cpu']['percent']}")
+        lines.append(f"memory_percent,{metrics['memory']['percent']}")
+        lines.append(f"memory_available_bytes,{metrics['memory']['available_bytes']}")
+        lines.append(f"disk_percent,{metrics['disk']['percent']}")
+        lines.append(f"disk_free_bytes,{metrics['disk']['free_bytes']}")
+        return Response(content="\n".join(lines), media_type="text/csv",
+                        headers={"Content-Disposition": "attachment; filename=metrics.csv"})
+    return metrics
 
 
 @app.get("/metrics", tags=["Monitoring"],
@@ -1428,6 +1760,49 @@ def delete_project_api(project_id: str, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "deleted"}
 
+@app.patch("/api/v1/projects/{project_id}", tags=["Projects"], summary="Patch project", description="Partially update project fields using PATCH.")
+def patch_project_api(project_id: str, name: str = Form(None), description: str = Form(None),
+                      status: str = Form(None), notes: str = Form(None),
+                      db: Session = Depends(get_db)):
+    p = update_project(db, project_id, name=name, description=description, status=status, notes=notes)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"id": p.id, "name": p.name, "description": p.description, "status": p.status,
+            "notes": p.notes,
+            "updated_at": p.updated_at.isoformat() if p.updated_at else None}
+
+@app.get("/api/v1/projects/{project_id}/models", tags=["Projects"], summary="Project models", description="List models belonging to a specific project.")
+def project_models_api(project_id: str, db: Session = Depends(get_db)):
+    p = get_project(db, project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    models = list_models(db, project_id=project_id)
+    return {
+        "models": [{
+            "id": m.id, "name": m.name, "model_type": m.model_type,
+            "task_type": m.task_type, "cv_score": m.cv_score,
+            "status": m.status, "version": m.version,
+            "file_size_kb": m.file_size_kb, "framework": m.framework,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        } for m in models],
+        "total": len(models),
+    }
+
+@app.get("/api/v1/projects/{project_id}/datasets", tags=["Projects"], summary="Project datasets", description="List datasets belonging to a specific project.")
+def project_datasets_api(project_id: str, db: Session = Depends(get_db)):
+    p = get_project(db, project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    datasets = list_dataset_records(db, project_id=project_id)
+    return {
+        "datasets": [{
+            "id": d.id, "filename": d.filename, "file_size_kb": d.file_size_kb,
+            "rows": d.rows, "columns": d.columns, "status": d.status,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        } for d in datasets],
+        "total": len(datasets),
+    }
+
 
 # ── Marketplace ──────────────────────────────────────────────────────
 
@@ -1467,6 +1842,20 @@ def activity(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit:
     total = len(items)
     items = items[offset:offset + limit]
     return paginated(items, total, offset, limit, key="activities")
+
+
+@app.get("/api/v1/activity/{log_id}", tags=["Activity"], summary="Get activity", description="Retrieve a specific activity log entry by ID.")
+def get_activity_api(log_id: str, db: Session = Depends(get_db)):
+    log = get_audit_log(db, log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Activity log not found")
+    return {
+        "id": log.id, "actor": log.actor, "action": log.action,
+        "target": log.target, "resource_type": log.resource_type,
+        "resource_id": log.resource_id, "details": log.details,
+        "status": log.status,
+        "time": log.created_at.isoformat() if log.created_at else None,
+    }
 
 
 @app.get("/api/v1/analytics", tags=["Analytics"], summary="Dashboard analytics", description="Return aggregate analytics for the dashboard over a given number of days.")

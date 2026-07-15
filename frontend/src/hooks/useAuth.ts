@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '../store/useAuthStore';
 import { authService } from '../services/auth.service';
@@ -14,9 +14,11 @@ export function useAuth() {
     staleTime: 60_000,
   });
 
-  if (profile && !user) {
-    setUser(profile);
-  }
+  useEffect(() => {
+    if (profile && !user) {
+      setUser(profile);
+    }
+  }, [profile, user, setUser]);
 
   const loginMutation = useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>

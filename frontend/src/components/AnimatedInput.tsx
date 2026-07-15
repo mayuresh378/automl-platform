@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/cn';
 
@@ -19,6 +19,7 @@ export function AnimatedInput({
 }: AnimatedInputProps) {
   const [focused, setFocused] = useState(false);
   const [shake, setShake] = useState(false);
+  const prevError = useRef(error);
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     setFocused(true);
@@ -30,10 +31,14 @@ export function AnimatedInput({
     onBlur?.(e);
   };
 
-  if (error && !shake) {
-    setShake(true);
-    setTimeout(() => setShake(false), 300);
-  }
+  useEffect(() => {
+    if (error && error !== prevError.current) {
+      setShake(true);
+      const t = setTimeout(() => setShake(false), 300);
+      return () => clearTimeout(t);
+    }
+    prevError.current = error;
+  }, [error]);
 
   return (
     <div className="relative">

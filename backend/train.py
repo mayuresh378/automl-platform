@@ -166,7 +166,7 @@ def run_automl_training(X, y, task_type, model_name_prefix="automl_model", prepr
                 pass
 
             n_iter = min(5, _count_params(param_dist))
-            cv = min(2, cv_folds)
+            cv = max(2, min(cv_folds, 10))
             search = RandomizedSearchCV(
                 base_model, param_dist, n_iter=n_iter,
                 cv=cv, scoring=_default_scoring(task_type),
@@ -331,7 +331,7 @@ def run_engine_training(X, y, task_type, model_names, model_name_prefix="automl_
             train_time = time.time() - start
             y_pred = base_model.predict(X_test)
             metrics = _compute_metrics(y_test, y_pred, task_type)
-            cv_scores = cross_val_score(base_model, X_train, y_train, cv=min(2, 3), scoring=_default_scoring(task_type))
+            cv_scores = cross_val_score(base_model, X_train, y_train, cv=max(2, min(5, len(X_train))), scoring=_default_scoring(task_type))
             cv_score = round(float(cv_scores.mean()), 4)
             fi = _get_feature_importance(base_model, X.columns, task_type)
             results.append({
@@ -375,8 +375,10 @@ def _compute_metrics(y_true, y_pred, task_type):
             metrics["f1"] = round(float(f1_score(y_true, y_pred, average="weighted")), 4)
             cm = confusion_matrix(y_true, y_pred).tolist()
             metrics["confusion_matrix"] = cm
-        except Exception:
-            pass
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            metrics["metrics_error"] = str(e)
     else:
         metrics["mse"] = round(float(mean_squared_error(y_true, y_pred)), 4)
         metrics["rmse"] = round(float(np.sqrt(mean_squared_error(y_true, y_pred))), 4)

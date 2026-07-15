@@ -2,7 +2,7 @@ import os
 import time
 import re
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine, MetaData, exc
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 load_dotenv()
@@ -13,7 +13,14 @@ if _raw_url and not re.match(r"^(postgresql|sqlite)://", _raw_url.strip()):
 
 DATABASE_URL = _raw_url or f"sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'automl.db')}"
 
-engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=10 if "postgresql" in DATABASE_URL else 5,
+    max_overflow=20 if "postgresql" in DATABASE_URL else 10,
+    pool_recycle=3600 if "postgresql" in DATABASE_URL else -1,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 shared_metadata = MetaData(
@@ -46,7 +53,7 @@ def init_db():
         try:
             Base.metadata.create_all(bind=engine)
             return
-        except Exception:
+        except (exc.OperationalError, TimeoutError, ConnectionError, OSError):
             if attempt == 29:
                 raise
             time.sleep(1)

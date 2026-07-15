@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 
 export interface Notification {
   id: string;
@@ -39,3 +40,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   clearAll: () => set({ notifications: [] }),
   unreadCount: () => get().notifications.filter((n) => !n.read).length,
 }));
+
+export function useUnreadCount() {
+  return useNotificationStore(useShallow((s) => s.notifications.filter((n) => !n.read).length));
+}
+
+export function useNotificationActions() {
+  return useNotificationStore(useShallow((s) => ({
+    add: s.add,
+    markRead: s.markRead,
+    markAllRead: s.markAllRead,
+    dismiss: s.dismiss,
+    clearAll: s.clearAll,
+  })));
+}

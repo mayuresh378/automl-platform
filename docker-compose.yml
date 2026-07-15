@@ -6,12 +6,12 @@ services:
       - 5432
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-automl}
-      POSTGRES_USER: ${POSTGRES_USER:-automl}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-automl_secret_2024}
+      POSTGRES_USER: ${POSTGRES_USER:-changeme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-automl} -d ${POSTGRES_DB:-automl}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-changeme} -d ${POSTGRES_DB:-automl}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -41,7 +41,7 @@ services:
     env_file:
       - backend/.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-automl}:${POSTGRES_PASSWORD:-automl_secret_2024}@postgres:5432/${POSTGRES_DB:-automl}}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-changeme}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-automl}}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost}
       ENVIRONMENT: ${ENVIRONMENT:-production}

@@ -1,36 +1,55 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { Sparkles, Eraser, Search, AlertTriangle } from 'lucide-react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { Sparkles, Eraser, AlertTriangle, CheckCircle2, RotateCcw, FileText } from 'lucide-react';
 import { datasetsService } from '../../../services/datasets.service';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
-import { Card as CardUI } from '../../../components/ui/Card';
-import { PageContainer, PageHeader, PageSection } from '../../../components/layout/PageContainer';
+import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
 import { Button } from '../../../components/ui/Button';
 import { Select } from '../../../components/ui/Select';
 import { Badge } from '../../../components/ui/Badge';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { ErrorState } from '../../../components/ui/ErrorState';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { useNotification } from '../../../hooks/useNotification';
 import { getErrorMessage } from '../../../services/http';
 
 export default function CleaningPage() {
-  const qc = useQueryClient();
   const { notifySuccess, notifyError } = useNotification();
   const [selectedDataset, setSelectedDataset] = useState('');
+  const [result, setResult] = useState<any>(null);
 
-  const { data: datasets, isLoading } = useQuery({
+  const { data: datasets, isLoading, isError, error } = useQuery({
     queryKey: ['datasets'],
     queryFn: () => datasetsService.list(),
-    select: (d) => d.datasets,
+    select: (d: any) => d.datasets,
   });
 
-  const autoCleanMutation = useMutation({
-    mutationFn: () => datasetsService.autoClean(selectedDataset),
-    onSuccess: () => { notifySuccess('Auto-cleaning completed'); qc.invalidateQueries({ queryKey: ['datasets'] }); },
-    onError: (err) => notifyError('Cleaning failed', getErrorMessage(err)),
-  });
+  const runClean = (type: string, extra: Record<string, any> = {}) => {
+    if (!selectedDataset) return;
+    const ops = [{ type, ...extra }];
+    datasetsService.clean(selectedDataset, ops).then((data: any) => {
+      setResult(data);
+      notifySuccess('Cleaning completed');
+    }).catch((err) => {
+      notifyError('Cleaning failed', getErrorMessage(err));
+    });
+  };
+
+  const runAutoClean = () => {
+    if (!selectedDataset) return;
+    datasetsService.autoClean(selectedDataset).then((data: any) => {
+      setResult(data);
+      notifySuccess('Auto-cleaning completed');
+    }).catch((err) => {
+      notifyError('Cleaning failed', getErrorMessage(err));
+    });
+  };
+
+  const datasetOptions = (datasets || []).map((d: any) => ({
+    value: d.name || d.filename,
+    label: d.filename || d.name,
+  }));
+
+  const busy = false;
 
   return (
     <PageContainer>
@@ -41,36 +60,204 @@ export default function CleaningPage() {
           <Card>
             <CardHeader><CardTitle>Dataset</CardTitle></CardHeader>
             <CardContent>
-              <Select
-                placeholder="Select dataset"
-                value={selectedDataset}
-                onChange={(e) => setSelectedDataset(e.target.value)}
-                options={(datasets || []).map((d: any) => ({ value: d.name || d.filename, label: d.filename || d.name }))}
-              />
+              {isLoading ? (
+                <div className="flex items-center gap-2 text-sm text-zinc-400">
+                  <LoadingSpinner />
+                  <span>Loading datasets...</span>
+                </div>
+              ) : isError ? (
+                <div className="text-sm text-red-400">
+                  Failed to load datasets: {getErrorMessage(error)}
+                </div>
+              ) : (
+                <Select
+                  placeholder="Select dataset"
+                  value={selectedDataset}
+                  onChange={(e) => { setSelectedDataset(e.target.value); setResult(null); }}
+                  options={datasetOptions}
+                />
+              )}
             </CardContent>
           </Card>
+
           <Card>
             <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              <Button className="w-full" size="sm" variant="secondary" disabled={!selectedDataset} icon={<Eraser className="w-4 h-4" />}>Remove Duplicates</Button>
-              <Button className="w-full" size="sm" variant="secondary" disabled={!selectedDataset} icon={<AlertTriangle className="w-4 h-4" />}>Handle Missing Values</Button>
-              <Button className="w-full" size="sm" variant="premium" disabled={!selectedDataset} loading={autoCleanMutation.isPending} onClick={() => autoCleanMutation.mutate()} icon={<Sparkles className="w-4 h-4" />}>
+              <Button
+                className="w-full" size="sm" variant="secondary"
+                disabled={!selectedDataset}
+                icon={<Eraser className="w-4 h-4" />}
+                onClick={() => runClean('remove_duplicates')}
+              >
+                Remove Duplicates
+              </Button>
+              <Button
+                className="w-full" size="sm" variant="secondary"
+                disabled={!selectedDataset}
+                icon={<AlertTriangle className="w-4 h-4" />}
+                onClick={() => runClean('impute_missing', { strategy: 'median' })}
+              >
+                Handle Missing Values
+              </Button>
+              <Button
+                className="w-full" size="sm" variant="premium"
+                disabled={!selectedDataset}
+                icon={<Sparkles className="w-4 h-4" />}
+                onClick={() => runAutoClean()}
+              >
                 Auto-Clean
               </Button>
             </CardContent>
           </Card>
-        </div>
 
-        <div className="lg:col-span-3">
-          {!selectedDataset ? (
-            <EmptyState icon={<Eraser className="w-8 h-8" />} title="Select a dataset" description="Choose a dataset from the sidebar to start cleaning" />
-          ) : (
+          {result && (
             <Card>
-              <CardHeader><CardTitle>Cleaning Results</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-sm text-zinc-500">Select cleaning operations and apply them to your dataset. Connect to the backend for full functionality.</p>
+              <CardHeader>
+                <CardTitle>Summary</CardTitle>
+                <Badge variant="success" dot>Cleaned</Badge>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {result.summary && Object.entries(result.summary).filter(([, v]: any) => v > 0).map(([key, val]: any) => (
+                  <div key={key} className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-400">{key.replace(/_/g, ' ')}</span>
+                    <Badge variant="info">{val}</Badge>
+                  </div>
+                ))}
+                {!result.summary && result.applied_operations && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-400">Operations applied</span>
+                    <Badge variant="info">{result.applied_operations.length}</Badge>
+                  </div>
+                )}
+                <div className="pt-2 border-t border-white/5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-400">Cleaned file</span>
+                    <span className="text-zinc-200 truncate ml-2">{result.cleaned_file}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
+          )}
+        </div>
+
+        <div className="lg:col-span-3 space-y-4">
+          {!selectedDataset ? (
+            <EmptyState
+              icon={<FileText className="w-8 h-8" />}
+              title="Select a dataset"
+              description="Choose a dataset from the left sidebar to start cleaning"
+            />
+          ) : result ? (
+            <>
+              {(result.rows_before !== undefined || result.columns_before !== undefined) && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="text-center">
+                      <p className="text-2xl font-bold text-zinc-100">{result.rows_before ?? '-'}</p>
+                      <p className="text-xs text-zinc-500 mt-1">Rows Before</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="text-center">
+                      <p className="text-2xl font-bold text-zinc-100">{result.rows_after ?? '-'}</p>
+                      <p className="text-xs text-zinc-500 mt-1">Rows After</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="text-center">
+                      <p className="text-2xl font-bold text-zinc-100">{result.columns_before ?? '-'}</p>
+                      <p className="text-xs text-zinc-500 mt-1">Columns Before</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="text-center">
+                      <p className="text-2xl font-bold text-zinc-100">{result.columns_after ?? '-'}</p>
+                      <p className="text-xs text-zinc-500 mt-1">Columns After</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {result.applied_operations && result.applied_operations.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Applied Operations</CardTitle>
+                    <Badge variant="success">{result.applied_operations.length} operations</Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-1.5">
+                      {result.applied_operations.map((op: string, i: number) => (
+                        <li key={i} className="flex items-center gap-2 text-sm text-zinc-300">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          {op}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+
+              {result.column_changes && result.column_changes.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Column Changes</CardTitle>
+                    <Badge variant="info">{result.column_changes.length} columns</Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-white/5">
+                            <th className="text-left py-2 pr-4 text-zinc-500 font-medium">Column</th>
+                            <th className="text-left py-2 pr-4 text-zinc-500 font-medium">Type</th>
+                            <th className="text-right py-2 pr-4 text-zinc-500 font-medium">Missing Before</th>
+                            <th className="text-right py-2 pr-4 text-zinc-500 font-medium">Missing After</th>
+                            <th className="text-right py-2 text-zinc-500 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.column_changes.map((col: any) => (
+                            <tr key={col.name} className="border-b border-white/5">
+                              <td className="py-2 pr-4 text-zinc-200">{col.name}</td>
+                              <td className="py-2 pr-4">
+                                <Badge variant="default" size="sm">{col.dtype}</Badge>
+                              </td>
+                              <td className="py-2 pr-4 text-right text-zinc-300">{col.missing_before}</td>
+                              <td className="py-2 pr-4 text-right text-zinc-300">{col.missing_after}</td>
+                              <td className="py-2 text-right">
+                                {col.removed ? (
+                                  <Badge variant="error" size="sm">Removed</Badge>
+                                ) : col.missing_after < col.missing_before ? (
+                                  <Badge variant="success" size="sm">Cleaned</Badge>
+                                ) : (
+                                  <Badge variant="default" size="sm">Unchanged</Badge>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="flex justify-end">
+                <Button
+                  variant="secondary" size="sm"
+                  icon={<RotateCcw className="w-4 h-4" />}
+                  onClick={() => setResult(null)}
+                >
+                  Clear Results
+                </Button>
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={<Sparkles className="w-8 h-8" />}
+              title="Ready to clean"
+              description="Use the quick actions or auto-clean button to start cleaning your dataset"
+            />
           )}
         </div>
       </div>

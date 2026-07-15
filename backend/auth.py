@@ -14,8 +14,10 @@ from database import get_db
 from models import User, UserSession
 from security_utils import sanitize_name, sanitize_text
 
-SECRET_KEY = os.environ.get("JWT_SECRET") or os.environ.get("SECRET_KEY") or "please-set-jwt-secret-env-var"
-ALGORITHM = "HS256"
+from config import settings
+
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.JWT_ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
@@ -298,7 +300,7 @@ def google_login(db: Session, id_token: str, device_info: str = None, ip_address
     try:
         payload = decode_token(id_token)
         if payload is None:
-            payload = jwt.decode(id_token, options={"verify_signature": False})
+            raise HTTPException(status_code=400, detail="Invalid Google token")
         google_id = payload.get("sub") or payload.get("google_id", "")
         email = payload.get("email", "").strip().lower()
         name = payload.get("name", email.split("@")[0])

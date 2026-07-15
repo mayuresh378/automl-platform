@@ -3,23 +3,23 @@ import hashlib
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from functools import lru_cache
+import bcrypt
 from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import desc
 from jose import jwt
 
 from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
                     Deployment, Pipeline, PipelineRun, PredictionLog, Webhook, AuditLog,
-                    Project, MarketplaceItem, Dataset, Notification)
+                    Project, MarketplaceItem, Dataset, Notification, ActivityLog)
+
+from config import settings
+
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.JWT_ALGORITHM
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
-ALGORITHM = "HS256"
-
-
-@lru_cache(maxsize=256)
 def _hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(rounds=12)).decode('utf-8')
 
 
 def _create_token(user_id: str) -> str:
@@ -43,8 +43,12 @@ def log_audit(db: Session, actor: str, action: str, target: str = None,
         details=details, status=status, ip_address=ip_address,
         created_at=_now()
     )
-    db.add(record)
-    db.commit()
+    try:
+        db.add(record)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 # ─── Users ──────────────────────────────────────────────────────────
@@ -54,9 +58,13 @@ def create_user(db: Session, email: str, password: str, name: str) -> dict:
     if existing:
         raise ValueError("Email already registered")
     user = User(id=_uid(), email=email, name=name, password_hash=_hash_password(password), created_at=_now())
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        raise
     token = _create_token(user.id)
     log_audit(db, name, "user.registered", f"User {email}", "user", user.id)
     return {"token": token, "user": {"id": user.id, "email": user.email, "name": user.name}}
@@ -64,7 +72,12 @@ def create_user(db: Session, email: str, password: str, name: str) -> dict:
 
 def authenticate_user(db: Session, email: str, password: str) -> dict:
     user = db.query(User).filter(User.email == email).first()
-    if not user or user.password_hash != _hash_password(password):
+    if not user:
+        raise ValueError("Invalid email or password")
+    try:
+        if not bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+            raise ValueError("Invalid email or password")
+    except (ValueError, AttributeError):
         raise ValueError("Invalid email or password")
     if not user.is_active:
         raise ValueError("Account is disabled")
@@ -95,9 +108,13 @@ def list_experiments(db: Session, limit: int = 100, offset: int = 0, project_id:
 
 def create_experiment(db: Session, data: dict) -> Experiment:
     exp = Experiment(id=_uid(), created_at=_now(), **data)
-    db.add(exp)
-    db.commit()
-    db.refresh(exp)
+    try:
+        db.add(exp)
+        db.commit()
+        db.refresh(exp)
+    except Exception:
+        db.rollback()
+        raise
     log_audit(db, data.get("user_id", "system"), "experiment.created",
               exp.name, "experiment", exp.id)
     return exp
@@ -176,9 +193,13 @@ def list_deployments(db: Session, limit: int = 100, offset: int = 0, project_id:
 
 def create_deployment(db: Session, data: dict) -> Deployment:
     dep = Deployment(id=_uid(), created_at=_now(), **data)
-    db.add(dep)
-    db.commit()
-    db.refresh(dep)
+    try:
+        db.add(dep)
+        db.commit()
+        db.refresh(dep)
+    except Exception:
+        db.rollback()
+        raise
     log_audit(db, data.get("user_id", "system"), "deployment.created",
               dep.name, "deployment", dep.id)
     return dep
@@ -188,8 +209,12 @@ def delete_deployment(db: Session, dep_id: str) -> bool:
     dep = db.query(Deployment).filter(Deployment.id == dep_id).first()
     if dep:
         name = dep.name
-        db.delete(dep)
-        db.commit()
+        try:
+            db.delete(dep)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         log_audit(db, "system", "deployment.deleted", name, "deployment", dep_id)
         return True
     return False
@@ -208,9 +233,13 @@ def create_pipeline(db: Session, user_id: str, name: str, steps: list,
                     description: str = None, schedule: str = None) -> Pipeline:
     pipe = Pipeline(id=_uid(), user_id=user_id, name=name, steps=steps,
                     description=description, schedule=schedule, created_at=_now())
-    db.add(pipe)
-    db.commit()
-    db.refresh(pipe)
+    try:
+        db.add(pipe)
+        db.commit()
+        db.refresh(pipe)
+    except Exception:
+        db.rollback()
+        raise
     log_audit(db, user_id or "system", "pipeline.created", name, "pipeline", pipe.id)
     return pipe
 
@@ -349,9 +378,13 @@ def create_api_key(db: Session, user_id: str, name: str) -> dict:
         id=_uid(), user_id=user_id, name=name,
         key_prefix=key_prefix, key_hash=key_hash, created_at=_now()
     )
-    db.add(api_key)
-    db.commit()
-    db.refresh(api_key)
+    try:
+        db.add(api_key)
+        db.commit()
+        db.refresh(api_key)
+    except Exception:
+        db.rollback()
+        raise
     log_audit(db, user_id, "api_key.created", name, "api_key", api_key.id)
     return {"id": api_key.id, "name": name, "key": raw_key, "key_prefix": key_prefix}
 
@@ -579,6 +612,105 @@ def create_prediction_log(db: Session, data: dict) -> PredictionLog:
 
 def list_prediction_logs(db: Session, limit: int = 100) -> list:
     return db.query(PredictionLog).order_by(desc(PredictionLog.created_at)).limit(limit).all()
+
+
+def get_prediction_log(db: Session, pred_id: str) -> Optional[PredictionLog]:
+    return db.query(PredictionLog).filter(PredictionLog.id == pred_id).first()
+
+
+def delete_prediction_log(db: Session, pred_id: str) -> bool:
+    log = db.query(PredictionLog).filter(PredictionLog.id == pred_id).first()
+    if log:
+        db.delete(log)
+        db.commit()
+        return True
+    return False
+
+
+def get_experiment(db: Session, exp_id: str) -> Optional[Experiment]:
+    return db.query(Experiment).options(
+        selectinload(Experiment.user),
+        selectinload(Experiment.project),
+        selectinload(Experiment.model_registry),
+    ).filter(Experiment.id == exp_id).first()
+
+
+def delete_experiment(db: Session, exp_id: str) -> bool:
+    exp = db.query(Experiment).filter(Experiment.id == exp_id).first()
+    if exp:
+        name = exp.name
+        db.delete(exp)
+        db.commit()
+        log_audit(db, "system", "experiment.deleted", name, "experiment", exp_id)
+        return True
+    return False
+
+
+def compare_experiments(db: Session, ids: list) -> list:
+    return db.query(Experiment).filter(Experiment.id.in_(ids)).options(
+        selectinload(Experiment.user),
+        selectinload(Experiment.project),
+        selectinload(Experiment.model_registry),
+    ).all()
+
+
+def get_deployment(db: Session, dep_id: str) -> Optional[Deployment]:
+    return db.query(Deployment).filter(Deployment.id == dep_id).first()
+
+
+def update_deployment(db: Session, dep_id: str, **kwargs) -> Optional[Deployment]:
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        return None
+    for k, v in kwargs.items():
+        if v is not None and hasattr(dep, k):
+            setattr(dep, k, v)
+    dep.updated_at = _now()
+    db.commit()
+    db.refresh(dep)
+    log_audit(db, "system", "deployment.updated", dep.name, "deployment", dep.id)
+    return dep
+
+
+def count_unread_notifications(db: Session, user_id: str = None) -> int:
+    q = db.query(Notification).filter(Notification.read == False)
+    if user_id:
+        q = q.filter(Notification.user_id == user_id)
+    return q.count()
+
+
+def get_audit_log(db: Session, log_id: str) -> Optional[AuditLog]:
+    return db.query(AuditLog).filter(AuditLog.id == log_id).first()
+
+
+def get_team(db: Session, team_id: str) -> Optional[Team]:
+    return db.query(Team).filter(Team.id == team_id).first()
+
+
+def update_team(db: Session, team_id: str, name: str = None) -> Optional[Team]:
+    team = get_team(db, team_id)
+    if not team:
+        return None
+    if name is not None:
+        team.name = name
+        team.slug = name.lower().replace(" ", "-")
+    team.updated_at = _now()
+    db.commit()
+    db.refresh(team)
+    log_audit(db, "system", "team.updated", team.name, "team", team.id)
+    return team
+
+
+def delete_team(db: Session, team_id: str) -> bool:
+    team = get_team(db, team_id)
+    if team:
+        name = team.name
+        db.query(TeamMember).filter(TeamMember.team_id == team_id).delete()
+        db.delete(team)
+        db.commit()
+        log_audit(db, "system", "team.deleted", name, "team", team_id)
+        return True
+    return False
 
 
 # ─── Marketplace ────────────────────────────────────────────────────

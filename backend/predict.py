@@ -1,8 +1,11 @@
 import os
 import json
+import logging
 import joblib
 import pandas as pd
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "..", "models")
@@ -31,7 +34,13 @@ def make_prediction(model_filename: str, input_data: dict):
         missing = [f for f in expected_features if f not in df_input.columns]
         extra = [f for f in df_input.columns if f not in expected_features]
         if missing:
-            pass
+            logger.warning("Missing features filled with 0: %s", missing)
+            for col in missing:
+                df_input[col] = 0
+        if extra:
+            logger.warning("Extra features dropped: %s", extra)
+            df_input = df_input.drop(columns=extra)
+        df_input = df_input[expected_features]
 
     try:
         prediction = pipeline.predict(df_input)

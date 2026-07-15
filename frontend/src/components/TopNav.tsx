@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Bell, Sparkles, ChevronDown, KeyRound, LogIn, Check, X, Clock, AlertCircle, CheckCircle2, Info, AlertTriangle, Moon, Sun, Folders, Plus } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '../store/useUIStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useProjects } from '../hooks/useApi';
-import { useNotificationStore, Notification } from '../store/useNotificationStore';
+import { useNotificationStore, useUnreadCount, useNotificationActions, Notification } from '../store/useNotificationStore';
 import { cn } from '../lib/cn';
 
 const NOTIF_ICONS: Record<Notification['type'], any> = {
@@ -34,7 +35,9 @@ function formatTimeAgo(ts: number) {
 const TopNav = memo(function TopNav() {
   const { setCommandPaletteOpen, setActivePage, setCurrentProjectId, setSettingsTab, theme, toggleTheme } = useUIStore();
   const { user, logout } = useAuthStore();
-  const { notifications, add, markRead, markAllRead, dismiss, clearAll, unreadCount } = useNotificationStore();
+  const { notifications } = useNotificationStore(useShallow((s) => ({ notifications: s.notifications })));
+  const unreadCount = useUnreadCount();
+  const { add, markRead, markAllRead, dismiss, clearAll } = useNotificationActions();
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -164,19 +167,19 @@ const TopNav = memo(function TopNav() {
             aria-label="Notifications"
           >
             <motion.span
-              animate={unreadCount() > 0 ? { rotate: [0, 10, -10, 0] } : {}}
+              animate={unreadCount > 0 ? { rotate: [0, 10, -10, 0] } : {}}
               transition={{ duration: 0.5 }}
               className="inline-flex"
             >
               <Bell className="h-4 w-4" />
             </motion.span>
-            {unreadCount() > 0 && (
+                  {unreadCount > 0 && (
               <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 className="absolute -top-0.5 -right-0.5 h-4 min-w-[14px] flex items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white px-[3px]"
               >
-                {unreadCount() > 9 ? '9+' : unreadCount()}
+                {unreadCount > 9 ? '9+' : unreadCount}
               </motion.span>
             )}
           </motion.button>
@@ -192,7 +195,7 @@ const TopNav = memo(function TopNav() {
               <div className="flex items-center justify-between px-2.5 py-2 border-b border-border">
                 <span className="text-xs font-medium text-zinc-300">Notifications</span>
                 <div className="flex items-center gap-1">
-                  {unreadCount() > 0 && (
+            {unreadCount > 0 && (
                     <button onClick={markAllRead} className="btn-press text-[10px] text-primary hover:text-primary/80 transition-colors px-1.5 py-0.5">Mark all read</button>
                   )}
                   <button onClick={clearAll} className="btn-press text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors px-1.5 py-0.5">Clear</button>

@@ -24,7 +24,16 @@ def execute_pipeline_steps(pipeline, run_id):
             state = _dispatch(step_type, params, state)
             yield {"step": step_label, "status": "done", "state_keys": list(state.keys())}
         except Exception as e:
-            yield {"step": step_label, "status": "failed", "error": str(e)}
+            import traceback
+            tb = traceback.format_exc()
+            yield {
+                "step": step_label,
+                "status": "failed",
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "step_type": step_type,
+                "traceback": tb,
+            }
             return
 
     yield {"step": "complete", "status": "done", "state_keys": list(state.keys())}
@@ -101,7 +110,7 @@ def _step_train(params, state):
         task_type=result["task_type"],
         model_name_prefix=f"pipeline_{state.get('_run_id', 'run')[:8]}",
         preprocessor=result.get("preprocessor"),
-        cv_folds=params.get("cv", 2),
+        cv_folds=params.get("cv", 5),
     )
     state["best_model"] = training_result["best_model"]
     state["cv_score"] = training_result["cv_score"]
@@ -132,15 +141,15 @@ def _step_predict(params, state):
     model_file = state.get("model_file")
     if not model_file:
         raise ValueError("No trained model. Add a train step first.")
-    model_name = model_file.replace(".pkl", "")
-    meta = load_model_metadata(model_name)
+    meta = load_model_metadata(model_file)
     sample_input = params.get("sample_input", {})
     if not sample_input and meta and meta.get("feature_names"):
-        sample_input = {f: 0 for f in meta["feature_names"][:4]}
-    if sample_input:
-        prediction = make_prediction(model_name, sample_input)
-        state["prediction"] = prediction
-    state["predict_model"] = model_name
+        sample_input = {f: 0 for f in meta["feature_names"]}
+    if not sample_input:
+        raise ValueError("No sample_input provided and no feature_names found in model metadata.")
+    prediction = make_prediction(model_file, sample_input)
+    state["prediction"] = prediction
+    state["predict_model"] = model_file
     return state
 
 

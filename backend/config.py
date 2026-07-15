@@ -1,4 +1,5 @@
 import os
+import warnings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,8 +10,8 @@ class Settings:
     APP_VERSION: str = "3.0.0"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
-    # Security
-    JWT_SECRET: str = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY", "change-me")
+    # Security — single canonical SECRET_KEY
+    SECRET_KEY: str = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET", "change-me")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
     REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
@@ -52,3 +53,10 @@ class Settings:
 
 
 settings = Settings()
+
+if settings.SECRET_KEY in ("change-me", ""):
+    warnings.warn(
+        "SECRET_KEY is using the insecure default value. "
+        "Set the SECRET_KEY environment variable in production.",
+        stacklevel=2,
+    )
