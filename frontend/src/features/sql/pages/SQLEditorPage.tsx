@@ -8,7 +8,7 @@ import { Select } from '../../../components/ui/Select';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { useNotification } from '../../../hooks/useNotification';
 import { datasetsService } from '../../../services/datasets.service';
-import { downloadBlob } from '../../../services/http';
+import { http, downloadBlob } from '../../../services/http';
 
 export default function SQLEditorPage() {
   const { notifyError, notifySuccess } = useNotification();
@@ -31,15 +31,7 @@ export default function SQLEditorPage() {
       const form = new FormData();
       form.append('query', query.trim());
       if (selectedDataset) form.append('dataset', selectedDataset);
-      const res = await fetch(`/api/v1/query`, {
-        method: 'POST',
-        body: form,
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => null);
-        throw new Error(errBody?.detail || `Query failed (${res.status})`);
-      }
-      const data = await res.json();
+      const data = await http.post('/query', form);
       setResults(data);
       notifySuccess('Query completed', `${data.rows} row(s) returned`);
     } catch (err: any) {
