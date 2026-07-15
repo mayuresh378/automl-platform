@@ -39,7 +39,7 @@ const navigation = [
   { name: 'Upload Dataset', href: '/upload', icon: Upload },
   { name: 'Dataset Explorer', href: '/explorer', icon: Database },
   { name: 'Data Cleaning', href: '/cleaning', icon: Sparkles },
-  { name: 'Feature Engineering', href: '/engineering', icon: Wand2 },
+
   { name: 'Training', href: '/training', icon: BrainCircuit },
   { name: 'Comparison', href: '/comparison', icon: GitCompare },
   { name: 'Predictions', href: '/prediction', icon: Send },
