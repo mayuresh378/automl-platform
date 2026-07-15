@@ -55,6 +55,7 @@ const PAGE_MAP: Record<string, FC> = {
   'Project Detail': ProjectDetailPage,
   Datasets: DatasetsPage,
   'Data Cleaning': CleaningPage,
+  'Auto Cleaning': CleaningPage,
   Explorer: ExplorerPage,
   'Dataset Analysis': DatasetAnalysisPage,
   Training: TrainingPage,
