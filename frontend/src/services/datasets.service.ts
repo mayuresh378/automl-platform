@@ -1,5 +1,5 @@
 import { http } from './http';
-import type { Dataset, DatasetPreview, DatasetProfile, DatasetAnalysis } from '../types/api';
+import type { Dataset, DatasetPreview, DatasetProfile, DatasetAnalysisResult } from '../types/api';
 
 export const datasetsService = {
   list: () => http.get<{ datasets: Dataset[] }>('/datasets'),
@@ -27,7 +27,7 @@ export const datasetsService = {
     http.post<Dataset>(`/datasets/${encodeURIComponent(name)}/auto-clean`),
 
   analyze: (name: string, target?: string) =>
-    http.get<DatasetAnalysis>(`/datasets/${encodeURIComponent(name)}/analyze`, target ? { target } : undefined),
+    http.get<DatasetAnalysisResult>(`/datasets/${encodeURIComponent(name)}/analyze`, target ? { target } : undefined),
 
   suggestFeatures: (name: string) =>
     http.get<{ suggestions: any[] }>(`/datasets/${encodeURIComponent(name)}/features/suggest`),

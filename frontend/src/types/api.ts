@@ -82,12 +82,124 @@ export interface ColumnProfile {
   top_values?: Record<string, number>;
 }
 
-export interface DatasetAnalysis {
-  target: string;
-  problem_type: 'classification' | 'regression';
-  feature_importance: Record<string, number>;
-  correlations: Record<string, number>;
-  recommendations: string[];
+export interface TargetCandidate {
+  column: string;
+  score: number;
+  reason: string;
+}
+
+export interface TargetDetection {
+  candidates: TargetCandidate[];
+  suggested: string | null;
+}
+
+export interface MissingColumn {
+  column: string;
+  missing: number;
+  pct: number;
+  dtype: string;
+}
+
+export interface MissingAnalysis {
+  total_missing: number;
+  missing_pct: number;
+  severity: string;
+  columns: MissingColumn[];
+}
+
+export interface DuplicateAnalysis {
+  count: number;
+  pct: number;
+  severity: string;
+}
+
+export interface OutlierColumn {
+  column: string;
+  outliers: number;
+  pct: number;
+  lower_bound: number;
+  upper_bound: number;
+}
+
+export interface OutlierAnalysis {
+  total_outliers: number;
+  columns: OutlierColumn[];
+  mean_pct: number;
+}
+
+export interface ClassDistribution {
+  [key: string]: { count: number; pct: number };
+}
+
+export interface ClassImbalance {
+  detected: boolean;
+  target?: string;
+  distribution?: ClassDistribution;
+  imbalance_ratio?: number;
+  severity?: string;
+  classes?: number;
+}
+
+export interface CorrelationPair {
+  x: string;
+  y: string;
+  value: number;
+}
+
+export interface CorrelationAnalysis {
+  matrix: Record<string, number>[];
+  columns: string[];
+  top_correlations: CorrelationPair[];
+  size: number;
+  message?: string;
+}
+
+export interface DistributionColumn {
+  column: string;
+  bins: number[];
+  bin_edges: number[];
+  min: number;
+  max: number;
+  mean: number;
+  median: number;
+  std: number;
+  skewness: number;
+}
+
+export interface DistributionAnalysis {
+  columns: DistributionColumn[];
+}
+
+export interface QualityScore {
+  total: number;
+  grade: string;
+  components: Record<string, number>;
+  deductions: string[];
+}
+
+export interface Recommendation {
+  action: string;
+  priority: string;
+  message: string;
+  columns?: string[];
+}
+
+export interface DatasetAnalysisResult {
+  name: string;
+  rows: number;
+  columns: number;
+  target: string | null;
+  target_detection: TargetDetection | null;
+  feature_types: Record<string, string[]>;
+  missing: MissingAnalysis;
+  duplicates: DuplicateAnalysis;
+  outliers: OutlierAnalysis;
+  class_imbalance: ClassImbalance;
+  correlation: CorrelationAnalysis;
+  distributions: DistributionAnalysis;
+  quality_score: QualityScore;
+  recommendations: Recommendation[];
+  insights: string[];
 }
 
 export interface Experiment {
