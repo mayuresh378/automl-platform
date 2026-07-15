@@ -11,7 +11,7 @@ import { http, downloadBlob } from '../../../services/http';
 
 export default function SQLEditorPage() {
   const { notifyError, notifySuccess } = useNotification();
-  const [query, setQuery] = useState('SELECT * FROM datasets LIMIT 10;');
+  const [query, setQuery] = useState('');
   const [selectedDataset, setSelectedDataset] = useState('');
   const [results, setResults] = useState<{ columns: string[]; rows: number; data: Record<string, any>[] } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -79,9 +79,18 @@ export default function SQLEditorPage() {
           onChange={(e) => setQuery(e.target.value)}
           className="w-full bg-transparent p-4 text-sm font-mono text-zinc-200 placeholder:text-zinc-600 resize-none focus:outline-none"
           rows={6}
-          placeholder="SELECT * FROM datasets LIMIT 10;"
+          placeholder="SELECT * FROM data LIMIT 10;"
           spellCheck={false}
         />
+        {selectedDataset ? (
+          <div className="px-4 pb-3 text-xs text-zinc-500">
+            Using table: <code className="text-emerald-400">data</code>
+          </div>
+        ) : datasets?.length ? (
+          <div className="px-4 pb-3 text-xs text-zinc-500">
+            Available tables: <code className="text-emerald-400">{(datasets as any[]).map((d: any) => d.filename?.replace(/\.\w+$/, '') || d.name).join(', ')}</code>
+          </div>
+        ) : null}
       </Card>
 
       {error && !isRunning && (
