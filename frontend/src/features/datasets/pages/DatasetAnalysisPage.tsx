@@ -1,30 +1,26 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp, AlertTriangle, Lightbulb, Brain } from 'lucide-react';
+import { BarChart3, TrendingUp, Lightbulb } from 'lucide-react';
 import { datasetsService } from '../../../services/datasets.service';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
 import { Select } from '../../../components/ui/Select';
 import { Badge } from '../../../components/ui/Badge';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { ErrorState } from '../../../components/ui/ErrorState';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
-import { useNotification } from '../../../hooks/useNotification';
 import { getErrorMessage } from '../../../services/http';
 
 export default function DatasetAnalysisPage() {
-  const { notifyError } = useNotification();
   const [selectedDataset, setSelectedDataset] = useState('');
   const [targetColumn, setTargetColumn] = useState('');
 
   const { data: datasets } = useQuery({
     queryKey: ['datasets'],
     queryFn: () => datasetsService.list(),
-    select: (d) => d.datasets,
+    select: (d: any) => d.datasets,
   });
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile, isLoading: profileLoading, isError: profileError, error: profileErr } = useQuery({
     queryKey: ['dataset', selectedDataset, 'profile'],
     queryFn: () => datasetsService.profile(selectedDataset),
     enabled: !!selectedDataset,
@@ -35,6 +31,8 @@ export default function DatasetAnalysisPage() {
     queryFn: () => datasetsService.analyze(selectedDataset, targetColumn || undefined),
     enabled: !!selectedDataset,
   });
+
+  const colDetails: any[] = profile?.column_details || [];
 
   return (
     <PageContainer>
@@ -51,12 +49,12 @@ export default function DatasetAnalysisPage() {
                 onChange={(e) => { setSelectedDataset(e.target.value); setTargetColumn(''); }}
                 options={(datasets || []).map((d: any) => ({ value: d.name || d.filename, label: d.filename || d.name }))}
               />
-              {profile?.column_profiles && (
+              {colDetails.length > 0 && (
                 <Select
                   placeholder="Target column (optional)"
                   value={targetColumn}
                   onChange={(e) => setTargetColumn(e.target.value)}
-                  options={profile.column_profiles.map((c: any) => ({ value: c.name, label: c.name }))}
+                  options={colDetails.map((c: any) => ({ value: c.name, label: c.name }))}
                 />
               )}
             </CardContent>
@@ -66,8 +64,12 @@ export default function DatasetAnalysisPage() {
         <div className="lg:col-span-3 space-y-6">
           {!selectedDataset ? (
             <EmptyState icon={<BarChart3 className="w-8 h-8" />} title="Select a dataset" description="Choose a dataset to analyze" />
-          ) : profileLoading || analysisLoading ? (
+          ) : profileLoading ? (
             <LoadingSpinner size="lg" />
+          ) : profileError ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <p className="text-red-400 text-sm">Failed to load profile: {getErrorMessage(profileErr)}</p>
+            </div>
           ) : profile ? (
             <>
               <Card>
@@ -75,10 +77,10 @@ export default function DatasetAnalysisPage() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     {[
-                      { label: 'Rows', value: profile.rows.toLocaleString() },
-                      { label: 'Columns', value: profile.columns },
-                      { label: 'Missing Cells', value: profile.missing_cells?.toLocaleString() || '0' },
-                      { label: 'Duplicate Rows', value: profile.duplicate_rows?.toLocaleString() || '0' },
+                      { label: 'Rows', value: profile.rows?.toLocaleString() ?? '0' },
+                      { label: 'Columns', value: profile.columns ?? '0' },
+                      { label: 'Missing Cells', value: profile.missing_values?.toLocaleString() ?? '0' },
+                      { label: 'Duplicate Rows', value: profile.duplicates?.toLocaleString() ?? '0' },
                     ].map((item) => (
                       <div key={item.label} className="text-center p-3 rounded-xl bg-white/5">
                         <p className="text-lg font-semibold text-zinc-100">{item.value}</p>
@@ -93,7 +95,7 @@ export default function DatasetAnalysisPage() {
                         <tr className="border-b border-white/10">
                           <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase">Column</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase">Type</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase">Missing %</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase">Missing</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase">Unique</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase">Mean</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase">Std</th>
@@ -102,12 +104,12 @@ export default function DatasetAnalysisPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {profile.column_profiles?.map((col: any) => (
+                        {colDetails.map((col: any) => (
                           <tr key={col.name} className="border-b border-white/5 hover:bg-white/[0.02]">
                             <td className="px-3 py-2 text-zinc-200 font-medium">{col.name}</td>
                             <td className="px-3 py-2"><Badge variant="info" size="sm">{col.dtype}</Badge></td>
-                            <td className="px-3 py-2 text-zinc-300">{(col.missing_pct * 100).toFixed(1)}%</td>
-                            <td className="px-3 py-2 text-zinc-300">{col.unique}</td>
+                            <td className="px-3 py-2 text-zinc-300">{col.missing ?? 0}</td>
+                            <td className="px-3 py-2 text-zinc-300">{col.unique_values ?? '-'}</td>
                             <td className="px-3 py-2 text-zinc-300">{col.mean != null ? col.mean.toFixed(3) : '-'}</td>
                             <td className="px-3 py-2 text-zinc-300">{col.std != null ? col.std.toFixed(3) : '-'}</td>
                             <td className="px-3 py-2 text-zinc-300">{col.min != null ? col.min.toFixed(2) : '-'}</td>
@@ -119,6 +121,12 @@ export default function DatasetAnalysisPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {analysisLoading && profile && (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              )}
 
               {analysis && (
                 <Card>
@@ -171,9 +179,7 @@ export default function DatasetAnalysisPage() {
                 </Card>
               )}
             </>
-          ) : (
-            <ErrorState title="Failed to load profile" onRetry={() => {}} />
-          )}
+          ) : null}
         </div>
       </div>
     </PageContainer>
