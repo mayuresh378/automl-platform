@@ -68,6 +68,19 @@ export default function SQLEditorPage() {
     select: (d: any) => d.datasets,
   });
 
+  const defaultTableName = useMemo(() => {
+    if (selectedDataset) return 'data';
+    if (datasets?.length) {
+      const f = datasets[0].name || datasets[0].filename;
+      return f ? f.replace(/\.\w+$/, '') : 'data';
+    }
+    return 'data';
+  }, [selectedDataset, datasets]);
+
+  const resolveTable = useCallback((query: string) => {
+    return query.replace(/\btable_a\b/g, defaultTableName).replace(/\btable_b\b/g, datasets?.[1]?.name?.replace(/\.\w+$/, '') || 'table_b').replace(/\bdata\b/g, defaultTableName);
+  }, [defaultTableName, datasets]);
+
   const handleRun = useCallback(async () => {
     if (!activeTab?.query?.trim()) return;
     updateTabRunning(activeTabId, true);
@@ -76,9 +89,6 @@ export default function SQLEditorPage() {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 60000);
-      const form = new FormData();
-      form.append('query', activeTab.query.trim());
-      if (selectedDataset) form.append('dataset', selectedDataset);
       const data = await sqlService.executeQuery(activeTab.query.trim(), selectedDataset, controller.signal);
       clearTimeout(timeout);
       updateTabResult(activeTabId, data);
@@ -124,8 +134,9 @@ export default function SQLEditorPage() {
   }, [activeTabId, activeTab]);
 
   const handleTableClick = useCallback((tableName: string) => {
-    handleInsertQuery(`SELECT *\nFROM ${tableName}\nLIMIT 100;`);
-  }, [handleInsertQuery]);
+    const name = selectedDataset ? 'data' : tableName;
+    handleInsertQuery(`SELECT *\nFROM ${name}\nLIMIT 100;`);
+  }, [handleInsertQuery, selectedDataset]);
 
   const handleColumnClick = useCallback((columnName: string) => {
     if (columnName === '*') {
@@ -224,7 +235,7 @@ export default function SQLEditorPage() {
               {queryTemplates.map((tpl) => (
                 <button
                   key={tpl.id}
-                  onClick={() => { handleInsertQuery(tpl.query); setShowTemplates(false); }}
+                  onClick={() => { handleInsertQuery(resolveTable(tpl.query)); setShowTemplates(false); }}
                   className="flex-shrink-0 px-3 py-2 rounded-lg bg-sidebar-hover hover:bg-white/[0.08] transition-colors text-left"
                 >
                   <div className="text-xs font-medium text-zinc-300">{tpl.name}</div>
