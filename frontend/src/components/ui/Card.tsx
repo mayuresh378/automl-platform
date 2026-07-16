@@ -10,16 +10,16 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: 'bg-card border border-white/5',
+  default: 'bg-card shadow-card',
   glass: 'glass',
-  premium: 'glass-premium',
-  'gradient-border': 'bg-card border border-white/5 gradient-border gradient-border-subtle',
+  premium: 'glass',
+  'gradient-border': 'bg-card shadow-card gradient-border gradient-border-subtle',
 };
 
 const paddingStyles = {
   none: '',
   sm: 'p-3',
-  md: 'p-5',
+  md: 'p-6',
   lg: 'p-8',
 };
 
@@ -28,7 +28,7 @@ export function Card({ children, variant = 'default', hover = false, padding = '
     <motion.div
       whileHover={hover ? { y: -2, transition: { duration: 0.2 } } : undefined}
       className={cn(
-        'rounded-2xl transition-all duration-300',
+        'rounded-lg transition-all duration-300',
         variantStyles[variant],
         paddingStyles[padding],
         hover && 'card-hover',
@@ -46,7 +46,7 @@ export function CardHeader({ children, className, ...props }: HTMLAttributes<HTM
 }
 
 export function CardTitle({ children, className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('text-base font-semibold text-zinc-100', className)} {...props}>{children}</h3>;
+  return <h3 className={cn('text-base font-semibold text-zinc-200', className)} {...props}>{children}</h3>;
 }
 
 export function CardDescription({ children, className, ...props }: HTMLAttributes<HTMLParagraphElement>) {

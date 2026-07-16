@@ -27,7 +27,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage <= 1}
-        className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none"
+        className="p-1.5 rounded hover:bg-white/[0.05] text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -39,8 +39,8 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
             key={p}
             onClick={() => onPageChange(p)}
             className={cn(
-              'w-8 h-8 rounded-lg text-sm font-medium transition-colors',
-              p === currentPage ? 'bg-primary text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200',
+              'w-8 h-8 rounded text-sm font-medium transition-colors',
+              p === currentPage ? 'bg-primary text-white shadow-card' : 'text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200',
             )}
           >
             {p}
@@ -50,7 +50,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage >= totalPages}
-        className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none"
+        className="p-1.5 rounded hover:bg-white/[0.05] text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none"
       >
         <ChevronRight className="w-4 h-4" />
       </button>

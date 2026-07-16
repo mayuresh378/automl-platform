@@ -29,10 +29,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             id={selectId}
             className={cn(
-              'w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 pr-10 text-sm text-zinc-200 transition-all duration-200 appearance-none cursor-pointer',
+              'w-full rounded bg-card border border-border px-4 py-2.5 pr-10 text-sm text-zinc-200 transition-all duration-200 appearance-none cursor-pointer',
               'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50',
-              'hover:border-white/20',
-              error && 'border-red-500/50',
+              'hover:border-primary/30',
+              error && 'border-danger/50',
               className,
             )}
             {...props}

@@ -22,7 +22,7 @@ export function ErrorState({
       animate={{ opacity: 1, y: 0 }}
       className={cn('flex flex-col items-center justify-center py-16 px-4', className)}
     >
-      <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
+      <div className="w-16 h-16 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
         <AlertCircle className="w-8 h-8 text-red-400" />
       </div>
       <h3 className="text-lg font-medium text-zinc-300 mb-1">{title}</h3>

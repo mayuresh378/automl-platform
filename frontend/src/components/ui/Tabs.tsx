@@ -21,7 +21,7 @@ export function Tabs({ tabs, activeTab, onChange, className, variant = 'underlin
   return (
     <div className={cn(
       'flex gap-1',
-      variant === 'underline' ? 'border-b border-white/10' : '',
+      variant === 'underline' ? 'border-b border-border' : '',
       className,
     )}>
       {tabs.map((tab) => (

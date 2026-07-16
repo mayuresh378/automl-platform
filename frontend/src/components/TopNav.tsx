@@ -61,9 +61,9 @@ const TopNav = memo(function TopNav() {
           onClick={() => setWorkspaceOpen((o) => !o)}
           onBlur={() => setTimeout(() => setWorkspaceOpen(false), 120)}
           whileTap={{ scale: 0.97 }}
-          className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-200 hover:bg-white/[0.05] transition-colors cursor-pointer select-none"
+          className="flex items-center gap-2 rounded px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:bg-white/[0.05] transition-colors cursor-pointer select-none"
         >
-          <span className="h-5 w-5 rounded-md bg-gradient-to-br from-primary to-secondary" />
+          <span className="h-5 w-5 rounded bg-primary" />
           {isLoggedIn ? `${user!.name}'s Workspace` : 'My Workspace'}
           <motion.span
             animate={{ rotate: workspaceOpen ? 180 : 0 }}
@@ -80,9 +80,9 @@ const TopNav = memo(function TopNav() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -4 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute left-0 mt-1 w-64 rounded-xl border border-border-strong bg-card shadow-glow p-1 text-sm origin-top-left"
+              className="absolute left-0 mt-1 w-64 rounded-lg border border-border bg-card shadow-card p-1 text-sm origin-top-left"
             >
-              <div className="px-2.5 py-1.5 text-zinc-200 rounded-lg bg-white/[0.05] flex items-center gap-2">
+              <div className="px-2.5 py-1.5 text-zinc-200 rounded bg-white/[0.05] flex items-center gap-2">
                 <Folders className="h-3.5 w-3.5 text-zinc-400" />
                 Projects
               </div>
@@ -91,7 +91,7 @@ const TopNav = memo(function TopNav() {
                   <div
                     key={p.id}
                     onClick={() => { setCurrentProjectId(p.id); setActivePage('Project Detail'); setWorkspaceOpen(false); }}
-                    className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer truncate"
+                    className="px-2.5 py-1.5 text-zinc-400 rounded hover:bg-white/[0.04] cursor-pointer truncate"
                   >
                     {p.name}
                   </div>
@@ -103,7 +103,7 @@ const TopNav = memo(function TopNav() {
               <div className="my-1 border-t border-border" />
               <div
                 onClick={() => { setActivePage('Projects'); setWorkspaceOpen(false); }}
-                className="px-2.5 py-1.5 text-primary rounded-lg hover:bg-white/[0.04] cursor-pointer flex items-center gap-2"
+                className="px-2.5 py-1.5 text-primary rounded hover:bg-white/[0.04] cursor-pointer flex items-center gap-2"
               >
                 <Plus className="h-3.5 w-3.5" /> New project
               </div>
@@ -116,11 +116,11 @@ const TopNav = memo(function TopNav() {
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => setCommandPaletteOpen(true)}
-        className="flex-1 max-w-md hidden sm:flex items-center gap-2.5 rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm text-zinc-500 hover:border-primary/30 hover:text-zinc-400 transition-colors cursor-pointer select-none"
+        className="flex-1 max-w-md hidden sm:flex items-center gap-2.5 rounded border border-border bg-card/60 px-3 py-1.5 text-sm text-zinc-500 hover:border-primary/30 hover:text-zinc-400 transition-colors cursor-pointer select-none"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="flex-1 text-left">Search everything…</span>
-        <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border-strong text-zinc-500">
+        <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-zinc-500">
           ⌘K
         </kbd>
       </motion.button>
@@ -128,7 +128,7 @@ const TopNav = memo(function TopNav() {
       <div className="ml-auto flex items-center gap-1.5">
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="btn-press sm:hidden p-2 rounded-lg text-zinc-400 hover:bg-white/[0.05]"
+          className="btn-press sm:hidden p-2 rounded text-zinc-400 hover:bg-white/[0.05]"
           aria-label="Search"
         >
           <Search className="h-4 w-4" />
@@ -137,7 +137,7 @@ const TopNav = memo(function TopNav() {
         <motion.button
           whileHover={{ scale: 1.03, y: -1 }}
           whileTap={{ scale: 0.96 }}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-primary to-secondary px-3 py-1.5 text-sm font-medium text-white shadow-glow-sm cursor-pointer select-none"
+          className="flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-sm font-medium text-white cursor-pointer select-none"
           onClick={() => setActivePage('AI Assistant')}
         >
           <motion.span
@@ -153,7 +153,7 @@ const TopNav = memo(function TopNav() {
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={toggleTheme}
-          className="relative p-2 rounded-lg text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 transition-colors cursor-pointer select-none"
+          className="relative p-2 rounded text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 transition-colors cursor-pointer select-none"
           aria-label="Toggle theme"
         >
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -163,7 +163,7 @@ const TopNav = memo(function TopNav() {
           <motion.button
             whileTap={{ scale: 0.92 }}
             onClick={() => setNotifOpen((o) => !o)}
-            className="relative p-2 rounded-lg text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 transition-colors cursor-pointer select-none"
+            className="relative p-2 rounded text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 transition-colors cursor-pointer select-none"
             aria-label="Notifications"
           >
             <motion.span
@@ -190,7 +190,7 @@ const TopNav = memo(function TopNav() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -4 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="absolute right-0 mt-1 w-80 rounded-xl border border-border-strong bg-card shadow-glow p-1 text-sm max-h-96 flex flex-col origin-top-right"
+                className="absolute right-0 mt-1 w-80 rounded-lg border border-border bg-card shadow-card p-1 text-sm max-h-96 flex flex-col origin-top-right"
               >
               <div className="flex items-center justify-between px-2.5 py-2 border-b border-border">
                 <span className="text-xs font-medium text-zinc-300">Notifications</span>
@@ -210,7 +210,7 @@ const TopNav = memo(function TopNav() {
                       const Icon = NOTIF_ICONS[n.type];
                       return (
                         <div key={n.id} className={cn(
-                          'flex items-start gap-2.5 px-3 py-2.5 rounded-lg mx-1 transition-colors',
+                          'flex items-start gap-2.5 px-3 py-2.5 rounded mx-1 transition-colors',
                           n.read ? 'hover:bg-white/[0.03]' : 'bg-primary/[0.04] hover:bg-primary/[0.06]',
                         )}>
                           <Icon className={cn('h-4 w-4 mt-0.5 shrink-0', NOTIF_COLORS[n.type])} />
@@ -239,10 +239,10 @@ const TopNav = memo(function TopNav() {
             onClick={() => setProfileOpen((o) => !o)}
             onBlur={() => setTimeout(() => setProfileOpen(false), 120)}
             className={cn(
-              'flex items-center justify-center h-8 w-8 rounded-full text-xs font-semibold text-white ml-1 cursor-pointer select-none',
+              'flex items-center justify-center h-8 w-8 rounded text-xs font-semibold text-white ml-1 cursor-pointer select-none',
               isLoggedIn
-                ? 'bg-gradient-to-br from-accent to-secondary'
-                : 'bg-white/10 border border-white/20',
+                ? 'bg-primary'
+                : 'bg-white/10 border border-border',
               profileOpen && 'ring-2 ring-primary/50'
             )}
           >
@@ -255,7 +255,7 @@ const TopNav = memo(function TopNav() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -4 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="absolute right-0 mt-1 w-52 rounded-xl border border-border-strong bg-card shadow-glow p-1 text-sm origin-top-right"
+                className="absolute right-0 mt-1 w-52 rounded-lg border border-border bg-card shadow-card p-1 text-sm origin-top-right"
               >
                 {isLoggedIn ? (
                   <>
@@ -264,18 +264,18 @@ const TopNav = memo(function TopNav() {
                       <div className="text-zinc-500 text-xs">{user!.email}</div>
                     </div>
                     <div className="my-1 border-t border-border" />
-                    <div className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer" onClick={() => setActivePage('Settings')}>Profile settings</div>
-                <div className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer flex items-center gap-2" onClick={() => { setSettingsTab('authentication'); setActivePage('Settings'); setProfileOpen(false); }}>
+                    <div className="px-2.5 py-1.5 text-zinc-400 rounded hover:bg-white/[0.04] cursor-pointer" onClick={() => setActivePage('Settings')}>Profile settings</div>
+                <div className="px-2.5 py-1.5 text-zinc-400 rounded hover:bg-white/[0.04] cursor-pointer flex items-center gap-2" onClick={() => { setSettingsTab('authentication'); setActivePage('Settings'); setProfileOpen(false); }}>
                   <KeyRound className="h-3.5 w-3.5 text-accent" /> Authentication
                 </div>
-                <div className="px-2.5 py-1.5 text-zinc-400 rounded-lg hover:bg-white/[0.04] cursor-pointer" onClick={() => { setSettingsTab('billing'); setActivePage('Settings'); }}>Billing</div>
-                    <div className="px-2.5 py-1.5 text-danger rounded-lg hover:bg-white/[0.04] cursor-pointer" onClick={() => { logout(); setProfileOpen(false); }}>Sign out</div>
+                <div className="px-2.5 py-1.5 text-zinc-400 rounded hover:bg-white/[0.04] cursor-pointer" onClick={() => { setSettingsTab('billing'); setActivePage('Settings'); }}>Billing</div>
+                    <div className="px-2.5 py-1.5 text-danger rounded hover:bg-white/[0.04] cursor-pointer" onClick={() => { logout(); setProfileOpen(false); }}>Sign out</div>
                   </>
                 ) : (
                   <>
                     <div className="px-2.5 py-1.5 text-zinc-300 font-medium">Guest</div>
                     <div className="my-1 border-t border-border" />
-                    <div className="px-2.5 py-1.5 text-primary rounded-lg hover:bg-white/[0.04] cursor-pointer flex items-center gap-2" onClick={() => { setSettingsTab('authentication'); setActivePage('Settings'); setProfileOpen(false); }}>
+                    <div className="px-2.5 py-1.5 text-primary rounded hover:bg-white/[0.04] cursor-pointer flex items-center gap-2" onClick={() => { setSettingsTab('authentication'); setActivePage('Settings'); setProfileOpen(false); }}>
                       <LogIn className="h-3.5 w-3.5" /> Sign in
                     </div>
                   </>

@@ -35,13 +35,13 @@ export function Dropdown({ trigger, items, align = 'right', className }: Dropdow
       {open && (
         <div
           className={cn(
-            'absolute z-50 mt-1 min-w-[180px] bg-surface border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden',
+            'absolute z-50 mt-1 min-w-[180px] bg-card border border-border rounded-lg shadow-card py-1 overflow-hidden',
             align === 'right' ? 'right-0' : 'left-0',
           )}
         >
           {items.map((item, i) => (
             item.divider ? (
-              <div key={i} className="my-1 border-t border-white/10" />
+              <div key={i} className="my-1 border-t border-border" />
             ) : (
               <button
                 key={i}
