@@ -13,17 +13,17 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-primary hover:bg-[#314ac5] active:bg-[#2e46ba] text-white',
-  secondary: 'bg-white/5 hover:bg-white/10 text-zinc-200 border border-border',
-  ghost: 'hover:bg-white/5 text-zinc-400 hover:text-zinc-200',
-  danger: 'bg-danger hover:bg-[#a32b1c] active:bg-[#9a281a] text-white',
-  premium: 'bg-gradient-to-r from-primary to-accent text-white',
+  primary: 'bg-primary hover:bg-[#2563eb] active:bg-[#1d4ed8] text-white',
+  secondary: 'bg-sidebar-hover hover:bg-white/[0.08] text-zinc-300 border border-border',
+  ghost: 'hover:bg-sidebar-hover text-zinc-400 hover:text-zinc-200',
+  danger: 'bg-danger hover:bg-[#dc2626] active:bg-[#b91c1c] text-white',
+  premium: 'bg-gradient-to-r from-primary via-secondary to-accent text-white',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-xs gap-1.5',
   md: 'px-4 py-2 text-sm gap-2',
-  lg: 'px-6 py-3 text-base gap-2.5',
+  lg: 'px-6 py-2.5 text-base gap-2.5',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -33,7 +33,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={cn(
-          'inline-flex items-center justify-center font-medium rounded transition-all duration-200 btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:opacity-50 disabled:pointer-events-none',
+          'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50 disabled:pointer-events-none',
           variantStyles[variant],
           sizeStyles[size],
           className,

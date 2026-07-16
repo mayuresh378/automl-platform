@@ -1,133 +1,80 @@
 import { useState, memo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  LayoutDashboard,
-  FolderKanban,
-  Database,
-  SprayCan,
-  Wand2,
-  TerminalSquare,
-  Cpu,
-  FlaskConical,
-  Boxes,
-  Rocket,
-  Activity,
-  Workflow,
-  Zap,
-  Bot,
-  Store,
-  Settings,
-  LifeBuoy,
-  BookOpen,
-  CreditCard,
-  ShieldCheck,
-  ChevronsLeft,
-  ChevronsRight,
-  BrainCircuit,
-  GitCompare,
-  BarChart3,
-  Shield,
-  SlidersHorizontal,
-  Sparkles,
-  Search,
-  Bell,
-  Plug,
+  LayoutDashboard, FolderKanban, Database, SprayCan, Wand2, TerminalSquare, Cpu, FlaskConical, Boxes,
+  Rocket, Activity, Workflow, Zap, Bot, Store, Settings, LifeBuoy, BookOpen, CreditCard, Shield,
+  ChevronsLeft, ChevronsRight, BrainCircuit, GitCompare, BarChart3, SlidersHorizontal, Bell, Plug, Search, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useUIStore } from '../store/useUIStore';
+import { useAuthStore } from '../store/useAuthStore';
 
-interface NavItem {
-  label: string;
-  icon: LucideIcon;
-  group: string;
-}
+interface NavItem { label: string; icon: LucideIcon; group: string; }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Search', icon: Search, group: 'Workspace' },
-  { label: 'Dashboard', icon: LayoutDashboard, group: 'Workspace' },
-  { label: 'Projects', icon: FolderKanban, group: 'Workspace' },
+  { label: 'Search', icon: Search, group: 'Main Menu' },
+  { label: 'Dashboard', icon: LayoutDashboard, group: 'Main Menu' },
+  { label: 'Projects', icon: FolderKanban, group: 'Main Menu' },
   { label: 'Datasets', icon: Database, group: 'Data' },
   { label: 'Data Cleaning', icon: SprayCan, group: 'Data' },
   { label: 'Feature Engineering', icon: Wand2, group: 'Data' },
-  { label: 'Dataset Analysis', icon: BrainCircuit, group: 'Data' },
   { label: 'SQL Editor', icon: TerminalSquare, group: 'Data' },
-  { label: 'AutoML Engine', icon: Cpu, group: 'Model' },
+  { label: 'Models', icon: Boxes, group: 'Model' },
   { label: 'Training', icon: FlaskConical, group: 'Model' },
   { label: 'HPO Tuning', icon: SlidersHorizontal, group: 'Model' },
-  { label: 'Experiments', icon: FlaskConical, group: 'Model' },
   { label: 'Model Comparison', icon: GitCompare, group: 'Model' },
   { label: 'Explainable AI', icon: BrainCircuit, group: 'Model' },
-  { label: 'Models', icon: Boxes, group: 'Model' },
   { label: 'Deployment', icon: Rocket, group: 'Serve' },
   { label: 'Inference API', icon: Plug, group: 'Serve' },
   { label: 'Activity', icon: Activity, group: 'Serve' },
-  { label: 'Notifications', icon: Bell, group: 'Serve' },
-  { label: 'Analytics', icon: BarChart3, group: 'Serve' },
-  { label: 'Monitoring', icon: Activity, group: 'Serve' },
-  { label: 'Pipelines', icon: Workflow, group: 'Automate' },
-  { label: 'Automations', icon: Zap, group: 'Automate' },
-  { label: 'AI Assistant', icon: Bot, group: 'Automate' },
-  { label: 'Marketplace', icon: Store, group: 'Automate' },
+  { label: 'Monitoring', icon: BarChart3, group: 'Serve' },
+  { label: 'Pipelines', icon: Workflow, group: 'Automation' },
+  { label: 'Automations', icon: Zap, group: 'Automation' },
+  { label: 'AI Assistant', icon: Bot, group: 'Automation' },
+  { label: 'Marketplace', icon: Store, group: 'Automation' },
 ];
 
 const FOOTER_ITEMS: NavItem[] = [
-  { label: 'Settings', icon: Settings, group: 'System' },
-  { label: 'Billing', icon: CreditCard, group: 'System' },
-  { label: 'Admin', icon: Shield, group: 'System' },
-  { label: 'Documentation', icon: BookOpen, group: 'System' },
-  { label: 'Support', icon: LifeBuoy, group: 'System' },
+  { label: 'Settings', icon: Settings, group: '' },
+  { label: 'Support', icon: LifeBuoy, group: '' },
+  { label: 'Documentation', icon: BookOpen, group: '' },
 ];
 
 const Sidebar = memo(function Sidebar() {
   const { sidebarCollapsed, toggleSidebar, activePage, setActivePage, setSettingsTab } = useUIStore();
-  const [logoBlink, setLogoBlink] = useState(false);
+  const { user } = useAuthStore();
+  const isLoggedIn = !!user && !!user.id && user.id !== 'anonymous';
+  const initials = isLoggedIn ? user!.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : '?';
 
   const groups = Array.from(new Set(NAV_ITEMS.map((n) => n.group)));
 
-  const handleLogoClick = useCallback(() => { setActivePage('Dashboard'); setLogoBlink(true); setTimeout(() => setLogoBlink(false), 150); }, [setActivePage]);
-
-  const handleNavClick = useCallback((label: string) => { setActivePage(label); }, [setActivePage]);
-
-  const handleFooterClick = useCallback((label: string) => {
-    if (label === 'Settings') { setSettingsTab('account'); setActivePage('Settings'); }
-    else if (label === 'Billing') { setSettingsTab('account'); setActivePage('Settings'); }
-    else if (label === 'Admin') { setActivePage('Admin'); }
-    else { setActivePage(label); }
-  }, [setActivePage, setSettingsTab]);
-
-  const navLinkClass = (isActive: boolean, collapsed: boolean) => cn(
-    'group relative w-full flex items-center gap-2.5 rounded px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer select-none',
-    collapsed && 'justify-center px-0',
-    isActive
-      ? 'text-white bg-primary shadow-nav-active'
-      : 'text-zinc-400 hover:text-white hover:bg-white/[0.08]',
-  );
+  const handleNavClick = useCallback((label: string) => setActivePage(label), [setActivePage]);
 
   return (
     <motion.aside
-      animate={{ width: sidebarCollapsed ? 76 : 260 }}
-      transition={{ duration: 0.4, ease: 'ease' }}
-      className="hidden md:flex flex-col shrink-0 h-screen sticky top-0 bg-card border-r border-border shadow-sidebar z-[1000]"
+      animate={{ width: sidebarCollapsed ? 72 : 260 }}
+      transition={{ duration: 0.3, ease: 'easeInOut' }}
+      className="hidden md:flex flex-col shrink-0 h-screen sticky top-0 bg-sidebar border-r border-border z-[100]"
     >
-      <div className={cn('flex items-center h-16 px-4 gap-2.5 border-b border-border', sidebarCollapsed && 'justify-center px-0')}>
-        <motion.button onClick={handleLogoClick} className="flex items-center gap-2.5 cursor-pointer select-none">
+      <div className={cn('flex items-center h-14 px-4 gap-2', sidebarCollapsed && 'justify-center px-0')}>
+        <div className={cn('flex items-center gap-2.5', !sidebarCollapsed && 'px-1')}>
           <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary shrink-0">
-            <Zap className="h-4 w-4 text-white" strokeWidth={2.5} />
+            <Sparkles className="h-4 w-4 text-white" strokeWidth={2} />
           </div>
           {!sidebarCollapsed && (
             <span className="font-semibold text-base tracking-tight text-white whitespace-nowrap">
-              <span className="text-primary">Auto</span>ML
+              AutoML
             </span>
           )}
-        </motion.button>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-2 px-3 space-y-1">
+      <nav className="flex-1 overflow-y-auto scrollbar-thin py-2 px-2 space-y-4">
         {groups.map((group) => (
-          <div key={group} className="mb-2">
+          <div key={group}>
             {!sidebarCollapsed && (
-              <div className="px-3 mb-1 text-[10px] font-semibold tracking-wider uppercase text-zinc-500">
+              <div className="px-3 mb-1 text-[11px] font-semibold tracking-wider uppercase text-zinc-500">
                 {group}
               </div>
             )}
@@ -141,9 +88,18 @@ const Sidebar = memo(function Sidebar() {
                     onClick={() => handleNavClick(item.label)}
                     title={sidebarCollapsed ? item.label : undefined}
                     whileTap={{ scale: 0.97 }}
-                    className={navLinkClass(isActive, sidebarCollapsed)}
+                    className={cn(
+                      'group relative w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 cursor-pointer select-none',
+                      sidebarCollapsed && 'justify-center px-0',
+                      isActive
+                        ? 'bg-primary/15 text-primary'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-sidebar-hover',
+                    )}
                   >
-                    <Icon className={cn('h-[18px] w-[18px] shrink-0', isActive ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300')} strokeWidth={1.5} />
+                    {isActive && !sidebarCollapsed && (
+                      <motion.div layoutId="sidebar-active" className="absolute left-0 top-1 bottom-1 w-0.5 rounded-r bg-primary" />
+                    )}
+                    <Icon className={cn('h-[18px] w-[18px] shrink-0', isActive ? 'text-primary' : 'text-zinc-500 group-hover:text-zinc-300')} strokeWidth={1.5} />
                     {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
                   </motion.button>
                 );
@@ -153,18 +109,19 @@ const Sidebar = memo(function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-border px-3 py-2 space-y-0.5">
+      <div className="border-t border-border px-2 py-2 space-y-0.5">
         {FOOTER_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
             <motion.button
               key={item.label}
               whileTap={{ scale: 0.97 }}
-              onClick={() => handleFooterClick(item.label)}
+              onClick={() => handleNavClick(item.label)}
               title={sidebarCollapsed ? item.label : undefined}
-              className={navLinkClass(
-                activePage === (item.label === 'Settings' || item.label === 'Billing' || item.label === 'Admin' ? 'Settings' : item.label),
-                sidebarCollapsed,
+              className={cn(
+                'group w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 cursor-pointer select-none',
+                sidebarCollapsed && 'justify-center px-0',
+                'text-zinc-400 hover:text-zinc-200 hover:bg-sidebar-hover',
               )}
             >
               <Icon className="h-[18px] w-[18px] shrink-0 text-zinc-500 group-hover:text-zinc-300" strokeWidth={1.5} />
@@ -173,11 +130,28 @@ const Sidebar = memo(function Sidebar() {
           );
         })}
 
+        <div className={cn('pt-2 mt-1 border-t border-border', sidebarCollapsed && 'flex justify-center')}>
+          <div className={cn(
+            'flex items-center gap-2.5 px-2 py-2 rounded-lg',
+            !sidebarCollapsed && 'hover:bg-sidebar-hover cursor-pointer'
+          )}>
+            <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/20 text-primary text-[10px] font-semibold shrink-0">
+              {initials}
+            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-zinc-300 truncate">{isLoggedIn ? user!.name : 'Guest'}</p>
+                <p className="text-[10px] text-zinc-500 truncate">{isLoggedIn ? user!.email : 'Sign in'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={toggleSidebar}
           className={cn(
-            'group w-full flex items-center gap-2.5 rounded px-3 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05] transition-colors mt-1 cursor-pointer select-none',
+            'group w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-500 hover:text-zinc-300 hover:bg-sidebar-hover transition-colors cursor-pointer select-none',
             sidebarCollapsed && 'justify-center px-0'
           )}
         >
