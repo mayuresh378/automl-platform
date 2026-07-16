@@ -1,6 +1,8 @@
-import { memo, useRef, useCallback, useEffect } from 'react';
-import Editor, { OnMount, OnChange } from '@monaco-editor/react';
-import { useMonaco } from '@monaco-editor/react';
+import { memo, useRef, useCallback } from 'react';
+import Editor, { OnMount, OnChange, loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
+
+loader.config({ monaco });
 
 interface SqlEditorProps {
   value: string;

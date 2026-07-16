@@ -17,6 +17,7 @@
     "@tanstack/react-table": "^8.21.3",
     "framer-motion": "^11.11.0",
     "lucide-react": "^0.468.0",
+    "monaco-editor": "^0.55.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-hook-form": "^7.50.0",
