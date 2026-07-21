@@ -3,12 +3,11 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard, FolderKanban, Database, SprayCan, Wand2, TerminalSquare, Cpu, FlaskConical, Boxes,
   Rocket, Activity, Workflow, Zap, Bot, Store, Settings, LifeBuoy, BookOpen, CreditCard, Shield,
-  ChevronsLeft, ChevronsRight, BrainCircuit, GitCompare, BarChart3, SlidersHorizontal, Bell, Plug, Search, Sparkles,
+  ChevronsLeft, ChevronsRight, BrainCircuit, GitCompare, BarChart3, SlidersHorizontal, Bell, Plug, Search, Sparkles, User,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useUIStore } from '../store/useUIStore';
-import { useAuthStore } from '../store/useAuthStore';
 
 interface NavItem { label: string; icon: LucideIcon; group: string; }
 
@@ -43,9 +42,7 @@ const FOOTER_ITEMS: NavItem[] = [
 
 const Sidebar = memo(function Sidebar() {
   const { sidebarCollapsed, toggleSidebar, activePage, setActivePage, setSettingsTab } = useUIStore();
-  const { user } = useAuthStore();
-  const isLoggedIn = !!user && !!user.id && user.id !== 'anonymous';
-  const initials = isLoggedIn ? user!.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : '?';
+  const initials = '?';
 
   const groups = Array.from(new Set(NAV_ITEMS.map((n) => n.group)));
 
@@ -136,12 +133,11 @@ const Sidebar = memo(function Sidebar() {
             !sidebarCollapsed && 'hover:bg-sidebar-hover cursor-pointer'
           )}>
             <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/20 text-primary text-[10px] font-semibold shrink-0">
-              {initials}
+              <User className="h-3.5 w-3.5" />
             </div>
             {!sidebarCollapsed && (
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-zinc-300 truncate">{isLoggedIn ? user!.name : 'Guest'}</p>
-                <p className="text-[10px] text-zinc-500 truncate">{isLoggedIn ? user!.email : 'Sign in'}</p>
+                <p className="text-xs font-medium text-zinc-300 truncate">Guest</p>
               </div>
             )}
           </div>

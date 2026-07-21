@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense } from 'react';
 import type { FC } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopNav } from './components/TopNav';
@@ -7,10 +7,6 @@ import { ToastProvider } from './components/ToastProvider';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useUIStore } from './store/useUIStore';
-import { useAuthStore } from './store/useAuthStore';
-import { initAuth } from './hooks/useAuth';
-
-initAuth();
 
 const Dashboard = lazy(() => import('./features/dashboard/pages/DashboardPage'));
 const SearchPage = lazy(() => import('./features/search/pages/SearchPage'));
@@ -42,11 +38,6 @@ const SQLEditorPage = lazy(() => import('./features/sql/pages/SQLEditorPage'));
 const SettingsPage = lazy(() => import('./features/settings/pages/SettingsPage'));
 const APIDocumentationPage = lazy(() => import('./features/api/pages/APIDocumentationPage'));
 const ProfilePage = lazy(() => import('./features/auth/pages/ProfilePage'));
-const LoginPage = lazy(() => import('./features/auth/pages/LoginPage'));
-const RegisterPage = lazy(() => import('./features/auth/pages/RegisterPage'));
-const ForgotPasswordPage = lazy(() => import('./features/auth/pages/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('./features/auth/pages/ResetPasswordPage'));
-const VerifyEmailPage = lazy(() => import('./features/auth/pages/VerifyEmailPage'));
 const AutomlEnginePage = lazy(() => import('./features/scheduling/pages/AutomlEnginePage'));
 
 const PAGE_MAP: Record<string, FC> = {
@@ -82,27 +73,16 @@ const PAGE_MAP: Record<string, FC> = {
   Documentation: APIDocumentationPage,
   Support: AIAssistantPage,
   'Profile': ProfilePage,
-  'Login': LoginPage,
-  'Register': RegisterPage,
-  'Verify Email': VerifyEmailPage,
-  'Forgot Password': ForgotPasswordPage,
-  'Reset Password': ResetPasswordPage,
   'AutoML Engine': AutomlEnginePage,
 };
 
 function CurrentPage() {
   const activePage = useUIStore((s) => s.activePage);
-  const token = useAuthStore((s) => s.token);
-
-  // Redirect to login if not authenticated (except for auth pages)
-  const authPages = ['Login', 'Register', 'Forgot Password', 'Reset Password', 'Verify Email'];
-  const effectivePage = !token && !authPages.includes(activePage) ? 'Login' : activePage;
-
-  const Page = PAGE_MAP[effectivePage] || Dashboard;
+  const Page = PAGE_MAP[activePage] || Dashboard;
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        key={effectivePage}
+        key={activePage}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -6 }}
