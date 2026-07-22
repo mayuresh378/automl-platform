@@ -1,28 +1,35 @@
-import { type ButtonHTMLAttributes } from 'react';
+import { type ButtonHTMLAttributes, type ReactNode } from 'react';
 import styles from './Button.module.css';
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'premium';
+  size?: 'sm' | 'md' | 'lg' | 'none';
   loading?: boolean;
+  icon?: ReactNode;
+  iconRight?: ReactNode;
 }
 
-export default function Button({
+function Button({
   variant = 'primary',
   size = 'md',
   loading,
   disabled,
   children,
   className = '',
+  icon,
+  iconRight,
   ...rest
 }: Props) {
   return (
     <button
-      className={`${styles.btn} ${styles[variant]} ${styles[size]} ${className}`}
+      className={`${styles.btn} ${styles[variant]} ${size !== 'none' ? styles[size] : ''} ${className}`}
       disabled={disabled || loading}
       {...rest}
     >
-      {loading ? <span className={styles.loader} /> : children}
+      {loading ? <span className={styles.loader} /> : <>{icon}{children}{iconRight}</>}
     </button>
   );
 }
+
+export { Button };
+export default Button;

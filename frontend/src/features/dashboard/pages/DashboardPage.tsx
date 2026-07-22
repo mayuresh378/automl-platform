@@ -279,7 +279,7 @@ export default function DashboardPage() {
                 <div className={styles.activityList}>
                   <AnimatePresence mode="popLayout">
                     {(activity || []).slice(0, 10).map((item, i) => {
-                      const mapped = activityIconMap[item.resource_type] || { icon: icons.activity, color: 'var(--color-secondary)' };
+                      const mapped = activityIconMap[item.resource_type || ''] || { icon: icons.activity, color: 'var(--color-secondary)' };
                       return (
                         <motion.div
                           key={item.id}

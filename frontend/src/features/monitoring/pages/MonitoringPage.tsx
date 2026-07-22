@@ -4,6 +4,7 @@ import { AnimatedNumber, ScrollReveal, TiltCard } from '../../../components/moti
 import Card from '../../../components/ui/Card';
 import styles from './MonitoringPage.module.css';
 import { useMonitoringMetrics, useMonitoringStats } from '../../../hooks/useApi';
+import type { MonitoringMetrics } from '../../../types/api';
 
 const TIME_RANGES = ['1h', '6h', '24h', '7d'] as const;
 
@@ -33,7 +34,7 @@ interface MetricCardDef {
   label: string;
   value: string;
   subtext: string;
-  trend: 'up' | 'down' | 'neutral';
+  trend: 'up' | 'down';
   trendValue: string;
   color: string;
   bg: string;
@@ -42,17 +43,17 @@ interface MetricCardDef {
   iconPath: string;
 }
 
-function buildMetricCards(metrics: any): MetricCardDef[] {
-  const cpu = metrics?.cpu?.percent ?? 0;
-  const mem = metrics?.memory?.percent ?? 0;
-  const disk = metrics?.disk?.percent ?? 0;
-  const net = metrics?.network?.bytes_recv ?? 0;
+function buildMetricCards(metrics: MonitoringMetrics | undefined): MetricCardDef[] {
+  const cpu = metrics?.cpu_percent ?? 0;
+  const mem = metrics?.memory_percent ?? 0;
+  const disk = metrics?.disk_percent ?? 0;
+  const gpu = metrics?.gpu_utilization ?? 0;
 
   return [
     {
       label: 'CPU Usage',
       value: `${cpu.toFixed(1)}%`,
-      subtext: `${metrics?.cpu?.cores ?? 0} cores · load avg ${metrics?.cpu?.load_avg ?? 0}`,
+      subtext: `${metrics?.requests_per_minute ?? 0} req/min`,
       trend: cpu > 80 ? 'up' : 'down',
       trendValue: cpu > 80 ? 'high' : 'normal',
       color: 'var(--color-secondary)',
@@ -64,7 +65,7 @@ function buildMetricCards(metrics: any): MetricCardDef[] {
     {
       label: 'Memory Usage',
       value: `${mem.toFixed(1)}%`,
-      subtext: `${((metrics?.memory?.used ?? 0) / 1073741824).toFixed(1)}GB / ${((metrics?.memory?.total ?? 0) / 1073741824).toFixed(1)}GB`,
+      subtext: `${metrics?.active_deployments ?? 0} active deployments`,
       trend: mem > 85 ? 'up' : 'down',
       trendValue: mem > 85 ? 'high' : 'normal',
       color: 'var(--color-accent)',
@@ -76,7 +77,7 @@ function buildMetricCards(metrics: any): MetricCardDef[] {
     {
       label: 'Disk Usage',
       value: `${disk.toFixed(1)}%`,
-      subtext: `${((metrics?.disk?.used ?? 0) / 1073741824).toFixed(1)}GB / ${((metrics?.disk?.total ?? 0) / 1073741824).toFixed(1)}GB`,
+      subtext: `GPU utilization: ${gpu.toFixed(1)}%`,
       trend: disk > 90 ? 'up' : 'down',
       trendValue: disk > 90 ? 'critical' : 'normal',
       color: 'var(--color-success)',
@@ -86,14 +87,14 @@ function buildMetricCards(metrics: any): MetricCardDef[] {
       iconPath: 'M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z',
     },
     {
-      label: 'Network I/O',
-      value: `${(net / 1048576).toFixed(1)} MB`,
-      subtext: `Platform: ${metrics?.platform ?? 'N/A'} · Python ${metrics?.python_version ?? ''}`,
-      trend: 'up',
-      trendValue: 'active',
+      label: 'Requests/min',
+      value: `${metrics?.requests_per_minute ?? 0}`,
+      subtext: `GPU: ${gpu.toFixed(1)}% · Deployments: ${metrics?.active_deployments ?? 0}`,
+      trend: (metrics?.requests_per_minute ?? 0) > 50 ? 'up' : 'down',
+      trendValue: (metrics?.requests_per_minute ?? 0) > 50 ? 'active' : 'low',
       color: 'var(--color-warning)',
       bg: 'rgba(245, 158, 11, 0.08)',
-      barPercent: Math.min((net / 1073741824) * 100, 100),
+      barPercent: Math.min((metrics?.requests_per_minute ?? 0), 100),
       barColor: 'var(--color-warning)',
       iconPath: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z',
     },
@@ -122,8 +123,8 @@ export default function MonitoringPage() {
     { label: 'Experiments', value: stats?.total_experiments ?? 0 },
     { label: 'Models', value: stats?.total_models ?? 0 },
     { label: 'Datasets', value: stats?.total_datasets ?? 0 },
-    { label: 'Deployments', value: stats?.total_deployments ?? 0 },
     { label: 'Predictions', value: stats?.total_predictions ?? 0 },
+    { label: 'Success Rate', value: stats?.success_rate ?? 0 },
   ];
 
   const latencyBars = Array.from({ length: 24 }, () => Math.random() * 60 + 30);
@@ -322,8 +323,8 @@ export default function MonitoringPage() {
                 >
                   <div className={`${styles.alertDot} ${styles.alertDotSuccess}`} />
                   <div className={styles.alertContent}>
-                    <div className={styles.alertTitle}>Python {metrics.python_version}</div>
-                    <div className={styles.alertDescription}>Platform: {metrics.platform}</div>
+                    <div className={styles.alertTitle}>GPU Utilization</div>
+                    <div className={styles.alertDescription}>{(metrics.gpu_utilization ?? 0).toFixed(1)}%</div>
                   </div>
                 </motion.div>
               )}
@@ -341,9 +342,9 @@ export default function MonitoringPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {[
-              { label: 'CPU', percent: metrics?.cpu?.percent ?? 0, color: 'var(--color-secondary)', detail: `${metrics?.cpu?.cores ?? 0} cores` },
-              { label: 'Memory', percent: metrics?.memory?.percent ?? 0, color: 'var(--color-accent)', detail: `${((metrics?.memory?.used ?? 0) / 1073741824).toFixed(1)} / ${((metrics?.memory?.total ?? 0) / 1073741824).toFixed(1)} GB` },
-              { label: 'Disk', percent: metrics?.disk?.percent ?? 0, color: 'var(--color-success)', detail: `${((metrics?.disk?.used ?? 0) / 1073741824).toFixed(1)} / ${((metrics?.disk?.total ?? 0) / 1073741824).toFixed(1)} GB` },
+              { label: 'CPU', percent: metrics?.cpu_percent ?? 0, color: 'var(--color-secondary)', detail: `${metrics?.active_deployments ?? 0} active deployments` },
+              { label: 'Memory', percent: metrics?.memory_percent ?? 0, color: 'var(--color-accent)', detail: `${metrics?.requests_per_minute ?? 0} req/min` },
+              { label: 'Disk', percent: metrics?.disk_percent ?? 0, color: 'var(--color-success)', detail: `GPU: ${(metrics?.gpu_utilization ?? 0).toFixed(1)}%` },
             ].map((res) => (
               <TiltCard key={res.label} glareColor={`${res.color}33`} maxTilt={3} scale={1.01}>
                 <div style={{

@@ -8,7 +8,7 @@ import { useDatasets } from '../../../hooks/useApi';
 import { datasetsService } from '../../../services/datasets.service';
 import styles from './DatasetsPage.module.css';
 
-type FilterStatus = 'all' | 'processed' | 'pending' | 'failed';
+type FilterStatus = 'all' | 'uploaded' | 'processing' | 'ready' | 'error';
 
 const containerVariants = {
   hidden: {},
@@ -42,11 +42,9 @@ const formatDate = (iso: string) =>
   });
 
 const statusClass: Record<string, string> = {
-  processed: styles.statusProcessed,
-  ready: styles.statusProcessed,
-  pending: styles.statusPending,
+  uploaded: styles.statusPending,
   processing: styles.statusPending,
-  failed: styles.statusFailed,
+  ready: styles.statusProcessed,
   error: styles.statusFailed,
 };
 
@@ -70,7 +68,7 @@ export default function DatasetsPage() {
       const matchesSearch =
         !query ||
         d.filename?.toLowerCase().includes(query) ||
-        d.original_filename?.toLowerCase().includes(query);
+        d.name?.toLowerCase().includes(query);
       const matchesFilter =
         filter === 'all' || d.status === filter;
       return matchesSearch && matchesFilter;
@@ -107,9 +105,10 @@ export default function DatasetsPage() {
 
   const statusFilters: { key: FilterStatus; label: string }[] = [
     { key: 'all', label: 'All' },
-    { key: 'processed', label: 'Processed' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'failed', label: 'Failed' },
+    { key: 'ready', label: 'Ready' },
+    { key: 'processing', label: 'Processing' },
+    { key: 'uploaded', label: 'Uploaded' },
+    { key: 'error', label: 'Error' },
   ];
 
   return (
@@ -262,8 +261,8 @@ export default function DatasetsPage() {
                   >
                     <Card>
                       <div className={styles.cardTop}>
-                        <span className={styles.name} title={dataset.original_filename || dataset.filename}>
-                          {dataset.original_filename || dataset.filename}
+                        <span className={styles.name} title={dataset.name || dataset.filename}>
+                          {dataset.name || dataset.filename}
                         </span>
                         <span
                           className={`${styles.statusBadge} ${statusClass[dataset.status] || ''}`}
@@ -288,7 +287,7 @@ export default function DatasetsPage() {
                         </div>
                         <div className={styles.statItem}>
                           <span className={styles.statValue}>
-                            {formatFileSize(dataset.file_size_kb)}
+                            {formatFileSize(dataset.size_bytes / 1024)}
                           </span>
                           <span className={styles.statLabel}>Size</span>
                         </div>

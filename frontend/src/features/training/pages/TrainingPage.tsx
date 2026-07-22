@@ -95,7 +95,7 @@ export default function TrainingPage() {
     const bestAccuracy = completed.length > 0
       ? Math.max(...completed.map((r) => r.metrics!.accuracy!))
       : 0;
-    const durations = experiments.filter((r) => r.duration_seconds != null).map((r) => r.duration_seconds!);
+    const durations = experiments.filter((r) => r.training_time != null).map((r) => r.training_time!);
     const avgDur = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
     return {
       total: experiments.length,
@@ -260,7 +260,7 @@ export default function TrainingPage() {
                       >
                         <td className={styles.runId}>{exp.id.slice(0, 8)}</td>
                         <td className={styles.modelName}>{exp.name}</td>
-                        <td><span className={styles.algoTag}>{exp.algorithm}</span></td>
+                        <td><span className={styles.algoTag}>{exp.model}</span></td>
                         <td><StatusBadge status={exp.status} /></td>
                         <td className={`${styles.accuracy} ${accuracyClass(exp.metrics?.accuracy ?? null)}`}>
                           {formatAccuracy(exp.metrics?.accuracy)}

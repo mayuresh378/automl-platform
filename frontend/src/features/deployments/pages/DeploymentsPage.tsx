@@ -14,22 +14,9 @@ import Card from '../../../components/ui/Card';
 import styles from './DeploymentsPage.module.css';
 import { useDeployments, useCreateDeployment, useModels } from '../../../hooks/useApi';
 import { staggerContainer, staggerItem } from '../../../lib/animations';
+import type { Deployment } from '../../../types/api';
 
 type Status = 'live' | 'active' | 'draining' | 'updating' | 'down' | 'stopped' | 'failed';
-
-interface Deployment {
-  id: string;
-  name: string;
-  endpoint_url: string;
-  status: string;
-  environment: string;
-  model_name: string;
-  model_id: string;
-  requests_count: number;
-  avg_latency_ms: number;
-  config: Record<string, unknown>;
-  created_at: string;
-}
 
 function normalizeStatus(s: string): Status {
   const lower = s.toLowerCase();
@@ -183,13 +170,13 @@ export default function DeploymentsPage() {
   const { data: models = [] } = useModels();
   const createDeployment = useCreateDeployment();
 
-  const normalized = deployments.map((d: Deployment) => ({
+  const normalized = deployments.map((d) => ({
     ...d,
     _normalized: normalizeStatus(d.status),
   }));
 
   const activeCount = normalized.filter((d) => d._normalized === 'live').length;
-  const totalRequests = normalized.reduce((sum, d) => sum + (d.requests_count || 0), 0);
+  const totalRequests = normalized.reduce((sum, d) => sum + (d.requests_total || 0), 0);
   const avgLatency = normalized.length
     ? Math.round(normalized.reduce((sum, d) => sum + (d.avg_latency_ms || 0), 0) / normalized.length)
     : 0;
@@ -290,7 +277,7 @@ export default function DeploymentsPage() {
                       <Rocket />
                     </div>
                     <div>
-                      <div className={styles.depName}>{dep.name}</div>
+                      <div className={styles.depName}>{dep.endpoint_name}</div>
                       <div className={styles.depModel}>{dep.model_name}</div>
                     </div>
                   </div>
@@ -303,12 +290,12 @@ export default function DeploymentsPage() {
                     <div className={styles.metricLabel}>Latency</div>
                   </div>
                   <div className={styles.metric}>
-                    <div className={styles.metricValue}>{formatNumber(dep.requests_count || 0)}</div>
+                    <div className={styles.metricValue}>{formatNumber(dep.requests_total || 0)}</div>
                     <div className={styles.metricLabel}>Requests</div>
                   </div>
                   <div className={styles.metric}>
-                    <div className={styles.metricValue}>{dep.environment || 'prod'}</div>
-                    <div className={styles.metricLabel}>Environment</div>
+                    <div className={styles.metricValue}>{dep.endpoint_name || 'prod'}</div>
+                    <div className={styles.metricLabel}>Endpoint</div>
                   </div>
                 </div>
 

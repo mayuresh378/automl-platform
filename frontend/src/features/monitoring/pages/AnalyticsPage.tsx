@@ -57,7 +57,7 @@ export default function AnalyticsPage() {
               <CardHeader><CardTitle>Performance</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div><p className="text-sm text-zinc-400">Average Training Time</p><p className="text-lg font-semibold text-zinc-100">{stats.avg_training_time.toFixed(1)}s</p></div>
+                  <div><p className="text-sm text-zinc-400">Average Training Time</p><p className="text-lg font-semibold text-zinc-100">{(stats.avg_training_time ?? 0).toFixed(1)}s</p></div>
                   <div><p className="text-sm text-zinc-400">Success Rate</p><p className="text-lg font-semibold text-zinc-100">{(stats.success_rate * 100).toFixed(1)}%</p></div>
                 </div>
               </CardContent>

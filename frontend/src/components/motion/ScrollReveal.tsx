@@ -32,7 +32,7 @@ export default function ScrollReveal({
   margin = '-80px',
 }: ScrollRevealProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once, margin });
+  const isInView = useInView(ref, { once, margin: margin as `${number}${"px" | "%"}` });
   const hiddenState = directionMap[direction](distance);
 
   return (

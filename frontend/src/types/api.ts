@@ -205,16 +205,20 @@ export interface DatasetAnalysisResult {
 export interface Experiment {
   id: string;
   name: string;
-  model_name: string;
-  algorithm: string;
-  dataset_name: string;
-  target_column: string;
-  status: 'running' | 'completed' | 'failed' | 'queued';
+  model: string;
+  task_type: string;
+  dataset: string;
+  target: string;
+  cv_score: number | null;
   metrics?: ModelMetrics;
-  hyperparameters?: Record<string, any>;
+  training_time: number | null;
+  total_time: number | null;
   duration_seconds?: number;
+  status: 'running' | 'completed' | 'failed' | 'queued';
+  params?: Record<string, any>;
+  feature_importance?: Record<string, number>;
+  run_at: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface ModelMetrics {
@@ -233,28 +237,42 @@ export interface Model {
   id: string;
   name: string;
   algorithm: string;
+  model_type?: string;
+  task_type?: string;
   dataset_name: string;
   target_column: string;
   status: 'training' | 'ready' | 'failed' | 'archived';
   metrics?: ModelMetrics;
   version: number;
   size_bytes?: number;
+  file_path?: string;
+  file_size_kb?: number;
+  cv_score?: number;
   framework: string;
   experiment_id?: string;
+  user_id?: string;
+  params?: Record<string, any>;
+  tags?: string[];
+  description?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface Deployment {
   id: string;
-  model_name: string;
-  endpoint_name: string;
+  model_name?: string;
+  name?: string;
+  endpoint_name?: string;
   endpoint_url: string;
   status: 'creating' | 'running' | 'stopped' | 'failed';
   model_id: string;
-  version: number;
-  requests_total: number;
+  version?: number;
+  user_id?: string;
+  environment?: string;
+  requests_total?: number;
+  requests_count?: number;
   avg_latency_ms: number;
+  config?: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -340,11 +358,17 @@ export interface MarketplaceItem {
 
 export interface ActivityLog {
   id: string;
+  user_id?: string;
   actor: string;
   action: string;
   target: string;
+  resource_type?: string;
+  resource_id?: string;
   target_type: string;
   details?: string;
+  ip_address?: string;
+  status?: string;
+  run_at?: string;
   created_at: string;
 }
 
@@ -380,14 +404,38 @@ export interface MonitoringMetrics {
   gpu_utilization?: number;
   requests_per_minute: number;
   active_deployments: number;
+  cpu?: {
+    percent: number;
+    cores?: number;
+    load_avg?: number[];
+  };
+  memory?: {
+    total?: number;
+    available?: number;
+    used?: number;
+    percent: number;
+  };
+  disk?: {
+    total?: number;
+    used?: number;
+    free?: number;
+    percent: number;
+  };
+  network?: {
+    bytes_sent?: number;
+    bytes_recv?: number;
+  };
+  platform?: string;
+  python_version?: string;
 }
 
 export interface MonitoringStats {
   total_models: number;
   total_datasets: number;
   total_experiments: number;
+  total_deployments?: number;
   total_predictions: number;
-  avg_training_time: number;
+  avg_training_time?: number;
   success_rate: number;
 }
 

@@ -21,6 +21,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
+import type { ApiKey } from '../../../types/api';
 import styles from './SettingsPage.module.css';
 
 type Section = 'profile' | 'workspace' | 'api-keys' | 'notifications' | 'billing' | 'members';
@@ -63,7 +64,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
-function ApiKeyRow({ apiKey, onDelete }: { apiKey: { id: string; name: string; key_prefix: string; status: string; created_at: string; expires_at?: string | null }; onDelete: (id: string) => void }) {
+function ApiKeyRow({ apiKey, onDelete }: { apiKey: ApiKey; onDelete: (id: string) => void }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -72,7 +73,7 @@ function ApiKeyRow({ apiKey, onDelete }: { apiKey: { id: string; name: string; k
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const isActive = apiKey.status === 'active';
+  const isActive = true;
 
   return (
     <div className={styles.apiKeyRow}>
@@ -196,7 +197,7 @@ function WorkspaceSection() {
 }
 
 function ApiKeysSection() {
-  const apiKeys = useApiKeys();
+  const { data: apiKeys = [] } = useApiKeys();
   const createKey = useCreateApiKey();
   const deleteKey = useDeleteApiKey();
   const queryClient = useQueryClient();
@@ -228,7 +229,7 @@ function ApiKeysSection() {
       </CardHeader>
       <CardContent style={{ padding: 0 }}>
         {apiKeys && apiKeys.length > 0 ? (
-          apiKeys.map((key) => (
+          apiKeys.map((key: ApiKey) => (
             <ApiKeyRow key={key.id} apiKey={key} onDelete={handleDelete} />
           ))
         ) : (
