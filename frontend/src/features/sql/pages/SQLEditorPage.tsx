@@ -6,7 +6,7 @@ import {
   BarChart3, Table2, Timer,
 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-import { cn } from '../../../lib/cn';
+import styles from './SQLEditorPage.module.css';
 import { datasetsService } from '../../../services/datasets.service';
 import { useNotification } from '../../../hooks/useNotification';
 import { useSqlEditorStore } from '../store/useSqlEditorStore';
@@ -176,7 +176,6 @@ export default function SQLEditorPage() {
     else if (format === 'clipboard') sqlService.copyToClipboard(activeTab.query);
   }, [activeTab]);
 
-  // Resizer handlers
   const handleResizeStart = useCallback((e: React.MouseEvent, panel: string) => {
     e.preventDefault();
     resizerRef.current = { startX: e.clientX, startY: e.clientY, panel };
@@ -212,8 +211,7 @@ export default function SQLEditorPage() {
   const result = activeTab?.result;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)]">
-      {/* Toolbar */}
+    <div className={styles.page}>
       <SqlToolbar
         selectedDataset={selectedDataset}
         datasets={datasets || []}
@@ -235,24 +233,23 @@ export default function SQLEditorPage() {
         bottomOpen={bottomPanelOpen}
       />
 
-      {/* Templates dropdown */}
       <AnimatePresence>
         {showTemplates && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-b border-border bg-card/80 backdrop-blur-sm"
+            className={styles.templatesDropdown}
           >
-            <div className="flex gap-2 p-2 overflow-x-auto scrollbar-thin">
+            <div className={styles.templatesList}>
               {queryTemplates.map((tpl) => (
                 <button
                   key={tpl.id}
                   onClick={() => { handleInsertQuery(resolveTable(tpl.query)); setShowTemplates(false); }}
-                  className="flex-shrink-0 px-3 py-2 rounded-lg bg-sidebar-hover hover:bg-white/[0.08] transition-colors text-left"
+                  className={styles.templateCard}
                 >
-                  <div className="text-xs font-medium text-zinc-300">{tpl.name}</div>
-                  <div className="text-[10px] text-zinc-500 mt-0.5">{tpl.description}</div>
+                  <div className={styles.templateName}>{tpl.name}</div>
+                  <div className={styles.templateDesc}>{tpl.description}</div>
                 </button>
               ))}
             </div>
@@ -260,44 +257,38 @@ export default function SQLEditorPage() {
         )}
       </AnimatePresence>
 
-      {/* Tab bar */}
-      <div className="flex items-center h-9 bg-card border-b border-border shrink-0 overflow-x-auto scrollbar-thin">
+      <div className={styles.tabBar}>
         {tabs.map((tab) => (
           <div
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer select-none group shrink-0',
-              tab.id === activeTabId ? 'bg-canvas text-zinc-200' : 'text-zinc-500 hover:text-zinc-300 hover:bg-sidebar-hover',
-            )}
+            className={`${styles.tab} ${tab.id === activeTabId ? styles.tabActive : ''}`}
           >
-            <FileText className="w-3.5 h-3.5 shrink-0" />
-            <span className="text-xs whitespace-nowrap">{tab.name}{tab.isDirty ? ' *' : ''}</span>
+            <FileText className={styles.tabIcon} />
+            <span className={styles.tabName}>{tab.name}{tab.isDirty ? ' *' : ''}</span>
             {tabs.length > 1 && (
               <button
                 onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-                className="p-0.5 rounded hover:bg-white/[0.1] opacity-0 group-hover:opacity-100 transition-opacity"
+                className={styles.tabClose}
               >
                 <X className="w-3 h-3" />
               </button>
             )}
           </div>
         ))}
-        <button onClick={addTab} className="flex items-center justify-center h-full px-2 text-zinc-500 hover:text-zinc-300 hover:bg-sidebar-hover">
-          <Plus className="w-3.5 h-3.5" />
+        <button onClick={addTab} className={styles.addTab}>
+          <Plus className={styles.tabIcon} />
         </button>
       </div>
 
-      {/* Main content area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left panel - Schema Explorer */}
+      <div className={styles.mainContent}>
         <AnimatePresence>
           {leftPanelOpen && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: leftPanelWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              className="border-r border-border bg-card shrink-0 overflow-hidden"
+              className={styles.leftPanel}
             >
               <div style={{ width: leftPanelWidth }} className="h-full">
                 <SchemaExplorer
@@ -311,13 +302,11 @@ export default function SQLEditorPage() {
           )}
         </AnimatePresence>
         {leftPanelOpen && (
-          <div className="w-1.5 shrink-0 cursor-col-resize hover:bg-primary/20 transition-colors" onMouseDown={(e) => handleResizeStart(e, 'left')} />
+          <div className={styles.resizerVertical} onMouseDown={(e) => handleResizeStart(e, 'left')} />
         )}
 
-        {/* Center - Editor + Results */}
-        <div className="flex flex-col flex-1 min-w-0">
-          {/* Monaco Editor */}
-          <div className="flex-1 min-h-[120px]">
+        <div className={styles.centerColumn}>
+          <div className={styles.editorArea}>
             <SqlEditor
               value={activeTab?.query || ''}
               onChange={(val) => updateTabQuery(activeTabId, val)}
@@ -325,71 +314,61 @@ export default function SQLEditorPage() {
             />
           </div>
 
-          {/* Error display */}
           {activeTab?.error && (
-            <div className="px-4 py-2 bg-danger/10 border-t border-danger/30 flex items-start gap-2 shrink-0">
-              <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
-              <div className="text-xs text-zinc-300 flex-1">{activeTab.error}</div>
-              <button onClick={() => updateTabError(activeTabId, null)} className="text-zinc-500 hover:text-zinc-300">
+            <div className={styles.errorBar}>
+              <AlertCircle className={styles.errorIcon} />
+              <div className={styles.errorText}>{activeTab.error}</div>
+              <button onClick={() => updateTabError(activeTabId, null)} className={styles.errorClose}>
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          {/* Running indicator */}
           {activeTab?.isRunning && (
-            <div className="flex items-center gap-2 px-4 py-1.5 bg-primary/5 border-t border-primary/20 shrink-0">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-              <span className="text-xs text-zinc-400">Running query...</span>
+            <div className={styles.runningBar}>
+              <div className={styles.runningSpinner} />
+              <span className={styles.runningText}>Running query...</span>
             </div>
           )}
 
-          {/* Bottom Panel - Results/Charts/History */}
           {bottomPanelOpen && activeTab?.result && (
             <>
-              <div className="h-1.5 shrink-0 cursor-row-resize hover:bg-primary/20 transition-colors" onMouseDown={(e) => handleResizeStart(e, 'bottom')} />
-              <div className="border-t border-border bg-card flex flex-col shrink-0" style={{ height: bottomPanelHeight }}>
-                {/* Bottom tabs */}
-                <div className="flex items-center h-9 border-b border-border bg-card/80 shrink-0 px-2">
+              <div className={styles.resizerHorizontal} onMouseDown={(e) => handleResizeStart(e, 'bottom')} />
+              <div className={styles.bottomPanel} style={{ height: bottomPanelHeight }}>
+                <div className={styles.bottomTabs}>
                   {bottomTabs.map((tab) => {
                     const Icon = tab.icon;
                     return (
                       <button
                         key={tab.id}
                         onClick={() => setBottomPanelTab(tab.id)}
-                        className={cn(
-                          'flex items-center gap-1.5 px-3 h-full text-xs border-b-2 transition-colors',
-                          bottomPanelTab === tab.id
-                            ? 'border-primary text-zinc-200'
-                            : 'border-transparent text-zinc-500 hover:text-zinc-300',
-                        )}
+                        className={`${styles.bottomTab} ${bottomPanelTab === tab.id ? styles.bottomTabActive : ''}`}
                       >
-                        <Icon className="w-3.5 h-3.5" />
+                        <Icon className={styles.bottomTabIcon} />
                         {tab.label}
                       </button>
                     );
                   })}
-                  <div className="flex-1" />
-                  <button onClick={toggleBottomPanel} className="p-1 rounded hover:bg-sidebar-hover text-zinc-500">
+                  <div className={styles.bottomTabSpacer} />
+                  <button onClick={toggleBottomPanel} className={styles.bottomTabClose}>
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                {/* Tab content */}
-                <div className="flex-1 overflow-hidden">
+                <div className={styles.bottomTabContent}>
                   {bottomPanelTab === 'results' && result && <ResultsGrid result={result} />}
                   {bottomPanelTab === 'charts' && result && (
                     <ChartView result={result} chartConfig={chartConfig} setChartConfig={setChartConfig} />
                   )}
                   {bottomPanelTab === 'history' && result && (
-                    <div className="p-3 text-xs text-zinc-500 overflow-y-auto h-full">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-zinc-400">
-                          <Timer className="w-3.5 h-3.5" />
+                    <div className={styles.historyInfo}>
+                      <div className={styles.historyInfoList}>
+                        <div className={styles.historyInfoItem}>
+                          <Timer className={styles.historyInfoIcon} />
                           <span>Executed in {result.executionTime}ms</span>
                         </div>
-                        <div className="flex items-center gap-2 text-zinc-400">
-                          <Database className="w-3.5 h-3.5" />
+                        <div className={styles.historyInfoItem}>
+                          <Database className={styles.historyInfoIcon} />
                           <span>{result.rows} rows returned</span>
                         </div>
                       </div>
@@ -401,9 +380,8 @@ export default function SQLEditorPage() {
           )}
         </div>
 
-        {/* Right panel - AI Assistant */}
         {rightPanelOpen && (
-          <div className="w-1.5 shrink-0 cursor-col-resize hover:bg-primary/20 transition-colors" onMouseDown={(e) => handleResizeStart(e, 'right')} />
+          <div className={styles.resizerVertical} onMouseDown={(e) => handleResizeStart(e, 'right')} />
         )}
         <AnimatePresence>
           {rightPanelOpen && (
@@ -411,7 +389,7 @@ export default function SQLEditorPage() {
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: rightPanelWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              className="border-l border-border bg-card shrink-0 overflow-hidden"
+              className={styles.rightPanel}
             >
               <div style={{ width: rightPanelWidth }} className="h-full">
                 <AiAssistant onInsertQuery={(q) => handleInsertQuery(resolveTable(q))} currentQuery={activeTab?.query} />
@@ -421,7 +399,6 @@ export default function SQLEditorPage() {
         </AnimatePresence>
       </div>
 
-      {/* Modals */}
       <AnimatePresence>
         {showHistory && (
           <QueryHistory onRestoreQuery={handleRestoreQuery} onClose={() => setShowHistory(false)} />
@@ -453,12 +430,12 @@ function ChartView({
   const data = result.data.slice(0, 100);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-card/50 shrink-0">
+    <div className={styles.chartArea}>
+      <div className={styles.chartControls}>
         <select
           value={chartType}
           onChange={(e) => setChartConfig({ type: e.target.value, xKey, yKey })}
-          className="h-7 rounded text-[11px] bg-white/[0.05] border border-border text-zinc-300 px-2 focus:outline-none"
+          className={styles.chartSelect}
         >
           <option value="bar">Bar</option>
           <option value="pie">Pie</option>
@@ -469,7 +446,7 @@ function ChartView({
         <select
           value={xKey}
           onChange={(e) => setChartConfig({ type: chartType, xKey: e.target.value, yKey })}
-          className="h-7 rounded text-[11px] bg-white/[0.05] border border-border text-zinc-300 px-2 focus:outline-none"
+          className={styles.chartSelect}
         >
           {strCols.map((c) => <option key={c} value={c}>{c} (X)</option>)}
           {numCols.map((c) => <option key={c} value={c}>{c} (X)</option>)}
@@ -477,7 +454,7 @@ function ChartView({
         <select
           value={yKey}
           onChange={(e) => setChartConfig({ type: chartType, xKey, yKey: e.target.value })}
-          className="h-7 rounded text-[11px] bg-white/[0.05] border border-border text-zinc-300 px-2 focus:outline-none"
+          className={styles.chartSelect}
         >
           {numCols.map((c) => <option key={c} value={c}>{c} (Y)</option>)}
         </select>
@@ -532,25 +509,25 @@ function ChartView({
 
 function KeyboardShortcutsModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className={styles.modalBackdrop}>
+      <div className={styles.modalOverlay} onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-[400px] rounded-lg border border-border bg-card shadow-dropdown overflow-hidden"
+        className={styles.modalContent}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <span className="text-sm font-medium text-zinc-200">Keyboard Shortcuts</span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-sidebar-hover text-zinc-500">
+        <div className={styles.modalHeader}>
+          <span className={styles.modalTitle}>Keyboard Shortcuts</span>
+          <button onClick={onClose} className={styles.modalClose}>
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-3 space-y-1">
+        <div className={styles.modalBody}>
           {KEYBOARD_SHORTCUTS.map((sc) => (
-            <div key={sc.key} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-sidebar-hover">
-              <span className="text-xs text-zinc-400">{sc.action}</span>
-              <kbd className="px-2 py-0.5 rounded bg-white/[0.05] border border-border text-[10px] font-mono text-zinc-300">
+            <div key={sc.key} className={styles.shortcutRow}>
+              <span className={styles.shortcutAction}>{sc.action}</span>
+              <kbd className={styles.shortcutKey}>
                 {sc.key}
               </kbd>
             </div>

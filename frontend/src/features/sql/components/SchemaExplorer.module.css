@@ -1,0 +1,210 @@
+.explorer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ── Header ── */
+.header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.headerIcon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-secondary);
+}
+
+.headerText {
+  font-size: var(--text-tiny);
+  font-weight: 600;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Search ── */
+.searchWrapper {
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.searchInput {
+  width: 100%;
+  height: 28px;
+  padding-left: 28px;
+  padding-right: 8px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  font-size: var(--text-tiny);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.searchInput:focus {
+  border-color: var(--color-secondary);
+}
+
+/* ── Tree ── */
+.tree {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 4px 0;
+}
+
+.emptyState {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: var(--text-tiny);
+  color: var(--color-text-placeholder);
+}
+
+/* ── Dataset Node ── */
+.datasetNode {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: var(--text-tiny);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.datasetNode:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.datasetChevron {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.datasetIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-secondary);
+  opacity: 0.7;
+}
+
+.datasetName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* ── Table Node ── */
+.tableNode {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 28px;
+  font-size: var(--text-tiny);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.tableNode:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.tableChevron {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.tableIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.tableName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* ── Column Node ── */
+.columnNode {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 44px;
+  font-size: var(--text-tiny);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.columnNode:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.columnIcon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.columnName {
+  flex: 1;
+}
+
+.columnType {
+  font-size: 10px;
+  color: var(--color-text-placeholder);
+  margin-left: auto;
+}
+
+.allColumns {
+  font-style: italic;
+}

@@ -5,7 +5,7 @@ import {
   Search, Database, Columns3, Code2, BarChart3, PanelLeft, PanelRight, PanelBottom,
   ChevronLeft, ChevronRight, X,
 } from 'lucide-react';
-import { cn } from '../../../lib/cn';
+import styles from './SqlToolbar.module.css';
 import { Button } from '../../../components/ui/Button';
 
 interface SqlToolbarProps {
@@ -35,13 +35,13 @@ export const SqlToolbar = memo(function SqlToolbar({
   onToggleBottom, onToggleTemplates, onToggleShortcuts, isRunning, leftOpen, rightOpen, bottomOpen,
 }: SqlToolbarProps) {
   return (
-    <div className="flex items-center gap-1.5 h-11 px-3 border-b border-border bg-card/80 backdrop-blur-sm shrink-0">
-      <div className="flex items-center gap-1">
-        <div className="relative">
+    <div className={styles.toolbar}>
+      <div className={styles.datasetGroup}>
+        <div className={styles.datasetWrapper}>
           <select
             value={selectedDataset}
             onChange={(e) => onDatasetChange(e.target.value)}
-            className="h-7 pl-7 pr-6 rounded-md bg-white/[0.05] border border-border text-xs text-zinc-300 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+            className={styles.datasetSelect}
           >
             <option value="">All datasets</option>
             {(datasets || []).map((d: any) => (
@@ -50,82 +50,73 @@ export const SqlToolbar = memo(function SqlToolbar({
               </option>
             ))}
           </select>
-          <Database className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
-          <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500 pointer-events-none" />
+          <Database className={styles.datasetIcon} />
+          <ChevronDown className={styles.datasetChevron} />
         </div>
       </div>
 
-      <div className="w-px h-5 bg-border mx-1" />
+      <div className={styles.divider} />
 
-      <button onClick={onSave} className="toolbar-btn" title="Save (Ctrl+S)">
-        <Save className="w-3.5 h-3.5" />
+      <button onClick={onSave} className={styles.btn} title="Save (Ctrl+S)">
+        <Save className={styles.btnIcon} />
       </button>
-      <button onClick={onToggleTemplates} className="toolbar-btn" title="Templates">
-        <Code2 className="w-3.5 h-3.5" />
+      <button onClick={onToggleTemplates} className={styles.btn} title="Templates">
+        <Code2 className={styles.btnIcon} />
       </button>
-      <button onClick={onFormat} className="toolbar-btn" title="Format SQL (Alt+Shift+F)">
-        <Wand2 className="w-3.5 h-3.5" />
+      <button onClick={onFormat} className={styles.btn} title="Format SQL (Alt+Shift+F)">
+        <Wand2 className={styles.btnIcon} />
       </button>
-      <button onClick={onExplain} className="toolbar-btn" title="Explain Query">
-        <Columns3 className="w-3.5 h-3.5" />
+      <button onClick={onExplain} className={styles.btn} title="Explain Query">
+        <Columns3 className={styles.btnIcon} />
       </button>
-      <button onClick={onAiAssistant} className="toolbar-btn" title="AI Assistant">
-        <Sparkles className="w-3.5 h-3.5 text-primary" />
+      <button onClick={onAiAssistant} className={`${styles.btn} ${styles.btnAccent}`} title="AI Assistant">
+        <Sparkles className={styles.btnIcon} />
       </button>
 
-      <div className="flex-1" />
+      <div className={styles.spacer} />
 
-      <div className="flex items-center gap-1">
-        <button onClick={onToggleHistory} className="toolbar-btn" title="History">
-          <History className="w-3.5 h-3.5" />
+      <div className={styles.datasetGroup}>
+        <button onClick={onToggleHistory} className={styles.btn} title="History">
+          <History className={styles.btnIcon} />
         </button>
         <div className="relative group">
-          <button className="toolbar-btn" title="Export">
-            <Download className="w-3.5 h-3.5" />
+          <button className={styles.btn} title="Export">
+            <Download className={styles.btnIcon} />
           </button>
         </div>
-        <button onClick={onToggleShortcuts} className="toolbar-btn hidden sm:flex" title="Shortcuts">
-          <Keyboard className="w-3.5 h-3.5" />
+        <button onClick={onToggleShortcuts} className={`${styles.btn} hidden sm:flex`} title="Shortcuts">
+          <Keyboard className={styles.btnIcon} />
         </button>
 
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className={styles.divider} />
 
-        <button onClick={onToggleLeft} className={cn('toolbar-btn', !leftOpen && 'opacity-40')} title="Toggle Schema">
-          <PanelLeft className="w-3.5 h-3.5" />
+        <button onClick={onToggleLeft} className={`${styles.btn} ${!leftOpen ? styles.panelToggleInactive : ''}`} title="Toggle Schema">
+          <PanelLeft className={styles.btnIcon} />
         </button>
-        <button onClick={onToggleRight} className={cn('toolbar-btn', !rightOpen && 'opacity-40')} title="Toggle AI Assistant">
-          <PanelRight className="w-3.5 h-3.5" />
+        <button onClick={onToggleRight} className={`${styles.btn} ${!rightOpen ? styles.panelToggleInactive : ''}`} title="Toggle AI Assistant">
+          <PanelRight className={styles.btnIcon} />
         </button>
-        <button onClick={onToggleBottom} className={cn('toolbar-btn', !bottomOpen && 'opacity-40')} title="Toggle Results">
-          <PanelBottom className="w-3.5 h-3.5" />
+        <button onClick={onToggleBottom} className={`${styles.btn} ${!bottomOpen ? styles.panelToggleInactive : ''}`} title="Toggle Results">
+          <PanelBottom className={styles.btnIcon} />
         </button>
 
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className={styles.divider} />
 
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.96 }}
           onClick={onRun}
           disabled={isRunning}
-          className="flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className={styles.runBtn}
         >
           {isRunning ? (
-            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <div className={styles.runSpinner} />
           ) : (
-            <Play className="w-3 h-3 fill-white" />
+            <Play className={styles.runBtnIcon} />
           )}
           <span>{isRunning ? 'Running...' : 'Run'}</span>
         </motion.button>
       </div>
-
-      <style>{`
-        .toolbar-btn {
-          display: flex; align-items: center; justify-content: center;
-          width: 28px; height: 28px; border-radius: 6px;
-          color: #a1a1aa; transition: all 0.15s; cursor: pointer;
-        }
-        .toolbar-btn:hover { background: rgba(255,255,255,0.05); color: #e4e4e7; }
-      `}</style>
     </div>
   );
 });

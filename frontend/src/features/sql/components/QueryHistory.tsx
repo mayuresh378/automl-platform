@@ -4,7 +4,7 @@ import {
   History, Clock, Star, Pin, Search, Trash2, Copy, RotateCcw, ChevronDown, MoreHorizontal,
   X, Heart, Bookmark,
 } from 'lucide-react';
-import { cn } from '../../../lib/cn';
+import styles from './QueryHistory.module.css';
 import { sqlService } from '../services/sqlEditor.service';
 import { QueryHistoryItem } from '../types';
 
@@ -49,84 +49,81 @@ export const QueryHistory = memo(function QueryHistory({ onRestoreQuery, onClose
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className={styles.backdrop}>
+      <div className={styles.overlay} onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-[600px] max-h-[70vh] rounded-lg border border-border bg-card shadow-dropdown overflow-hidden"
+        className={styles.modal}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-zinc-200">Query History</span>
-            <span className="text-[11px] text-zinc-500">({history.length})</span>
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <History className={styles.headerIcon} />
+            <span className={styles.headerTitle}>Query History</span>
+            <span className={styles.headerCount}>({history.length})</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className={styles.headerRight}>
             {['all', 'today', 'yesterday', 'favorites'].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f as any)}
-                className={cn(
-                  'px-2 py-1 rounded text-[11px] capitalize transition-colors',
-                  filter === f ? 'bg-primary/20 text-primary' : 'text-zinc-500 hover:text-zinc-300 hover:bg-sidebar-hover',
-                )}
+                className={`${styles.filterTab} ${filter === f ? styles.filterTabActive : ''}`}
               >
                 {f === 'favorites' ? '⭐' : f}
               </button>
             ))}
-            <div className="w-px h-4 bg-border mx-1" />
-            <button onClick={clearAll} className="text-[11px] text-zinc-500 hover:text-danger transition-colors">Clear</button>
-            <button onClick={onClose} className="p-1 rounded hover:bg-sidebar-hover text-zinc-500">
-              <X className="w-4 h-4" />
+            <div className={styles.divider} />
+            <button onClick={clearAll} className={styles.clearBtn}>Clear</button>
+            <button onClick={onClose} className={styles.closeBtn}>
+              <X className={styles.headerIcon} />
             </button>
           </div>
         </div>
 
-        <div className="px-4 py-2 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+        <div className={styles.searchArea}>
+          <div className={styles.searchWrapper}>
+            <Search className={styles.searchIcon} />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search queries..."
-              className="w-full h-8 pl-8 pr-3 rounded-md bg-white/[0.05] border border-border text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-primary/50"
+              className={styles.searchInput}
             />
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[50vh] scrollbar-thin">
+        <div className={styles.list}>
           {filtered.length === 0 ? (
-            <div className="py-8 text-center text-xs text-zinc-500">No queries found</div>
+            <div className={styles.listEmpty}>No queries found</div>
           ) : (
-            <div className="divide-y divide-border/50">
+            <div className={styles.listItems}>
               {filtered.map((item) => (
-                <div key={item.id} className="px-4 py-2.5 hover:bg-sidebar-hover transition-colors group">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <pre className="text-xs font-mono text-zinc-300 truncate">{item.query}</pre>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-zinc-500">
+                <div key={item.id} className={styles.item}>
+                  <div className={styles.itemRow}>
+                    <div className={styles.itemContent}>
+                      <pre className={styles.itemQuery}>{item.query}</pre>
+                      <div className={styles.itemMeta}>
+                        <span className={styles.itemTime}>
                           {new Date(item.executedAt).toLocaleString()}
                         </span>
                         {item.executionTime && (
-                          <span className="text-[10px] text-zinc-600">{item.executionTime}ms</span>
+                          <span className={styles.itemStat}>{item.executionTime}ms</span>
                         )}
                         {item.rowsReturned != null && (
-                          <span className="text-[10px] text-zinc-600">{item.rowsReturned} rows</span>
+                          <span className={styles.itemStat}>{item.rowsReturned} rows</span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => toggleFavorite(item.id)} className="p-1 rounded hover:bg-white/[0.05]">
-                        <Heart className={cn('w-3.5 h-3.5', item.favorite ? 'text-red-400 fill-red-400' : 'text-zinc-500')} />
+                    <div className={styles.itemActions}>
+                      <button onClick={() => toggleFavorite(item.id)} className={styles.itemActionBtn}>
+                        <Heart className={`${styles.heartIcon} ${item.favorite ? styles.heartFilled : ''}`} />
                       </button>
-                      <button onClick={() => { onRestoreQuery(item.query); }} className="p-1 rounded hover:bg-white/[0.05] text-zinc-500 hover:text-zinc-300">
-                        <RotateCcw className="w-3.5 h-3.5" />
+                      <button onClick={() => { onRestoreQuery(item.query); }} className={styles.itemActionBtn}>
+                        <RotateCcw className={styles.heartIcon} />
                       </button>
-                      <button onClick={() => deleteItem(item.id)} className="p-1 rounded hover:bg-white/[0.05] text-zinc-500 hover:text-danger">
-                        <Trash2 className="w-3.5 h-3.5" />
+                      <button onClick={() => deleteItem(item.id)} className={`${styles.itemActionBtn} ${styles.itemActionBtnDanger}`}>
+                        <Trash2 className={styles.heartIcon} />
                       </button>
                     </div>
                   </div>
