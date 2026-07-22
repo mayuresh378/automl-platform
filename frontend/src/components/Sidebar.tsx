@@ -1,166 +1,97 @@
-import { useState, memo, useCallback } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import {
-  LayoutDashboard, FolderKanban, Database, SprayCan, Wand2, TerminalSquare, Cpu, FlaskConical, Boxes,
-  Rocket, Activity, Workflow, Zap, Bot, Store, Settings, LifeBuoy, BookOpen, CreditCard, Shield,
-  ChevronsLeft, ChevronsRight, BrainCircuit, GitCompare, BarChart3, SlidersHorizontal, Bell, Plug, Search, Sparkles, User,
-  type LucideIcon,
-} from 'lucide-react';
-import { cn } from '../lib/cn';
-import { useUIStore } from '../store/useUIStore';
+import { useAuth } from '../hooks/useAuth';
+import styles from './Sidebar.module.css';
 
-interface NavItem { label: string; icon: LucideIcon; group: string; }
-
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Search', icon: Search, group: 'Main Menu' },
-  { label: 'Dashboard', icon: LayoutDashboard, group: 'Main Menu' },
-  { label: 'Projects', icon: FolderKanban, group: 'Main Menu' },
-  { label: 'Datasets', icon: Database, group: 'Data' },
-  { label: 'Data Cleaning', icon: SprayCan, group: 'Data' },
-  { label: 'Feature Engineering', icon: Wand2, group: 'Data' },
-  { label: 'SQL Editor', icon: TerminalSquare, group: 'Data' },
-  { label: 'Models', icon: Boxes, group: 'Model' },
-  { label: 'Training', icon: FlaskConical, group: 'Model' },
-  { label: 'HPO Tuning', icon: SlidersHorizontal, group: 'Model' },
-  { label: 'Model Comparison', icon: GitCompare, group: 'Model' },
-  { label: 'Explainable AI', icon: BrainCircuit, group: 'Model' },
-  { label: 'Deployment', icon: Rocket, group: 'Serve' },
-  { label: 'Inference API', icon: Plug, group: 'Serve' },
-  { label: 'Activity', icon: Activity, group: 'Serve' },
-  { label: 'Monitoring', icon: BarChart3, group: 'Serve' },
-  { label: 'Pipelines', icon: Workflow, group: 'Automation' },
-  { label: 'Automations', icon: Zap, group: 'Automation' },
-  { label: 'AI Assistant', icon: Bot, group: 'Automation' },
-  { label: 'Marketplace', icon: Store, group: 'Automation' },
+const NAV_ITEMS = [
+  { label: 'Dashboard', path: '/app/dashboard', icon: 'LayoutDashboard' },
+  { label: 'Datasets', path: '/app/datasets', icon: 'Database' },
+  { label: 'SQL Editor', path: '/app/sql', icon: 'FileCode' },
+  { label: 'Training', path: '/app/training', icon: 'Brain' },
+  { label: 'Experiments', path: '/app/experiments', icon: 'FlaskConical' },
+  { label: 'Models', path: '/app/models', icon: 'Layers' },
+  { label: 'Deployments', path: '/app/deployments', icon: 'Rocket' },
+  { label: 'Monitoring', path: '/app/monitoring', icon: 'Activity' },
+  { label: 'Settings', path: '/app/settings', icon: 'Settings' },
 ];
 
-const FOOTER_ITEMS: NavItem[] = [
-  { label: 'Settings', icon: Settings, group: '' },
-  { label: 'Support', icon: LifeBuoy, group: '' },
-  { label: 'Documentation', icon: BookOpen, group: '' },
-];
+const iconComponents: Record<string, string> = {
+  LayoutDashboard: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z',
+  Database: 'M4 7c0-1.657 3.582-3 8-3s8 1.343 8 3M4 7v6c0 1.657 3.582 3 8 3s8-1.343 8-3V7M4 13v4c0 1.657 3.582 3 8 3s8-1.343 8-3v-4',
+  FileCode: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6M10 13l-2 2 2 2M14 17l2-2-2-2',
+  Brain: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707M2 12h1m15.657 5.657l.707.707M12 20v1M12 3a9 9 0 00-9 9c0 2.1.72 4.03 1.93 5.56L6 20l2.07-1.44A8.97 8.97 0 0012 21a9 9 0 009-9 9 9 0 00-9-9z',
+  FlaskConical: 'M6 2h12v2l-4 6v8h-4v-8L6 4V2zM6 2v2l4 6',
+  Layers: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  Rocket: 'M15.59 14.37a6 6 0 01-5.84 4.63 6 6 0 01-5.84-4.63M15.59 14.37a22 22 0 014.78-5.65A8.01 8.01 0 0014 2a22 22 0 00-5.65 4.78M15.59 14.37a6 6 0 01-.82 2.52 6 6 0 01-2 2 6 6 0 01-2.52.82m0 0a6 6 0 01-2.52-.82 6 6 0 01-2-2 6 6 0 01-.82-2.52M9 12a3 3 0 113 3 3 3 0 01-3-3z',
+  Activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  Settings: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
+};
 
-const Sidebar = memo(function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, activePage, setActivePage, setSettingsTab } = useUIStore();
-  const initials = '?';
+function NavIcon({ name }: { name: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={iconComponents[name] || ''} />
+    </svg>
+  );
+}
 
-  const groups = Array.from(new Set(NAV_ITEMS.map((n) => n.group)));
+export default function Sidebar() {
+  const location = useLocation();
+  const { user } = useAuth();
 
-  const handleNavClick = useCallback((label: string) => setActivePage(label), [setActivePage]);
+  const userName = user?.name || 'Guest';
+  const initials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
-    <motion.aside
-      animate={{ width: sidebarCollapsed ? 72 : 260 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="hidden md:flex flex-col shrink-0 h-screen sticky top-0 bg-sidebar border-r border-border z-[100]"
-    >
-      <div className={cn('flex items-center h-14 px-4 gap-2', sidebarCollapsed && 'justify-center px-0')}>
-        <div className={cn('flex items-center gap-2.5', !sidebarCollapsed && 'px-1')}>
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary shrink-0">
-            <Sparkles className="h-4 w-4 text-white" strokeWidth={2} />
-          </div>
-          {!sidebarCollapsed && (
-            <span className="font-semibold text-base tracking-tight text-white whitespace-nowrap">
-              AutoML
-            </span>
-          )}
+    <aside className={styles.sidebar}>
+      <div className={styles.header}>
+        <div className={styles.logo}>
+          <LogoIcon />
+          <span className={styles.brand}>AutoML</span>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-2 px-2 space-y-4">
-        {groups.map((group) => (
-          <div key={group}>
-            {!sidebarCollapsed && (
-              <div className="px-3 mb-1 text-[11px] font-semibold tracking-wider uppercase text-zinc-500">
-                {group}
-              </div>
-            )}
-            <div className="space-y-0.5">
-              {NAV_ITEMS.filter((n) => n.group === group).map((item) => {
-                const isActive = activePage === item.label;
-                const Icon = item.icon;
-                return (
-                  <motion.button
-                    key={item.label}
-                    onClick={() => handleNavClick(item.label)}
-                    title={sidebarCollapsed ? item.label : undefined}
-                    whileTap={{ scale: 0.97 }}
-                    className={cn(
-                      'group relative w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 cursor-pointer select-none',
-                      sidebarCollapsed && 'justify-center px-0',
-                      isActive
-                        ? 'bg-primary/15 text-primary'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-sidebar-hover',
-                    )}
-                  >
-                    {isActive && !sidebarCollapsed && (
-                      <motion.div layoutId="sidebar-active" className="absolute left-0 top-1 bottom-1 w-0.5 rounded-r bg-primary" />
-                    )}
-                    <Icon className={cn('h-[18px] w-[18px] shrink-0', isActive ? 'text-primary' : 'text-zinc-500 group-hover:text-zinc-300')} strokeWidth={1.5} />
-                    {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                  </motion.button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
-
-      <div className="border-t border-border px-2 py-2 space-y-0.5">
-        {FOOTER_ITEMS.map((item) => {
-          const Icon = item.icon;
+      <nav className={styles.nav}>
+        {NAV_ITEMS.map((item) => {
+          const isActive = location.pathname === item.path;
           return (
-            <motion.button
-              key={item.label}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => handleNavClick(item.label)}
-              title={sidebarCollapsed ? item.label : undefined}
-              className={cn(
-                'group w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 cursor-pointer select-none',
-                sidebarCollapsed && 'justify-center px-0',
-                'text-zinc-400 hover:text-zinc-200 hover:bg-sidebar-hover',
-              )}
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={`${styles.navItem} ${isActive ? styles.active : ''}`}
             >
-              <Icon className="h-[18px] w-[18px] shrink-0 text-zinc-500 group-hover:text-zinc-300" strokeWidth={1.5} />
-              {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-            </motion.button>
+              <NavIcon name={item.icon} />
+              <span>{item.label}</span>
+              {isActive && (
+                <motion.div
+                  layoutId="sidebar-active"
+                  className={styles.indicator}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+            </NavLink>
           );
         })}
+      </nav>
 
-        <div className={cn('pt-2 mt-1 border-t border-border', sidebarCollapsed && 'flex justify-center')}>
-          <div className={cn(
-            'flex items-center gap-2.5 px-2 py-2 rounded-lg',
-            !sidebarCollapsed && 'hover:bg-sidebar-hover cursor-pointer'
-          )}>
-            <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/20 text-primary text-[10px] font-semibold shrink-0">
-              <User className="h-3.5 w-3.5" />
-            </div>
-            {!sidebarCollapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-zinc-300 truncate">Guest</p>
-              </div>
-            )}
+      <div className={styles.footer}>
+        <div className={styles.user}>
+          <div className={styles.avatar}>{initials}</div>
+          <div className={styles.userInfo}>
+            <span className={styles.userName}>{userName}</span>
+            <span className={styles.userRole}>{user?.email || 'Guest'}</span>
           </div>
         </div>
-
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={toggleSidebar}
-          className={cn(
-            'group w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-500 hover:text-zinc-300 hover:bg-sidebar-hover transition-colors cursor-pointer select-none',
-            sidebarCollapsed && 'justify-center px-0'
-          )}
-        >
-          <motion.span
-            animate={sidebarCollapsed ? { rotate: 180 } : { rotate: 0 }}
-            transition={{ duration: 0.22, ease: 'easeInOut' }}
-          >
-            {sidebarCollapsed ? <ChevronsRight className="h-[18px] w-[18px]" /> : <ChevronsLeft className="h-[18px] w-[18px]" />}
-          </motion.span>
-          {!sidebarCollapsed && <span>Collapse</span>}
-        </motion.button>
       </div>
-    </motion.aside>
+    </aside>
   );
-});
-export { Sidebar };
+}
+
+function LogoIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="currentColor" />
+      <path d="M7 12h10M12 7v10" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}

@@ -1,134 +1,385 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Trash2, Eye, Archive, Search, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  Brain,
+  Search,
+  Plus,
+  TrendingUp,
+  Rocket,
+  Archive,
+  Clock,
+  Tag,
+  ChevronRight,
+  Layers,
+  BarChart3,
+  AlertCircle,
+} from 'lucide-react';
+import { useModels } from '../../../hooks/useApi';
 import { modelsService } from '../../../services/models.service';
-import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
-import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { Badge } from '../../../components/ui/Badge';
-import { StatusBadge } from '../../../components/ui/StatusBadge';
-import { EmptyState } from '../../../components/ui/EmptyState';
-import { ErrorState } from '../../../components/ui/ErrorState';
-import { LoadingSpinner } from '../../../components/LoadingSpinner';
-import { Dialog } from '../../../components/ui/Dialog';
-import { useNotification } from '../../../hooks/useNotification';
-import { useUIStore } from '../../../store/useUIStore';
-import { staggerContainer, staggerItem } from '../../../lib/animations';
-import { timeAgo } from '../../../lib/formatters';
-import { getErrorMessage } from '../../../services/http';
+import styles from './ModelRegistryPage.module.css';
+
+type ModelStatus = 'production' | 'staging' | 'archived' | 'registered';
+
+const statusFilters: { label: string; value: ModelStatus | 'all' }[] = [
+  { label: 'All', value: 'all' },
+  { label: 'Production', value: 'production' },
+  { label: 'Staging', value: 'staging' },
+  { label: 'Archived', value: 'archived' },
+];
+
+const statusColors: Record<string, { bg: string; text: string; border: string }> = {
+  production: {
+    bg: 'var(--color-success-bg)',
+    text: 'var(--color-success)',
+    border: 'var(--color-success-border)',
+  },
+  staging: {
+    bg: 'var(--color-warning-bg)',
+    text: 'var(--color-warning)',
+    border: 'var(--color-warning-border)',
+  },
+  archived: {
+    bg: 'var(--color-surface)',
+    text: 'var(--color-text-tertiary)',
+    border: 'var(--color-border)',
+  },
+  registered: {
+    bg: 'var(--color-accent-bg)',
+    text: 'var(--color-accent)',
+    border: 'var(--color-accent-border)',
+  },
+};
+
+const algorithmGradients: Record<string, string> = {
+  XGBoost: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+  'Random Forest': 'linear-gradient(135deg, #10b981, #059669)',
+  BERT: 'linear-gradient(135deg, #f59e0b, #d97706)',
+  Prophet: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+  'ResNet-50': 'linear-gradient(135deg, #ef4444, #dc2626)',
+  LightFM: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+  LSTM: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+  'Naive Bayes': 'linear-gradient(135deg, #64748b, #475569)',
+  'Logistic Regression': 'linear-gradient(135deg, #ec4899, #db2777)',
+  'LightGBM': 'linear-gradient(135deg, #14b8a6, #0d9488)',
+  'CatBoost': 'linear-gradient(135deg, #a855f7, #9333ea)',
+  'Decision Tree': 'linear-gradient(135deg, #f97316, #ea580c)',
+  'Gradient Boosting': 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+};
+
+const defaultGradient = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+
+function getGradient(algorithm: string): string {
+  if (algorithmGradients[algorithm]) return algorithmGradients[algorithm];
+  for (const [key, value] of Object.entries(algorithmGradients)) {
+    if (algorithm.toLowerCase().includes(key.toLowerCase())) return value;
+  }
+  return defaultGradient;
+}
+
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays > 30) return `${Math.floor(diffDays / 30)}mo ago`;
+  if (diffDays > 0) return `${diffDays}d ago`;
+  if (diffHours > 0) return `${diffHours}h ago`;
+  if (diffMinutes > 0) return `${diffMinutes}m ago`;
+  return 'just now';
+}
 
 export default function ModelRegistryPage() {
-  const qc = useQueryClient();
-  const setActivePage = useUIStore((s) => s.setActivePage);
-  const { notifySuccess, notifyError } = useNotification();
-  const [search, setSearch] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [activeFilter, setActiveFilter] = useState<ModelStatus | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: models, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['models'],
-    queryFn: () => modelsService.list(),
-    select: (d) => d.models,
-  });
+  const { data: models = [], isLoading, error } = useModels();
 
-  const deleteMutation = useMutation({
-    mutationFn: (name: string) => modelsService.remove(name),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['models'] }); notifySuccess('Model deleted'); setDeleteTarget(null); },
-    onError: (err) => notifyError('Failed to delete', getErrorMessage(err)),
-  });
+  const filtered = useMemo(() => {
+    return models.filter((model: any) => {
+      const matchesStatus =
+        activeFilter === 'all' || model.status === activeFilter;
+      const matchesSearch =
+        model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (model.model_type && model.model_type.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (model.tags && model.tags.some((tag: string) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase()),
+        ));
+      return matchesStatus && matchesSearch;
+    });
+  }, [models, activeFilter, searchQuery]);
 
-  if (isLoading) {
+  const totalModels = models.length;
+  const inProduction = models.filter((m: any) => m.status === 'production').length;
+  const latestVersion = models.reduce(
+    (max: string, m: any) => (m.version && m.version > max ? m.version : max),
+    '0.0.0',
+  );
+  const avgAccuracy =
+    models.length > 0
+      ? models.reduce((sum: number, m: any) => sum + (m.cv_score ?? 0), 0) /
+        models.length
+      : 0;
+
+  const summaryStats = [
+    {
+      label: 'Total Models',
+      value: totalModels,
+      icon: Layers,
+      color: 'var(--color-secondary)',
+      bg: 'rgba(79, 70, 229, 0.08)',
+    },
+    {
+      label: 'In Production',
+      value: inProduction,
+      icon: Rocket,
+      color: 'var(--color-success)',
+      bg: 'rgba(34, 197, 94, 0.08)',
+    },
+    {
+      label: 'Latest Version',
+      value: `v${latestVersion}`,
+      icon: TrendingUp,
+      color: 'var(--color-accent)',
+      bg: 'rgba(6, 182, 212, 0.08)',
+    },
+    {
+      label: 'Avg Accuracy',
+      value: `${(avgAccuracy * 100).toFixed(1)}%`,
+      icon: BarChart3,
+      color: 'var(--color-warning)',
+      bg: 'rgba(245, 158, 11, 0.08)',
+    },
+  ];
+
+  if (error) {
     return (
-      <PageContainer>
-        <PageHeader title="Model Registry" description="Browse and manage your trained models" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-48 rounded-2xl bg-white/5 animate-pulse" />
-          ))}
-        </div>
-      </PageContainer>
+      <div className={styles.page}>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+        >
+          <div className={styles.header}>
+            <div>
+              <h1 className={styles.title}>Model Registry</h1>
+              <p className={styles.subtitle}>
+                Browse, manage, and deploy your trained models
+              </p>
+            </div>
+          </div>
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>
+              <AlertCircle size={32} />
+            </div>
+            <h3 className={styles.emptyTitle}>Failed to load models</h3>
+            <p className={styles.emptyDesc}>
+              Please check your connection and try again
+            </p>
+          </div>
+        </motion.div>
+      </div>
     );
   }
 
-  if (isError) {
-    return <PageContainer><ErrorState title="Failed to load models" message={getErrorMessage(error)} onRetry={refetch} /></PageContainer>;
-  }
-
-  const filtered = (models || []).filter((m: any) =>
-    m.name.toLowerCase().includes(search.toLowerCase()) || m.algorithm?.toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
-    <PageContainer>
-      <PageHeader title="Model Registry" description="Browse and manage your trained models">
-        <Input
-          placeholder="Search models..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          icon={<Search className="w-4 h-4" />}
-          className="w-64"
-        />
-      </PageHeader>
+    <div className={styles.page}>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+      >
+        <div className={styles.header}>
+          <div>
+            <h1 className={styles.title}>Model Registry</h1>
+            <p className={styles.subtitle}>
+              Browse, manage, and deploy your trained models
+            </p>
+          </div>
+          <button
+            className={styles.btnPrimary}
+            onClick={() => navigate('/app/training')}
+          >
+            <Plus size={16} />
+            Register Model
+          </button>
+        </div>
 
-      {filtered.length === 0 ? (
-        models && models.length > 0 ? (
-          <EmptyState title="No models match your search" />
-        ) : (
-          <EmptyState
-            icon={<Brain className="w-8 h-8" />}
-            title="No models yet"
-            description="Train a model to see it appear here"
-            action={{ label: 'Go to Training', onClick: () => setActivePage('Training') }}
-          />
-        )
-      ) : (
-        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((model: any) => (
-            <motion.div key={model.id} variants={staggerItem}>
-              <Card hover padding="md" className="h-full flex flex-col">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                    <Brain className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <StatusBadge status={model.status} />
+        <div className={styles.summaryGrid}>
+          {summaryStats.map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05, duration: 0.3, ease: 'easeOut' }}
+              className={styles.summaryCard}
+            >
+              <div className={styles.summaryTop}>
+                <div
+                  className={styles.summaryIcon}
+                  style={{ background: stat.bg, color: stat.color }}
+                >
+                  <stat.icon size={18} />
                 </div>
-                <h3 className="text-sm font-semibold text-zinc-100 mb-1 truncate">{model.name}</h3>
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="info" size="sm">{model.algorithm}</Badge>
-                  <span className="text-xs text-zinc-500">v{model.version}</span>
-                </div>
-                <div className="mt-auto space-y-1 text-xs text-zinc-500">
-                  <p>Dataset: {model.dataset_name}</p>
-                  <p>Target: {model.target_column}</p>
-                  <p>Trained: {timeAgo(model.created_at)}</p>
-                </div>
-                {model.metrics && (
-                  <div className="mt-3 pt-3 border-t border-white/5 flex gap-3">
-                    {model.metrics.accuracy != null && <div><span className="text-xs text-zinc-500">Accuracy</span><p className="text-sm font-medium text-zinc-200">{(model.metrics.accuracy * 100).toFixed(1)}%</p></div>}
-                    {model.metrics.f1_score != null && <div><span className="text-xs text-zinc-500">F1</span><p className="text-sm font-medium text-zinc-200">{(model.metrics.f1_score * 100).toFixed(1)}%</p></div>}
-                    {model.metrics.rmse != null && <div><span className="text-xs text-zinc-500">RMSE</span><p className="text-sm font-medium text-zinc-200">{model.metrics.rmse.toFixed(3)}</p></div>}
-                  </div>
-                )}
-                <div className="flex gap-2 mt-4 pt-3 border-t border-white/5">
-                  <Button size="sm" variant="secondary" className="flex-1" onClick={() => setActivePage('Deployment')} icon={<Eye className="w-3 h-3" />}>Deploy</Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(model.name); }} className="text-red-400 hover:text-red-300"><Trash2 className="w-3 h-3" /></Button>
-                </div>
-              </Card>
+              </div>
+              <p className={styles.summaryValue}>{stat.value}</p>
+              <p className={styles.summaryLabel}>{stat.label}</p>
             </motion.div>
           ))}
-        </motion.div>
-      )}
+        </div>
 
-      <Dialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
-        title="Delete Model"
-        message={`Are you sure you want to delete "${deleteTarget}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        loading={deleteMutation.isPending}
-      />
-    </PageContainer>
+        <div className={styles.filterBar}>
+          <div className={styles.searchBox}>
+            <Search size={16} className={styles.searchIcon} />
+            <input
+              type="text"
+              placeholder="Search by name, algorithm, or tag..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.searchInput}
+            />
+          </div>
+          <div className={styles.filterTabs}>
+            {statusFilters.map((f) => (
+              <button
+                key={f.value}
+                className={`${styles.filterTab} ${activeFilter === f.value ? styles.filterTabActive : ''}`}
+                onClick={() => setActiveFilter(f.value)}
+              >
+                {f.label}
+                {f.value !== 'all' && (
+                  <span className={styles.filterCount}>
+                    {models.filter((m: any) => m.status === f.value).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isLoading ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={styles.emptyState}
+          >
+            <div className={styles.emptyIcon}>
+              <Brain size={32} />
+            </div>
+            <h3 className={styles.emptyTitle}>Loading models...</h3>
+          </motion.div>
+        ) : filtered.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={styles.emptyState}
+          >
+            <div className={styles.emptyIcon}>
+              <Brain size={32} />
+            </div>
+            <h3 className={styles.emptyTitle}>No models found</h3>
+            <p className={styles.emptyDesc}>
+              {searchQuery
+                ? 'Try adjusting your search or filters'
+                : 'Register your first model to get started'}
+            </p>
+          </motion.div>
+        ) : (
+          <motion.div
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } },
+            }}
+            initial="hidden"
+            animate="visible"
+            className={styles.modelGrid}
+          >
+            {filtered.map((model: any) => {
+              const statusColor = statusColors[model.status] ?? statusColors.registered;
+              const gradient = getGradient(model.model_type);
+
+              return (
+                <motion.div
+                  key={model.id}
+                  variants={{
+                    hidden: { opacity: 0, y: 14 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+                  }}
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                  className={styles.modelCard}
+                  onClick={() => navigate(`/app/models/${model.id}`)}
+                >
+                  <div className={styles.cardTopRow}>
+                    <div className={styles.cardIcon} style={{ background: gradient }}>
+                      <Brain size={20} color="#fff" />
+                    </div>
+                    <span
+                      className={styles.statusBadge}
+                      style={{
+                        background: statusColor.bg,
+                        color: statusColor.text,
+                        borderColor: statusColor.border,
+                      }}
+                    >
+                      {model.status}
+                    </span>
+                  </div>
+
+                  <h3 className={styles.modelName}>{model.name}</h3>
+
+                  <div className={styles.modelMeta}>
+                    <span className={styles.algorithmBadge}>{model.model_type}</span>
+                    <span className={styles.versionText}>v{model.version}</span>
+                  </div>
+
+                  <div className={styles.metricsRow}>
+                    <div className={styles.metric}>
+                      <span className={styles.metricLabel}>Accuracy</span>
+                      <span className={styles.metricValue}>
+                        {model.cv_score != null
+                          ? `${(model.cv_score * 100).toFixed(1)}%`
+                          : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={styles.tagsRow}>
+                    <Tag size={12} className={styles.tagIcon} />
+                    {(model.tags ?? []).slice(0, 3).map((tag: string) => (
+                      <span key={tag} className={styles.tag}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className={styles.cardFooter}>
+                    <div className={styles.footerLeft}>
+                      <Clock size={12} />
+                      <span>
+                        {model.updated_at
+                          ? formatRelativeTime(model.updated_at)
+                          : model.created_at
+                            ? formatRelativeTime(model.created_at)
+                            : ''}
+                      </span>
+                    </div>
+                    <div className={styles.footerRight}>
+                      <ChevronRight size={16} />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
+      </motion.div>
+    </div>
   );
 }

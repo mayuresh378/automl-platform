@@ -1,281 +1,475 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Settings, Key, Bell, Globe, Users, Link, Plus, Trash2, Webhook } from 'lucide-react';
-import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
-import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { Select } from '../../../components/ui/Select';
-import { Tabs } from '../../../components/ui/Tabs';
-import { Badge } from '../../../components/ui/Badge';
-import { StatusBadge } from '../../../components/ui/StatusBadge';
-import { ErrorState } from '../../../components/ui/ErrorState';
-import { LoadingSpinner } from '../../../components/LoadingSpinner';
-import { EmptyState } from '../../../components/ui/EmptyState';
-import { Modal } from '../../../components/ui/Modal';
-import { Dialog } from '../../../components/ui/Dialog';
-import { useUIStore } from '../../../store/useUIStore';
-import { useNotification } from '../../../hooks/useNotification';
-import { apiKeysService } from '../../../services/apiKeys.service';
-import { webhooksService } from '../../../services/webhooks.service';
-import { teamsService } from '../../../services/teams.service';
-import { timeAgo } from '../../../lib/formatters';
-import { getErrorMessage } from '../../../services/http';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../../hooks/useAuth';
+import { useApiKeys, useCreateApiKey, useDeleteApiKey } from '../../../hooks/useApi';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { authService } from '../../../services/auth.service';
+import {
+  User,
+  Key,
+  Bell,
+  CreditCard,
+  Users,
+  Briefcase,
+  Copy,
+  Check,
+  Trash2,
+  Building2,
+  Globe,
+  Mail,
+  MessageSquare,
+  Smartphone,
+} from 'lucide-react';
+import Card, { CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
+import styles from './SettingsPage.module.css';
 
-const tabs = [
-  { id: 'preferences', label: 'Preferences', icon: <Settings className="w-4 h-4" /> },
-  { id: 'api-keys', label: 'API Keys', icon: <Key className="w-4 h-4" /> },
-  { id: 'webhooks', label: 'Webhooks', icon: <Webhook className="w-4 h-4" /> },
-  { id: 'teams', label: 'Teams', icon: <Users className="w-4 h-4" /> },
-  { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
+type Section = 'profile' | 'workspace' | 'api-keys' | 'notifications' | 'billing' | 'members';
+
+const sections: { id: Section; label: string; icon: React.ReactNode; badge?: string }[] = [
+  { id: 'profile', label: 'Profile', icon: <User /> },
+  { id: 'workspace', label: 'Workspace', icon: <Briefcase /> },
+  { id: 'api-keys', label: 'API Keys', icon: <Key /> },
+  { id: 'notifications', label: 'Notifications', icon: <Bell /> },
+  { id: 'billing', label: 'Billing', icon: <CreditCard /> },
+  { id: 'members', label: 'Members', icon: <Users /> },
 ];
 
-export default function SettingsPage() {
-  const qc = useQueryClient();
-  const { notifySuccess, notifyError } = useNotification();
-  const theme = useUIStore((s) => s.theme);
-  const toggleTheme = useUIStore((s) => s.toggleTheme);
-  const [activeTab, setActiveTab] = useState('preferences');
+const notificationEvents = [
+  { id: 'training', name: 'Training Complete', desc: 'When a training job finishes' },
+  { id: 'deployment', name: 'Deployment Status', desc: 'When a deployment changes state' },
+  { id: 'experiment', name: 'Experiment Results', desc: 'When an experiment completes' },
+  { id: 'alerts', name: 'System Alerts', desc: 'When system resources are critical' },
+  { id: 'pipeline', name: 'Pipeline Runs', desc: 'When a pipeline run completes' },
+];
 
-  const [apiKeyName, setApiKeyName] = useState('');
-  const [apiKeyModal, setApiKeyModal] = useState(false);
-  const [deleteApiKeyTarget, setDeleteApiKeyTarget] = useState<string | null>(null);
+const sectionVariants = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.15 } },
+};
 
-  const [webhookName, setWebhookName] = useState('');
-  const [webhookUrl, setWebhookUrl] = useState('');
-  const [webhookEvents, setWebhookEvents] = useState('');
-  const [webhookModal, setWebhookModal] = useState(false);
-  const [deleteWebhookTarget, setDeleteWebhookTarget] = useState<string | null>(null);
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className={styles.toggle}>
+      <input
+        type="checkbox"
+        className={styles.toggleInput}
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className={styles.toggleTrack} />
+      <span className={styles.toggleThumb} />
+    </label>
+  );
+}
 
-  const [teamName, setTeamName] = useState('');
-  const [teamModal, setTeamModal] = useState(false);
+function ApiKeyRow({ apiKey, onDelete }: { apiKey: { id: string; name: string; key_prefix: string; status: string; created_at: string; expires_at?: string | null }; onDelete: (id: string) => void }) {
+  const [copied, setCopied] = useState(false);
 
-  const { data: apiKeys, isLoading: akLoading } = useQuery({
-    queryKey: ['api-keys'],
-    queryFn: () => apiKeysService.list(),
-    select: (d) => d.api_keys,
-    enabled: activeTab === 'api-keys',
-  });
+  const handleCopy = () => {
+    navigator.clipboard.writeText(apiKey.key_prefix).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  const { data: webhooks, isLoading: whLoading } = useQuery({
-    queryKey: ['webhooks'],
-    queryFn: () => webhooksService.list(),
-    select: (d) => d.webhooks,
-    enabled: activeTab === 'webhooks',
-  });
-
-  const { data: teams, isLoading: tmLoading } = useQuery({
-    queryKey: ['teams'],
-    queryFn: () => teamsService.list(),
-    select: (d) => d.teams,
-    enabled: activeTab === 'teams',
-  });
-
-  const createApiKey = useMutation({
-    mutationFn: () => apiKeysService.create(apiKeyName),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['api-keys'] }); notifySuccess('API key created'); setApiKeyModal(false); setApiKeyName(''); },
-    onError: (err) => notifyError('Failed to create API key', getErrorMessage(err)),
-  });
-
-  const deleteApiKey = useMutation({
-    mutationFn: (id: string) => apiKeysService.remove(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['api-keys'] }); notifySuccess('API key deleted'); setDeleteApiKeyTarget(null); },
-    onError: (err) => notifyError('Failed to delete API key', getErrorMessage(err)),
-  });
-
-  const createWebhook = useMutation({
-    mutationFn: () => webhooksService.create({ name: webhookName, url: webhookUrl, events: webhookEvents.split(',').map((e) => e.trim()) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); notifySuccess('Webhook created'); setWebhookModal(false); setWebhookName(''); setWebhookUrl(''); setWebhookEvents(''); },
-    onError: (err) => notifyError('Failed to create webhook', getErrorMessage(err)),
-  });
-
-  const deleteWebhook = useMutation({
-    mutationFn: (id: string) => webhooksService.remove(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); notifySuccess('Webhook deleted'); setDeleteWebhookTarget(null); },
-    onError: (err) => notifyError('Failed to delete webhook', getErrorMessage(err)),
-  });
-
-  const createTeam = useMutation({
-    mutationFn: () => teamsService.create(teamName),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['teams'] }); notifySuccess('Team created'); setTeamModal(false); setTeamName(''); },
-    onError: (err) => notifyError('Failed to create team', getErrorMessage(err)),
-  });
+  const isActive = apiKey.status === 'active';
 
   return (
-    <PageContainer maxWidth="lg">
-      <PageHeader title="Settings" description="Manage your account and integrations" />
+    <div className={styles.apiKeyRow}>
+      <div className={styles.apiKeyInfo}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <span className={styles.apiKeyName}>{apiKey.name}</span>
+          <span className={`${styles.statusBadge} ${isActive ? styles.statusActive : styles.statusInactive}`}>
+            <span className={styles.statusDot} />
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+        <div className={styles.apiKeyValue}>
+          <span className={styles.apiKeyMasked}>{apiKey.key_prefix}...••••••••</span>
+        </div>
+      </div>
+      <div className={styles.apiKeyActions}>
+        <span className={styles.apiKeyDate}>Created {apiKey.created_at}</span>
+        <button className={`${styles.copyBtn} ${copied ? styles.copyBtnCopied : ''}`} onClick={handleCopy} title="Copy key">
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+        <button className={styles.deleteBtn} title="Delete key" onClick={() => onDelete(apiKey.id)}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} className="mb-6" />
+function ProfileSection() {
+  const { user } = useAuth();
+  const [name, setName] = useState(user?.name || '');
+  const [saving, setSaving] = useState(false);
 
-      {activeTab === 'preferences' && (
-        <Card>
-          <CardHeader><CardTitle>Preferences</CardTitle></CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
-              <div>
-                <p className="text-sm font-medium text-zinc-200">Theme</p>
-                <p className="text-xs text-zinc-500">Switch between dark and light mode</p>
-              </div>
-              <Button variant="secondary" size="sm" onClick={toggleTheme} icon={<Globe className="w-4 h-4" />}>
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </Button>
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await authService.updateProfile({ name });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const initials = user?.name
+    ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'U';
+
+  return (
+    <Card>
+      <div className={styles.profileHeader}>
+        <div className={styles.avatar}>{initials}</div>
+        <div className={styles.avatarInfo}>
+          <span className={styles.avatarName}>{user?.name || 'User'}</span>
+          <span className={styles.avatarEmail}>{user?.email || ''}</span>
+          <span className={styles.avatarRole}>{user?.role || 'User'}</span>
+        </div>
+      </div>
+      <div className={styles.formGrid}>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Name</label>
+          <input
+            className={styles.formInput}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Email</label>
+          <input className={styles.formInput} type="email" defaultValue={user?.email || ''} disabled />
+        </div>
+      </div>
+      <div className={styles.formActions}>
+        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+function WorkspaceSection() {
+  return (
+    <Card>
+      <div className={styles.workspaceHeader}>
+        <div className={styles.workspaceIcon}>
+          <Building2 />
+        </div>
+        <div className={styles.workspaceInfo}>
+          <span className={styles.workspaceName}>Acme AI</span>
+          <span className={styles.workspacePlan}>Pro Plan · 5 seats</span>
+        </div>
+      </div>
+      <div className={styles.formGrid}>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Workspace Name</label>
+          <input className={styles.formInput} defaultValue="Acme AI" />
+        </div>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Workspace URL</label>
+          <input className={styles.formInput} defaultValue="acme-ai" />
+        </div>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Industry</label>
+          <input className={styles.formInput} defaultValue="Artificial Intelligence" />
+        </div>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Team Size</label>
+          <input className={styles.formInput} defaultValue="12" />
+        </div>
+        <div className={`${styles.formGroup} ${styles.formGroupFull}`}>
+          <label className={styles.formLabel}>Default Region</label>
+          <input className={styles.formInput} defaultValue="us-east-1" />
+          <span className={styles.formHelper}>Region where new compute resources will be provisioned.</span>
+        </div>
+      </div>
+      <div className={styles.formActions}>
+        <button className={`${styles.btn} ${styles.btnSecondary}`}>Cancel</button>
+        <button className={`${styles.btn} ${styles.btnPrimary}`}>Save Changes</button>
+      </div>
+    </Card>
+  );
+}
+
+function ApiKeysSection() {
+  const apiKeys = useApiKeys();
+  const createKey = useCreateApiKey();
+  const deleteKey = useDeleteApiKey();
+  const queryClient = useQueryClient();
+
+  const handleCreate = async () => {
+    const name = prompt('Enter a name for the new API key:');
+    if (name) {
+      await createKey.mutateAsync(name);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this API key?')) {
+      await deleteKey.mutateAsync(id);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>API Keys</CardTitle>
+        <button
+          className={`${styles.btn} ${styles.btnPrimary}`}
+          style={{ fontSize: 'var(--text-caption)' }}
+          onClick={handleCreate}
+        >
+          <Key size={14} /> Create Key
+        </button>
+      </CardHeader>
+      <CardContent style={{ padding: 0 }}>
+        {apiKeys && apiKeys.length > 0 ? (
+          apiKeys.map((key) => (
+            <ApiKeyRow key={key.id} apiKey={key} onDelete={handleDelete} />
+          ))
+        ) : (
+          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+            No API keys yet. Create one to get started.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function NotificationsSection() {
+  const [channels, setChannels] = useState({
+    email: true,
+    slack: true,
+    inApp: false,
+  });
+  const [events, setEvents] = useState<Record<string, { email: boolean; slack: boolean; inApp: boolean }>>({
+    training: { email: true, slack: true, inApp: true },
+    deployment: { email: true, slack: false, inApp: true },
+    experiment: { email: false, slack: true, inApp: true },
+    alerts: { email: true, slack: true, inApp: true },
+    pipeline: { email: false, slack: false, inApp: true },
+  });
+
+  const toggleEvent = (eventId: string, channel: 'email' | 'slack' | 'inApp') => {
+    setEvents((prev) => ({
+      ...prev,
+      [eventId]: { ...prev[eventId], [channel]: !prev[eventId][channel] },
+    }));
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Notification Channels</CardTitle>
+        </CardHeader>
+        <CardContent style={{ padding: 0 }}>
+          <div className={styles.toggleRow}>
+            <div className={styles.toggleInfo}>
+              <span className={styles.toggleLabel}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Mail size={16} /> Email Notifications
+                </span>
+              </span>
+              <span className={styles.toggleDescription}>Receive notifications via email</span>
             </div>
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
-              <div>
-                <p className="text-sm font-medium text-zinc-200">Email Notifications</p>
-                <p className="text-xs text-zinc-500">Receive updates about training and deployments</p>
+            <Toggle checked={channels.email} onChange={(v) => setChannels((p) => ({ ...p, email: v }))} />
+          </div>
+          <div className={styles.toggleRow}>
+            <div className={styles.toggleInfo}>
+              <span className={styles.toggleLabel}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <MessageSquare size={16} /> Slack Notifications
+                </span>
+              </span>
+              <span className={styles.toggleDescription}>Send notifications to a Slack channel</span>
+            </div>
+            <Toggle checked={channels.slack} onChange={(v) => setChannels((p) => ({ ...p, slack: v }))} />
+          </div>
+          <div className={styles.toggleRow}>
+            <div className={styles.toggleInfo}>
+              <span className={styles.toggleLabel}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Smartphone size={16} /> In-App Notifications
+                </span>
+              </span>
+              <span className={styles.toggleDescription}>Show notifications inside the dashboard</span>
+            </div>
+            <Toggle checked={channels.inApp} onChange={(v) => setChannels((p) => ({ ...p, inApp: v }))} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Event Notifications</CardTitle>
+        </CardHeader>
+        <CardContent style={{ padding: 0 }}>
+          <div className={styles.notificationGrid}>
+            <div className={styles.notificationHeader}>
+              <div className={styles.notificationHeaderCell}>Event</div>
+              <div className={styles.notificationHeaderCell}>
+                <Mail size={14} />
               </div>
-              <div className="w-10 h-6 rounded-full bg-primary cursor-pointer relative">
-                <div className="w-4 h-4 bg-white rounded-full absolute top-1 right-1" />
+              <div className={styles.notificationHeaderCell}>
+                <MessageSquare size={14} />
+              </div>
+              <div className={styles.notificationHeaderCell}>
+                <Globe size={14} />
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'api-keys' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>API Keys</CardTitle>
-            <Button size="sm" onClick={() => setApiKeyModal(true)} icon={<Plus className="w-4 h-4" />}>Create Key</Button>
-          </CardHeader>
-          <CardContent>
-            {akLoading ? <LoadingSpinner /> : !apiKeys || apiKeys.length === 0 ? (
-              <EmptyState title="No API keys" description="Create an API key to access the AutoML API programmatically" />
-            ) : (
-              <div className="space-y-2">
-                {(apiKeys as any[]).map((key: any) => (
-                  <div key={key.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                    <div>
-                      <p className="text-sm font-medium text-zinc-200">{key.name}</p>
-                      <p className="text-xs text-zinc-500 font-mono">{key.key_prefix}... · {timeAgo(key.created_at)}</p>
-                    </div>
-                    <button onClick={() => setDeleteApiKeyTarget(key.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-zinc-500 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+            {notificationEvents.map((evt) => (
+              <div key={evt.id} className={styles.notificationRow}>
+                <div className={styles.notificationCell}>
+                  <div>
+                    <div className={styles.notificationEventName}>{evt.name}</div>
+                    <div className={styles.notificationEventDesc}>{evt.desc}</div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'webhooks' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Webhooks</CardTitle>
-            <Button size="sm" onClick={() => setWebhookModal(true)} icon={<Plus className="w-4 h-4" />}>Add Webhook</Button>
-          </CardHeader>
-          <CardContent>
-            {whLoading ? <LoadingSpinner /> : !webhooks || webhooks.length === 0 ? (
-              <EmptyState title="No webhooks" description="Configure webhooks to receive real-time events from the platform" />
-            ) : (
-              <div className="space-y-2">
-                {(webhooks as any[]).map((wh: any) => (
-                  <div key={wh.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-zinc-200">{wh.name}</p>
-                        <StatusBadge status={wh.is_active ? 'active' : 'stopped'} />
-                      </div>
-                      <p className="text-xs text-zinc-500 font-mono truncate">{wh.url}</p>
-                      <div className="flex gap-1 mt-1">
-                        {(wh.events || []).map((ev: string) => <Badge key={ev} size="sm">{ev}</Badge>)}
-                      </div>
-                    </div>
-                    <button onClick={() => setDeleteWebhookTarget(wh.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-zinc-500 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'teams' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Teams</CardTitle>
-            <Button size="sm" onClick={() => setTeamModal(true)} icon={<Plus className="w-4 h-4" />}>Create Team</Button>
-          </CardHeader>
-          <CardContent>
-            {tmLoading ? <LoadingSpinner /> : !teams || teams.length === 0 ? (
-              <EmptyState title="No teams" description="Create a team to collaborate with others" />
-            ) : (
-              <div className="space-y-2">
-                {(teams as any[]).map((team: any) => (
-                  <div key={team.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center"><Users className="w-4 h-4 text-indigo-400" /></div>
-                      <div>
-                        <p className="text-sm font-medium text-zinc-200">{team.name}</p>
-                        <p className="text-xs text-zinc-500">{team.member_count} members · {team.role}</p>
-                      </div>
-                    </div>
-                    <Badge>{team.role}</Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'notifications' && (
-        <Card>
-          <CardHeader><CardTitle>Notification Preferences</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              { label: 'Training Complete', desc: 'When a training job finishes' },
-              { label: 'Deployment Status', desc: 'When a deployment changes state' },
-              { label: 'Experiment Results', desc: 'When an experiment completes' },
-              { label: 'System Alerts', desc: 'When system resources are critical' },
-              { label: 'Pipeline Runs', desc: 'When a pipeline run completes' },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                <div>
-                  <p className="text-sm text-zinc-200">{item.label}</p>
-                  <p className="text-xs text-zinc-500">{item.desc}</p>
                 </div>
-                <div className="w-10 h-6 rounded-full bg-primary cursor-pointer relative">
-                  <div className="w-4 h-4 bg-white rounded-full absolute top-1 right-1" />
+                <div className={styles.notificationCell}>
+                  <Toggle
+                    checked={events[evt.id]?.email ?? false}
+                    onChange={() => toggleEvent(evt.id, 'email')}
+                  />
+                </div>
+                <div className={styles.notificationCell}>
+                  <Toggle
+                    checked={events[evt.id]?.slack ?? false}
+                    onChange={() => toggleEvent(evt.id, 'slack')}
+                  />
+                </div>
+                <div className={styles.notificationCell}>
+                  <Toggle
+                    checked={events[evt.id]?.inApp ?? false}
+                    onChange={() => toggleEvent(evt.id, 'inApp')}
+                  />
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      <Modal open={apiKeyModal} onClose={() => setApiKeyModal(false)} title="Create API Key" description="Create a new API key for programmatic access">
-        <Input label="Key Name" value={apiKeyName} onChange={(e) => setApiKeyName(e.target.value)} placeholder="e.g., Development" />
-        <div className="flex gap-3 justify-end mt-4">
-          <Button variant="ghost" onClick={() => setApiKeyModal(false)}>Cancel</Button>
-          <Button onClick={() => createApiKey.mutate()} loading={createApiKey.isPending} disabled={!apiKeyName}>Create</Button>
-        </div>
-      </Modal>
-
-      <Modal open={webhookModal} onClose={() => setWebhookModal(false)} title="Add Webhook">
-        <div className="space-y-4">
-          <Input label="Name" value={webhookName} onChange={(e) => setWebhookName(e.target.value)} placeholder="My webhook" />
-          <Input label="URL" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://example.com/webhook" />
-          <Input label="Events (comma separated)" value={webhookEvents} onChange={(e) => setWebhookEvents(e.target.value)} placeholder="training.completed, model.deployed" helperText="e.g., training.completed, model.deployed" />
-          <div className="flex gap-3 justify-end pt-2">
-            <Button variant="ghost" onClick={() => setWebhookModal(false)}>Cancel</Button>
-            <Button onClick={() => createWebhook.mutate()} loading={createWebhook.isPending} disabled={!webhookName || !webhookUrl}>Create</Button>
           </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function BillingSection() {
+  return (
+    <Card>
+      <div className={styles.billingPlan}>
+        <div className={styles.planInfo}>
+          <span className={styles.planName}>Pro Plan</span>
+          <span className={styles.planPrice}>
+            <strong>$49</strong> /month · billed annually
+          </span>
         </div>
-      </Modal>
-
-      <Modal open={teamModal} onClose={() => setTeamModal(false)} title="Create Team">
-        <Input label="Team Name" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="My team" />
-        <div className="flex gap-3 justify-end mt-4">
-          <Button variant="ghost" onClick={() => setTeamModal(false)}>Cancel</Button>
-          <Button onClick={() => createTeam.mutate()} loading={createTeam.isPending} disabled={!teamName}>Create</Button>
+        <button className={`${styles.btn} ${styles.btnPrimary}`}>Upgrade Plan</button>
+      </div>
+      <div className={styles.billingUsage}>
+        <div className={styles.usageHeader}>
+          <span className={styles.usageLabel}>Compute Hours</span>
+          <span className={styles.usageValue}>342 / 500 hours</span>
         </div>
-      </Modal>
+        <div className={styles.usageBar}>
+          <div className={styles.usageFill} style={{ width: '68.4%' }} />
+        </div>
+      </div>
+      <div className={styles.billingUsage}>
+        <div className={styles.usageHeader}>
+          <span className={styles.usageLabel}>Storage</span>
+          <span className={styles.usageValue}>12.4 GB / 50 GB</span>
+        </div>
+        <div className={styles.usageBar}>
+          <div className={styles.usageFill} style={{ width: '24.8%' }} />
+        </div>
+      </div>
+      <div className={styles.billingUsage}>
+        <div className={styles.usageHeader}>
+          <span className={styles.usageLabel}>API Requests</span>
+          <span className={styles.usageValue}>84,291 / 100,000</span>
+        </div>
+        <div className={styles.usageBar}>
+          <div className={styles.usageFill} style={{ width: '84.3%', background: 'var(--color-warning)' }} />
+        </div>
+      </div>
+    </Card>
+  );
+}
 
-      <Dialog open={!!deleteApiKeyTarget} onClose={() => setDeleteApiKeyTarget(null)} onConfirm={() => deleteApiKeyTarget && deleteApiKey.mutate(deleteApiKeyTarget)} title="Delete API Key" message="This will immediately revoke this API key. Any services using it will lose access." confirmLabel="Revoke" loading={deleteApiKey.isPending} />
+function MembersSection() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Team Members</CardTitle>
+        <button className={`${styles.btn} ${styles.btnPrimary}`} style={{ fontSize: 'var(--text-caption)' }}>
+          <Users size={14} /> Invite
+        </button>
+      </CardHeader>
+      <CardContent style={{ padding: 0 }}>
+        <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+          Members management coming soon.
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-      <Dialog open={!!deleteWebhookTarget} onClose={() => setDeleteWebhookTarget(null)} onConfirm={() => deleteWebhookTarget && deleteWebhook.mutate(deleteWebhookTarget)} title="Delete Webhook" message="Are you sure you want to delete this webhook?" confirmLabel="Delete" loading={deleteWebhook.isPending} />
-    </PageContainer>
+const sectionComponents: Record<Section, React.FC> = {
+  profile: ProfileSection,
+  workspace: WorkspaceSection,
+  'api-keys': ApiKeysSection,
+  notifications: NotificationsSection,
+  billing: BillingSection,
+  members: MembersSection,
+};
+
+export default function SettingsPage() {
+  const [activeSection, setActiveSection] = useState<Section>('profile');
+  const ActiveContent = sectionComponents[activeSection];
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.pageHeader}>
+        <h1 className={styles.pageTitle}>Settings</h1>
+        <p className={styles.pageDescription}>Manage your account, workspace, and integrations.</p>
+      </div>
+
+      <div className={styles.layout}>
+        <nav className={styles.sidebar}>
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              className={`${styles.navItem} ${activeSection === section.id ? styles.navItemActive : ''}`}
+              onClick={() => setActiveSection(section.id)}
+            >
+              <span className={styles.navIcon}>{section.icon}</span>
+              {section.label}
+              {section.badge && (
+                <span className={styles.navBadge}>{section.badge}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className={styles.sectionContent}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSection}
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <ActiveContent />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    </div>
   );
 }

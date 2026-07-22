@@ -1,158 +1,339 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Rocket, Globe, Trash2, Power, ExternalLink, Plus } from 'lucide-react';
-import { deploymentsService } from '../../../services/deployments.service';
-import { modelsService } from '../../../services/models.service';
-import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
-import { PageContainer, PageHeader } from '../../../components/layout/PageContainer';
-import { Button } from '../../../components/ui/Button';
-import { Select } from '../../../components/ui/Select';
-import { Input } from '../../../components/ui/Input';
-import { Badge } from '../../../components/ui/Badge';
-import { StatusBadge } from '../../../components/ui/StatusBadge';
-import { EmptyState } from '../../../components/ui/EmptyState';
-import { ErrorState } from '../../../components/ui/ErrorState';
-import { LoadingSpinner } from '../../../components/LoadingSpinner';
-import { Modal } from '../../../components/ui/Modal';
-import { Dialog } from '../../../components/ui/Dialog';
-import { useNotification } from '../../../hooks/useNotification';
+import {
+  Rocket,
+  Globe,
+  Server,
+  TrendingUp,
+  Clock,
+  ExternalLink,
+  Activity,
+  Plus,
+} from 'lucide-react';
+import Card from '../../../components/ui/Card';
+import styles from './DeploymentsPage.module.css';
+import { useDeployments, useCreateDeployment, useModels } from '../../../hooks/useApi';
 import { staggerContainer, staggerItem } from '../../../lib/animations';
-import { formatNumber, timeAgo } from '../../../lib/formatters';
-import { getErrorMessage } from '../../../services/http';
 
-export default function DeploymentsPage() {
-  const qc = useQueryClient();
-  const { notifySuccess, notifyError } = useNotification();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState('');
+type Status = 'live' | 'active' | 'draining' | 'updating' | 'down' | 'stopped' | 'failed';
+
+interface Deployment {
+  id: string;
+  name: string;
+  endpoint_url: string;
+  status: string;
+  environment: string;
+  model_name: string;
+  model_id: string;
+  requests_count: number;
+  avg_latency_ms: number;
+  config: Record<string, unknown>;
+  created_at: string;
+}
+
+function normalizeStatus(s: string): Status {
+  const lower = s.toLowerCase();
+  if (lower === 'live' || lower === 'active') return 'live';
+  if (lower === 'draining' || lower === 'updating') return 'draining';
+  return 'down';
+}
+
+function statusVariant(s: Status): 'success' | 'warning' | 'danger' {
+  if (s === 'live') return 'success';
+  if (s === 'draining') return 'warning';
+  return 'danger';
+}
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const normalized = normalizeStatus(status);
+  const label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  const variant = statusVariant(normalized);
+  return (
+    <span className={`${styles.badge} ${styles[`badge${label}`]}`}>
+      <span className={styles.badgeDot} />
+      {label}
+    </span>
+  );
+}
+
+function MiniChart({ status }: { status: string }) {
+  const normalized = normalizeStatus(status);
+  const bars = Array.from({ length: 20 }, () => Math.random() * 80 + 20);
+  const max = Math.max(...bars, 1);
+  const label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  return (
+    <div className={styles.chartSection}>
+      {bars.map((v, i) => (
+        <div
+          key={i}
+          className={`${styles.chartBar} ${styles[`chartBar${label}`]}`}
+          style={{ height: `${(v / max) * 100}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function NewDeploymentForm({ models, onSubmit, onCancel, isPending }: {
+  models: Array<{ id: string; name: string }>;
+  onSubmit: (modelName: string, endpointName: string) => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const [modelName, setModelName] = useState('');
   const [endpointName, setEndpointName] = useState('');
 
-  const { data: deployments, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['deployments'],
-    queryFn: () => deploymentsService.list(),
-    select: (d) => d.deployments,
-  });
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (modelName && endpointName) {
+      onSubmit(modelName, endpointName);
+    }
+  };
 
-  const { data: models } = useQuery({
-    queryKey: ['models'],
-    queryFn: () => modelsService.list(),
-    select: (d) => d.models?.filter((m: any) => m.status === 'ready'),
-  });
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      style={{
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 24,
+      }}
+    >
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--color-text-secondary)' }}>
+            Model
+          </label>
+          <select
+            value={modelName}
+            onChange={(e) => setModelName(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-background)',
+              color: 'var(--color-text)',
+              fontSize: 14,
+            }}
+            required
+          >
+            <option value="">Select model...</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.name}>{m.name}</option>
+            ))}
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--color-text-secondary)' }}>
+            Endpoint Name
+          </label>
+          <input
+            value={endpointName}
+            onChange={(e) => setEndpointName(e.target.value)}
+            placeholder="e.g. my-api-endpoint"
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-background)',
+              color: 'var(--color-text)',
+              fontSize: 14,
+            }}
+            required
+          />
+        </div>
+        <motion.button
+          type="submit"
+          className={styles.newBtn}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          disabled={isPending}
+        >
+          {isPending ? 'Deploying...' : 'Create'}
+        </motion.button>
+        <motion.button
+          type="button"
+          onClick={onCancel}
+          className={styles.btnSmall}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+        >
+          Cancel
+        </motion.button>
+      </form>
+    </motion.div>
+  );
+}
 
-  const createMutation = useMutation({
-    mutationFn: () => deploymentsService.create(selectedModel, endpointName),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['deployments'] }); notifySuccess('Deployment created'); setCreateOpen(false); setSelectedModel(''); setEndpointName(''); },
-    onError: (err) => notifyError('Failed to create deployment', getErrorMessage(err)),
-  });
+export default function DeploymentsPage() {
+  const [showForm, setShowForm] = useState(false);
+  const { data: deployments = [], isLoading } = useDeployments();
+  const { data: models = [] } = useModels();
+  const createDeployment = useCreateDeployment();
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deploymentsService.remove(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['deployments'] }); notifySuccess('Deployment deleted'); setDeleteTarget(null); },
-    onError: (err) => notifyError('Failed to delete', getErrorMessage(err)),
-  });
+  const normalized = deployments.map((d: Deployment) => ({
+    ...d,
+    _normalized: normalizeStatus(d.status),
+  }));
+
+  const activeCount = normalized.filter((d) => d._normalized === 'live').length;
+  const totalRequests = normalized.reduce((sum, d) => sum + (d.requests_count || 0), 0);
+  const avgLatency = normalized.length
+    ? Math.round(normalized.reduce((sum, d) => sum + (d.avg_latency_ms || 0), 0) / normalized.length)
+    : 0;
+
+  const summaryStats = [
+    { label: 'Total Endpoints', value: String(deployments.length), icon: Server, iconClass: styles.statIconPrimary },
+    { label: 'Active', value: String(activeCount), icon: Activity, iconClass: styles.statIconSuccess },
+    { label: 'Avg Latency', value: `${avgLatency}ms`, icon: TrendingUp, iconClass: styles.statIconWarning },
+    { label: 'Total Requests', value: formatNumber(totalRequests), icon: Globe, iconClass: styles.statIconAccent },
+  ];
+
+  const handleCreate = (modelName: string, endpointName: string) => {
+    createDeployment.mutate(
+      { model_name: modelName, endpoint_name: endpointName },
+      { onSuccess: () => setShowForm(false) }
+    );
+  };
 
   if (isLoading) {
     return (
-      <PageContainer>
-        <PageHeader title="Deployments" description="Manage your model endpoints" />
-        <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-36 rounded-2xl bg-white/5 animate-pulse" />)}
+      <div className={styles.page}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: 'var(--color-text-secondary)' }}>
+          Loading deployments...
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
-  if (isError) {
-    return <PageContainer><ErrorState title="Failed to load deployments" message={getErrorMessage(error)} onRetry={refetch} /></PageContainer>;
-  }
-
   return (
-    <PageContainer>
-      <PageHeader title="Deployments" description="Manage your model endpoints">
-        <Button onClick={() => setCreateOpen(true)} icon={<Rocket className="w-4 h-4" />}>New Deployment</Button>
-      </PageHeader>
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <div>
+          <h1 className={styles.headerTitle}>Deployments</h1>
+          <p className={styles.headerDesc}>Monitor and manage your live model endpoints</p>
+        </div>
+        <div className={styles.headerActions}>
+          <motion.button
+            className={styles.newBtn}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowForm(!showForm)}
+          >
+            <Plus className={styles.newBtnIcon} />
+            New Deployment
+          </motion.button>
+        </div>
+      </div>
 
-      {deployments && deployments.length === 0 ? (
-        <EmptyState
-          icon={<Globe className="w-8 h-8" />}
-          title="No deployments"
-          description="Deploy a trained model to create an API endpoint"
-          action={{ label: 'Create Deployment', onClick: () => setCreateOpen(true) }}
+      {showForm && (
+        <NewDeploymentForm
+          models={models.map((m: any) => ({ id: m.id || m.name, name: m.name }))}
+          onSubmit={handleCreate}
+          onCancel={() => setShowForm(false)}
+          isPending={createDeployment.isPending}
         />
-      ) : (
-        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid gap-4 md:grid-cols-2">
-          {(deployments as any[]).map((dep: any) => (
+      )}
+
+      <motion.div
+        className={styles.statsRow}
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        {summaryStats.map((stat, i) => {
+          const Icon = stat.icon;
+          return (
+            <motion.div key={stat.label} className={styles.statCard} custom={i} variants={staggerItem}>
+              <div className={styles.statTop}>
+                <span className={styles.statLabel}>{stat.label}</span>
+                <div className={`${styles.statIcon} ${stat.iconClass}`}>
+                  <Icon />
+                </div>
+              </div>
+              <div className={styles.statValue}>{stat.value}</div>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+
+      <motion.div
+        className={styles.grid}
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        {normalized.map((dep) => {
+          const label = dep._normalized.charAt(0).toUpperCase() + dep._normalized.slice(1);
+          return (
             <motion.div key={dep.id} variants={staggerItem}>
-              <Card padding="md">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
-                      <Rocket className="w-5 h-5 text-amber-400" />
+              <Card hover padding="md" className={styles.depCard}>
+                <div className={styles.depCardTop}>
+                  <div className={styles.depIdentity}>
+                    <div
+                      className={`${styles.depAvatar} ${
+                        styles[`depAvatar${label}`]
+                      }`}
+                    >
+                      <Rocket />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-zinc-100">{dep.endpoint_name}</h3>
-                      <p className="text-xs text-zinc-500">{dep.model_name}</p>
+                      <div className={styles.depName}>{dep.name}</div>
+                      <div className={styles.depModel}>{dep.model_name}</div>
                     </div>
                   </div>
                   <StatusBadge status={dep.status} />
                 </div>
-                <div className="flex items-center gap-4 text-xs text-zinc-500 mb-3">
-                  <span>{formatNumber(dep.requests_total)} requests</span>
-                  <span>{dep.avg_latency_ms}ms avg latency</span>
-                  <span>v{dep.version}</span>
-                </div>
-                {dep.endpoint_url && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5 text-xs font-mono text-zinc-400 truncate mb-3">
-                    <Globe className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{dep.endpoint_url}</span>
+
+                <div className={styles.metrics}>
+                  <div className={styles.metric}>
+                    <div className={styles.metricValue}>{dep.avg_latency_ms || 0}ms</div>
+                    <div className={styles.metricLabel}>Latency</div>
                   </div>
-                )}
-                <div className="flex gap-2">
-                  <Button size="sm" variant="secondary" className="flex-1" onClick={() => {}} icon={<ExternalLink className="w-3 h-3" />}>
-                    Test Endpoint
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(dep.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-3 h-3" /></Button>
+                  <div className={styles.metric}>
+                    <div className={styles.metricValue}>{formatNumber(dep.requests_count || 0)}</div>
+                    <div className={styles.metricLabel}>Requests</div>
+                  </div>
+                  <div className={styles.metric}>
+                    <div className={styles.metricValue}>{dep.environment || 'prod'}</div>
+                    <div className={styles.metricLabel}>Environment</div>
+                  </div>
+                </div>
+
+                <MiniChart status={dep.status} />
+
+                <div className={styles.cardFooter}>
+                  <span className={styles.footerMeta}>
+                    <Clock style={{ width: 12, height: 12, verticalAlign: 'middle', marginRight: 4 }} />
+                    {dep.created_at ? new Date(dep.created_at).toLocaleDateString() : 'N/A'}
+                  </span>
+                  <div className={styles.footerActions}>
+                    <motion.button
+                      className={styles.btnSmall}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <ExternalLink /> Details
+                    </motion.button>
+                  </div>
                 </div>
               </Card>
             </motion.div>
-          ))}
-        </motion.div>
-      )}
-
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Deployment" description="Deploy a model to a new API endpoint">
-        <div className="space-y-4">
-          <Select
-            label="Model"
-            placeholder="Select a model"
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            options={(models || []).map((m: any) => ({ value: m.name, label: `${m.name} (${m.algorithm})` }))}
-          />
-          <Input
-            label="Endpoint Name"
-            value={endpointName}
-            onChange={(e) => setEndpointName(e.target.value)}
-            placeholder="my-model-endpoint"
-            helperText="Lowercase letters, numbers, and hyphens only"
-          />
-          <div className="flex gap-3 justify-end pt-2">
-            <Button variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={() => createMutation.mutate()} loading={createMutation.isPending} disabled={!selectedModel || !endpointName}>Deploy</Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Dialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
-        title="Delete Deployment"
-        message="Are you sure you want to delete this deployment? The endpoint will be removed."
-        confirmLabel="Delete"
-        loading={deleteMutation.isPending}
-      />
-    </PageContainer>
+          );
+        })}
+      </motion.div>
+    </div>
   );
 }

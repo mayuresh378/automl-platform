@@ -2,10 +2,15 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
-import './index.css';
+import { initAuth } from './hooks/useAuth';
+import './styles/globals.css';
 
-const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
-if (savedTheme === 'light') document.documentElement.classList.add('light');
+const savedTheme = localStorage.getItem('theme');
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+document.documentElement.setAttribute('data-theme', theme);
+
+initAuth();
 
 const queryClient = new QueryClient({
   defaultOptions: {

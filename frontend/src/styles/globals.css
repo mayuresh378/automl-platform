@@ -1,0 +1,73 @@
+@import './tokens.css';
+@import './reset.css';
+
+html {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body-line);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+}
+
+::selection {
+  background: var(--color-secondary);
+  color: white;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}
+
+/* Prevent text selection on interactive elements */
+button, select, option {
+  user-select: none;
+}
+
+/* ── Glassmorphism ── */
+.glass {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--color-glass-border);
+}
+
+.glass-strong {
+  background: var(--color-glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-lg));
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
+  border: 1px solid var(--color-glass-border-strong);
+}
+
+.glass-subtle {
+  background: var(--color-glass-bg-subtle);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  border: 1px solid var(--color-glass-border);
+}
+
+.glass-ultra {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(var(--glass-blur-xl)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-xl)) saturate(180%);
+  border: 1px solid var(--color-glass-border);
+}

@@ -353,11 +353,11 @@ export function useDashboardData() {
   const activity = useActivity();
 
   return {
-    experiments,
-    models,
-    datasets,
-    deployments,
-    activity,
+    experiments: experiments.data ?? [],
+    models: models.data ?? [],
+    datasets: datasets.data ?? [],
+    deployments: deployments.data ?? [],
+    activity: activity.data ?? [],
     isLoading: experiments.isLoading || models.isLoading || datasets.isLoading || deployments.isLoading || activity.isLoading,
     isError: experiments.isError || models.isError || datasets.isError || deployments.isError || activity.isError,
     error: experiments.error || models.error || datasets.error || deployments.error || activity.error,

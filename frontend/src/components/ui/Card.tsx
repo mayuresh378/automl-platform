@@ -1,58 +1,38 @@
-import { type ReactNode, type HTMLAttributes } from 'react';
-import { motion } from 'framer-motion';
-import { cn } from '../../lib/cn';
+import type { ReactNode } from 'react';
+import styles from './Card.module.css';
 
-interface CardProps extends HTMLAttributes<HTMLDivElement> {
+interface Props {
   children: ReactNode;
-  variant?: 'default' | 'glass' | 'premium' | 'gradient-border';
+  variant?: 'default' | 'elevated' | 'glass';
+  padding?: 'sm' | 'md' | 'lg';
+  className?: string;
   hover?: boolean;
-  padding?: 'none' | 'sm' | 'md' | 'lg';
 }
 
-const variantStyles = {
-  default: 'bg-card shadow-card',
-  glass: 'glass',
-  premium: 'glass',
-  'gradient-border': 'bg-card shadow-card gradient-border gradient-border-subtle',
-};
-
-const paddingStyles = {
-  none: '',
-  sm: 'p-3',
-  md: 'p-6',
-  lg: 'p-8',
-};
-
-export function Card({ children, variant = 'default', hover = false, padding = 'md', className, ...props }: CardProps) {
+export default function Card({
+  children,
+  variant = 'default',
+  padding = 'md',
+  className = '',
+  hover,
+}: Props) {
   return (
-    <motion.div
-      whileHover={hover ? { y: -2, transition: { duration: 0.2 } } : undefined}
-      className={cn(
-        'rounded-lg transition-all duration-300',
-        variantStyles[variant],
-        paddingStyles[padding],
-        hover && 'card-hover',
-        className,
-      )}
-      {...(props as any)}
+    <div
+      className={`${styles.card} ${styles[variant]} ${styles[`pad-${padding}`]} ${hover ? styles.hover : ''} ${className}`}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
-export function CardHeader({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex items-center justify-between mb-4', className)} {...props}>{children}</div>;
+export function CardHeader({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`${styles.header} ${className}`}>{children}</div>;
 }
 
-export function CardTitle({ children, className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('text-base font-semibold text-zinc-200', className)} {...props}>{children}</h3>;
+export function CardTitle({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <h3 className={`${styles.title} ${className}`}>{children}</h3>;
 }
 
-export function CardDescription({ children, className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn('text-sm text-zinc-400', className)} {...props}>{children}</p>;
-}
-
-export function CardContent({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('', className)} {...props}>{children}</div>;
+export function CardContent({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`${styles.content} ${className}`}>{children}</div>;
 }
