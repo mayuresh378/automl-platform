@@ -1,5 +1,11 @@
 import { memo, useRef, useCallback } from 'react';
-import Editor, { OnMount, OnChange } from '@monaco-editor/react';
+import Editor, { OnMount, OnChange, loader } from '@monaco-editor/react';
+
+loader.config({
+  paths: {
+    vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs',
+  },
+});
 
 interface SqlEditorProps {
   value: string;
