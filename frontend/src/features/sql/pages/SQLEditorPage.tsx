@@ -1,14 +1,15 @@
-import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Play, Database, X, Plus, AlertCircle, Loader2, FileText, History,
-  BarChart3, Table2, Timer, Sparkles, Activity, Eye, Rocket, Download,
+  Database, X, Plus, AlertCircle, Loader2, FileText, History,
+  BarChart3, Table2, Sparkles, Activity, Rocket,
 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import styles from './SQLEditorPage.module.css';
 import { datasetsService } from '../../../services/datasets.service';
 import { useNotification } from '../../../hooks/useNotification';
+import { useTheme } from '../../../hooks/useTheme';
 import { useSqlEditorStore } from '../store/useSqlEditorStore';
 import { sqlService } from '../services/sqlEditor.service';
 import { SchemaExplorer } from '../components/SchemaExplorer';
@@ -17,6 +18,7 @@ import { SqlEditor } from '../components/SqlEditor';
 import { AiAssistant } from '../components/AiAssistant';
 import { ResultsGrid } from '../components/ResultsGrid';
 import { QueryHistory } from '../components/QueryHistory';
+import { SavedQueriesPanel } from '../components/SavedQueriesPanel';
 import { DataProfile } from '../components/DataProfile';
 import { QueryPlanView } from '../components/QueryPlanView';
 import { AiRecommendations } from '../components/AiRecommendations';
@@ -31,14 +33,18 @@ const CHART_COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#22c55e', '#f59e0b', '#e
 
 export default function SQLEditorPage() {
   const { notifyError, notifySuccess } = useNotification();
+  const { isDark } = useTheme();
   const [selectedDataset, setSelectedDataset] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [chartConfig, setChartConfig] = useState<{ type: string; xKey: string; yKey: string } | null>(null);
-  const [queryTemplates, setQueryTemplates] = useState(QUERY_TEMPLATES);
+  const [queryTemplates] = useState(QUERY_TEMPLATES);
   const [profile, setProfile] = useState<QueryProfile | null>(null);
   const [savingDataset, setSavingDataset] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveName, setSaveName] = useState('');
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const resizerRef = useRef<{ startX?: number; startY?: number; panel?: string }>({});
@@ -74,6 +80,16 @@ export default function SQLEditorPage() {
     select: (d: any) => d.datasets,
   });
 
+  const schemaColumns = useMemo(() => {
+    const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset) || (datasets as any)?.[0];
+    const cols: string[] = ds?.columns || [];
+    return cols.filter((c) => c.toLowerCase() !== 'id');
+  }, [datasets, selectedDataset]);
+
+  const schemaTableNames = useMemo(() => {
+    return (datasets || []).map((d: any) => d.name?.replace(/\.\w+$/, '') || d.filename?.replace(/\.\w+$/, '') || 'data');
+  }, [datasets]);
+
   const defaultTableName = useMemo(() => {
     if (selectedDataset) return 'data';
     if (datasets?.length) {
@@ -83,14 +99,8 @@ export default function SQLEditorPage() {
     return 'data';
   }, [selectedDataset, datasets]);
 
-  const resolveColumns = useCallback(() => {
-    const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset);
-    const cols: string[] = ds?.columns || (datasets?.[0] as any)?.columns || [];
-    return cols.filter((c) => c.toLowerCase() !== 'id');
-  }, [datasets, selectedDataset]);
-
   const resolveTable = useCallback((query: string) => {
-    const cols = resolveColumns();
+    const cols = schemaColumns;
     const firstCol = cols[0] || 'col';
     const numericCol = cols.find((c) => {
       const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset);
@@ -104,7 +114,7 @@ export default function SQLEditorPage() {
       .replace(/\bdata\b/g, defaultTableName)
       .replace(/\bcolumn_name\b/g, firstCol)
       .replace(/\bvalue\b/g, numericCol);
-  }, [defaultTableName, datasets, selectedDataset, resolveColumns]);
+  }, [defaultTableName, datasets, selectedDataset, schemaColumns]);
 
   const handleRun = useCallback(async () => {
     if (!activeTab?.query?.trim()) return;
@@ -132,21 +142,69 @@ export default function SQLEditorPage() {
   }, [activeTab, activeTabId, selectedDataset, resolveTable, updateTabRunning, updateTabResult, updateTabError, notifySuccess, notifyError]);
 
   const handleFormat = useCallback(() => {
-    if (editorRef.current && monacoRef.current) {
+    if (editorRef.current) {
       editorRef.current.getAction('editor.action.formatDocument')?.run();
     }
   }, []);
 
+  const handleSave = useCallback(() => {
+    if (!activeTab?.query?.trim()) {
+      notifyError('Save failed', 'No query to save');
+      return;
+    }
+    setSaveName(activeTab.name.replace(/\.sql$/, ''));
+    setSaveDialogOpen(true);
+  }, [activeTab, notifyError]);
+
+  const handleSaveConfirm = useCallback(() => {
+    if (!saveName.trim() || !activeTab?.query?.trim()) return;
+    sqlService.saveQuery({
+      name: saveName.trim(),
+      query: activeTab.query,
+      dataset: selectedDataset,
+      folder: 'default',
+      tags: [],
+      pinned: false,
+    });
+    setSaveDialogOpen(false);
+    setSaveName('');
+    notifySuccess('Query Saved', `"${saveName.trim()}" saved successfully`);
+  }, [saveName, activeTab, selectedDataset, notifySuccess]);
+
   const handleMonacoMount = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
     editor.addAction({
       id: 'run-query-action',
       label: 'Run Query',
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
       run: () => handleRun(),
     });
-  }, [handleRun]);
+
+    editor.addAction({
+      id: 'save-query-action',
+      label: 'Save Query',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+      run: () => handleSave(),
+    });
+
+    editor.addAction({
+      id: 'toggle-comment-action',
+      label: 'Toggle Comment',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash],
+      run: () => {
+        editor.trigger('keyboard', 'editor.action.commentLine');
+      },
+    });
+
+    editor.addAction({
+      id: 'format-sql-action',
+      label: 'Format SQL',
+      keybindings: [monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
+      run: () => handleFormat(),
+    });
+  }, [handleRun, handleSave, handleFormat]);
 
   const handleInsertQuery = useCallback((text: string) => {
     if (editorRef.current) {
@@ -177,6 +235,7 @@ export default function SQLEditorPage() {
   const handleRestoreQuery = useCallback((query: string) => {
     updateTabQuery(activeTabId, query);
     setShowHistory(false);
+    setShowSaved(false);
   }, [activeTabId, updateTabQuery]);
 
   const handleAiAssistantToggle = useCallback(() => {
@@ -184,12 +243,17 @@ export default function SQLEditorPage() {
   }, [toggleRightPanel]);
 
   const handleExport = useCallback((format: string) => {
-    if (!activeTab?.result?.data?.length) return;
-    if (format === 'csv') sqlService.exportCSV(activeTab.result.data, `query_${Date.now()}`);
-    else if (format === 'json') sqlService.exportJSON(activeTab.result.data, `query_${Date.now()}`);
-    else if (format === 'sql') sqlService.exportSQL(activeTab.query, `query_${Date.now()}`);
-    else if (format === 'clipboard') sqlService.copyToClipboard(activeTab.query);
-  }, [activeTab]);
+    if (!activeTab?.result?.data?.length) {
+      notifyError('Export failed', 'No results to export. Run a query first.');
+      return;
+    }
+    const ts = Date.now();
+    if (format === 'csv') sqlService.exportCSV(activeTab.result.data, `query_${ts}`);
+    else if (format === 'excel') sqlService.exportExcel(activeTab.result.data, `query_${ts}`);
+    else if (format === 'json') sqlService.exportJSON(activeTab.result.data, `query_${ts}`);
+    else if (format === 'sql') sqlService.exportSQL(activeTab.query, `query_${ts}`);
+    else if (format === 'clipboard') { sqlService.copyToClipboard(activeTab.query); notifySuccess('Copied', 'Query copied to clipboard'); }
+  }, [activeTab, notifySuccess, notifyError]);
 
   const handleSaveAsDataset = useCallback(async () => {
     if (!activeTab?.query?.trim()) return;
@@ -248,16 +312,18 @@ export default function SQLEditorPage() {
         datasets={datasets || []}
         onDatasetChange={setSelectedDataset}
         onRun={handleRun}
-        onSave={() => {}}
+        onSave={handleSave}
         onFormat={handleFormat}
-        onExplain={() => setBottomPanelTab('results')}
+        onExplain={() => { setBottomPanelOpen(true); setBottomPanelTab('explain'); }}
         onAiAssistant={handleAiAssistantToggle}
         onToggleHistory={() => setShowHistory(true)}
+        onToggleSaved={() => setShowSaved(true)}
         onToggleLeft={toggleLeftPanel}
         onToggleRight={toggleRightPanel}
         onToggleBottom={toggleBottomPanel}
         onToggleTemplates={() => setShowTemplates(!showTemplates)}
         onToggleShortcuts={() => setShowShortcuts(true)}
+        onExport={handleExport}
         isRunning={activeTab?.isRunning || false}
         leftOpen={leftPanelOpen}
         rightOpen={rightPanelOpen}
@@ -342,6 +408,9 @@ export default function SQLEditorPage() {
               value={activeTab?.query || ''}
               onChange={(val) => updateTabQuery(activeTabId, val)}
               onMount={handleMonacoMount}
+              isDark={isDark}
+              columns={schemaColumns}
+              tableNames={schemaTableNames}
             />
           </div>
 
@@ -443,10 +512,7 @@ export default function SQLEditorPage() {
                 <AiAssistant
                   onInsertQuery={(q) => handleInsertQuery(resolveTable(q))}
                   currentQuery={activeTab?.query}
-                  columns={(() => {
-                    const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset) || (datasets as any)?.[0];
-                    return ds?.columns || [];
-                  })()}
+                  columns={schemaColumns}
                   dtypes={(() => {
                     const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset) || (datasets as any)?.[0];
                     return ds?.dtypes || {};
@@ -465,8 +531,49 @@ export default function SQLEditorPage() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {showSaved && (
+          <SavedQueriesPanel onRestoreQuery={handleRestoreQuery} onClose={() => setShowSaved(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showShortcuts && (
           <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {saveDialogOpen && (
+          <div className={styles.modalBackdrop}>
+            <div className={styles.modalOverlay} onClick={() => setSaveDialogOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={styles.modalContent}
+            >
+              <div className={styles.modalHeader}>
+                <span className={styles.modalTitle}>Save Query</span>
+                <button onClick={() => setSaveDialogOpen(false)} className={styles.modalClose}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div style={{ padding: 16 }}>
+                <input
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveConfirm(); }}
+                  placeholder="Query name..."
+                  className={styles.saveInput}
+                  autoFocus
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                  <button onClick={() => setSaveDialogOpen(false)} className={styles.saveCancelBtn}>Cancel</button>
+                  <button onClick={handleSaveConfirm} disabled={!saveName.trim()} className={styles.saveConfirmBtn}>Save</button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -102,23 +102,32 @@ export const sqlService = {
     URL.revokeObjectURL(a.href);
   },
 
-  copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
+  exportExcel(data: Record<string, any>[], filename: string) {
+    if (data.length === 0) return;
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(','),
+      ...data.map((row) => headers.map((h) => {
+        const val = row[h];
+        const str = val == null ? '' : String(val);
+        return str.includes(',') || str.includes('"') || str.includes('\n')
+          ? `"${str.replace(/"/g, '""')}"` : str;
+      }).join(',')),
+    ];
+    const csv = csvRows.join('\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${filename}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
   },
 
-  async generateSQL(naturalLanguage: string): Promise<string> {
-    const response = await fetch('https://api.openai.com/v1/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo-instruct',
-        prompt: `Convert this natural language to SQL:\n\n${naturalLanguage}\n\nSQL:`,
-        max_tokens: 200,
-        temperature: 0.3,
-      }),
-    });
-    const data = await response.json();
-    return data.choices?.[0]?.text?.trim() || 'SELECT * FROM data LIMIT 100;';
+  copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
   },
 
   async profileQuery(query: string, dataset?: string): Promise<QueryProfile> {

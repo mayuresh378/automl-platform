@@ -1,4 +1,4 @@
-import { memo, useRef, useCallback } from 'react';
+import { memo, useRef, useCallback, useEffect } from 'react';
 import Editor, { OnMount, OnChange, loader } from '@monaco-editor/react';
 
 loader.config({
@@ -14,35 +14,13 @@ interface SqlEditorProps {
   fontSize?: number;
   minimap?: boolean;
   className?: string;
-}
-
-function FallbackEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        width: '100%',
-        height: '100%',
-        background: '#1e1e1e',
-        color: '#d4d4d4',
-        border: 'none',
-        outline: 'none',
-        resize: 'none',
-        fontFamily: "'JetBrains Mono', 'SFMono-Regular', Menlo, monospace",
-        fontSize: 14,
-        padding: 12,
-        lineHeight: 1.6,
-        tabSize: 2,
-      }}
-      placeholder="Type SQL here... (Monaco editor loading)"
-      spellCheck={false}
-    />
-  );
+  isDark?: boolean;
+  columns?: string[];
+  tableNames?: string[];
 }
 
 export const SqlEditor = memo(function SqlEditor({
-  value, onChange, onMount, fontSize = 14, minimap = true, className,
+  value, onChange, onMount, fontSize = 14, minimap = true, className, isDark = true, columns = [], tableNames = [],
 }: SqlEditorProps) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
@@ -51,23 +29,46 @@ export const SqlEditor = memo(function SqlEditor({
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    monaco.languages.registerCompletionItemProvider('sql', {
-      provideCompletionItems: (model: any, position: any) => {
-        const word = model.getWordUntilPosition(position);
-        const range = {
-          startLineNumber: position.lineNumber,
-          endLineNumber: position.lineNumber,
-          startColumn: word.startColumn,
-          endColumn: word.endColumn,
-        };
-        const suggestions = [
-          ...['SELECT', 'FROM', 'WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'UNION', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'DISTINCT', 'AS', 'ON', 'AND', 'OR', 'IN', 'NOT', 'NULL', 'IS', 'BETWEEN', 'LIKE', 'COUNT', 'AVG', 'SUM', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'INNER', 'OUTER', 'CROSS', 'INDEX', 'TABLE', 'VIEW', 'WITH', 'RECURSIVE', 'CAST', 'COALESCE', 'NULLIF', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE', 'OVER', 'PARTITION BY', 'WINDOW'].map((kw) => ({
-            label: kw, kind: monaco.languages.CompletionItemKind.Keyword, insertText: kw, range,
-          })),
-        ];
-        return { suggestions };
-      },
-    });
+    const registerCompletions = (cols: string[], tables: string[]) => {
+      monaco.languages.registerCompletionItemProvider('sql', {
+        provideCompletionItems: (model: any, position: any) => {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          const keywords = ['SELECT', 'FROM', 'WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'UNION', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'DISTINCT', 'AS', 'ON', 'AND', 'OR', 'IN', 'NOT', 'NULL', 'IS', 'BETWEEN', 'LIKE', 'COUNT', 'AVG', 'SUM', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'INNER', 'OUTER', 'CROSS', 'INDEX', 'TABLE', 'VIEW', 'WITH', 'RECURSIVE', 'CAST', 'COALESCE', 'NULLIF', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE', 'OVER', 'PARTITION BY', 'WINDOW', 'BETWEEN', 'ASC', 'DESC', 'NULLS', 'FIRST', 'LAST', 'LIMIT', 'OFFSET', 'FETCH', 'NEXT', 'ROWS', 'ONLY', 'EXPLAIN', 'ANALYZE', 'TRUE', 'FALSE'];
+          const suggestions = [
+            ...keywords.map((kw) => ({
+              label: kw,
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: kw,
+              range,
+              detail: 'SQL Keyword',
+            })),
+            ...tables.map((t) => ({
+              label: t,
+              kind: monaco.languages.CompletionItemKind.Module,
+              insertText: t,
+              range,
+              detail: 'Table',
+            })),
+            ...cols.map((c) => ({
+              label: c,
+              kind: monaco.languages.CompletionItemKind.Field,
+              insertText: c,
+              range,
+              detail: 'Column',
+            })),
+          ];
+          return { suggestions };
+        },
+      });
+    };
+
+    registerCompletions(columns, tableNames);
 
     editor.addAction({
       id: 'run-query',
@@ -79,7 +80,7 @@ export const SqlEditor = memo(function SqlEditor({
     });
 
     if (onMount) onMount(editor, monaco);
-  }, [onMount]);
+  }, [onMount, columns, tableNames]);
 
   const handleChange: OnChange = useCallback((val) => {
     if (val !== undefined) onChange(val);
@@ -90,14 +91,14 @@ export const SqlEditor = memo(function SqlEditor({
       <Editor
         height="100%"
         defaultLanguage="sql"
-        theme="vs-dark"
+        theme={isDark ? 'vs-dark' : 'vs'}
         value={value}
         onChange={handleChange}
         onMount={handleMount}
         loading={
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            height: '100%', background: '#1e1e1e', color: '#888', fontSize: 13,
+            height: '100%', background: isDark ? '#1e1e1e' : '#ffffff', color: '#888', fontSize: 13,
           }}>
             Loading editor...
           </div>

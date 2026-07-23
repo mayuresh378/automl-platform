@@ -162,3 +162,50 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Export Dropdown ── */
+.exportDropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 180px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-dropdown);
+  z-index: 100;
+  padding: 4px;
+}
+
+.exportItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-tiny);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.exportItem:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.exportIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.btnActive {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}

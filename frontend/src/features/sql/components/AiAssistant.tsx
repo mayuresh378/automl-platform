@@ -1,6 +1,6 @@
 import { useState, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Send, Loader2, Lightbulb, AlertTriangle, BarChart3, Clock, Cpu, Copy, Check } from 'lucide-react';
+import { Sparkles, Send, Loader2, Clock, Copy, Check } from 'lucide-react';
 import styles from './AiAssistant.module.css';
 
 interface AiAssistantProps {

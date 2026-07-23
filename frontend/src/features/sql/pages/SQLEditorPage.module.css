@@ -508,3 +508,57 @@
   font-size: var(--text-tiny);
   color: var(--color-text-tertiary);
 }
+
+/* ── Save Dialog ── */
+.saveInput {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  font-size: var(--text-body-sm);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.saveInput:focus {
+  border-color: var(--color-secondary);
+}
+
+.saveCancelBtn {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-tiny);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.saveCancelBtn:hover {
+  background: var(--color-surface-active);
+}
+
+.saveConfirmBtn {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-tiny);
+  font-weight: 500;
+  color: white;
+  background: var(--color-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.saveConfirmBtn:hover {
+  background: var(--color-secondary-hover);
+}
+
+.saveConfirmBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

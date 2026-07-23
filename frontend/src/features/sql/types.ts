@@ -71,22 +71,19 @@ export interface ColumnSchema {
 
 export interface ColumnProfile {
   name: string;
-  dataType: string;
-  nullCount: number;
-  nullPercent: number;
-  uniqueCount: number;
-  uniquePercent: number;
-  duplicatePercent: number;
-  min: any;
-  max: any;
-  mean: number | null;
-  median: number | null;
-  mode: any;
-  variance: number | null;
-  stdDev: number | null;
-  skewness: number | null;
-  kurtosis: number | null;
-  outlierCount: number;
+  dtype: string;
+  null_count: number;
+  null_pct: number;
+  unique_count: number;
+  unique_pct: number;
+  duplicate_count: number;
+  min_value: string | null;
+  max_value: string | null;
+  mean_value: number | null;
+  median_value: number | null;
+  std_value: number | null;
+  memory_bytes: number;
+  sample_values: string[];
 }
 
 export interface ExecutionPlanNode {
@@ -112,23 +109,6 @@ export const QUERY_TEMPLATES: QueryTemplate[] = [
   { id: 'top-n', name: 'Top N Records', description: 'LIMIT with ORDER BY', query: 'SELECT *\nFROM data\nORDER BY column_name DESC\nLIMIT 10;', category: 'Basic' },
   { id: 'distinct', name: 'Distinct Values', description: 'SELECT DISTINCT', query: 'SELECT DISTINCT column_name\nFROM data\nORDER BY column_name;', category: 'Basic' },
 ];
-
-export interface ColumnProfile {
-  name: string;
-  dtype: string;
-  null_count: number;
-  null_pct: number;
-  unique_count: number;
-  unique_pct: number;
-  duplicate_count: number;
-  min_value: string | null;
-  max_value: string | null;
-  mean_value: number | null;
-  median_value: number | null;
-  std_value: number | null;
-  memory_bytes: number;
-  sample_values: string[];
-}
 
 export interface QueryProfile {
   columns: ColumnProfile[];

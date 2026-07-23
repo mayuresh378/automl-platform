@@ -1,12 +1,11 @@
-import { memo, useState } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Play, Save, Wand2, Sparkles, History, Download, Settings, Keyboard, ChevronDown,
-  Search, Database, Columns3, Code2, BarChart3, PanelLeft, PanelRight, PanelBottom,
-  ChevronLeft, ChevronRight, X,
+  Play, Save, Wand2, Sparkles, History, Download, Keyboard, ChevronDown,
+  Database, Columns3, Code2, PanelLeft, PanelRight, PanelBottom, Bookmark,
+  FileJson, FileText, Table2,
 } from 'lucide-react';
 import styles from './SqlToolbar.module.css';
-import { Button } from '../../../components/ui/Button';
 
 interface SqlToolbarProps {
   selectedDataset: string;
@@ -18,11 +17,13 @@ interface SqlToolbarProps {
   onExplain: () => void;
   onAiAssistant: () => void;
   onToggleHistory: () => void;
+  onToggleSaved: () => void;
   onToggleLeft: () => void;
   onToggleRight: () => void;
   onToggleBottom: () => void;
   onToggleTemplates: () => void;
   onToggleShortcuts: () => void;
+  onExport: (format: string) => void;
   isRunning: boolean;
   leftOpen: boolean;
   rightOpen: boolean;
@@ -31,9 +32,23 @@ interface SqlToolbarProps {
 
 export const SqlToolbar = memo(function SqlToolbar({
   selectedDataset, datasets, onDatasetChange, onRun, onSave, onFormat,
-  onExplain, onAiAssistant, onToggleHistory, onToggleLeft, onToggleRight,
-  onToggleBottom, onToggleTemplates, onToggleShortcuts, isRunning, leftOpen, rightOpen, bottomOpen,
+  onExplain, onAiAssistant, onToggleHistory, onToggleSaved, onToggleLeft, onToggleRight,
+  onToggleBottom, onToggleTemplates, onToggleShortcuts, onExport, isRunning, leftOpen, rightOpen, bottomOpen,
 }: SqlToolbarProps) {
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!exportOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [exportOpen]);
+
   return (
     <div className={styles.toolbar}>
       <div className={styles.datasetGroup}>
@@ -57,8 +72,11 @@ export const SqlToolbar = memo(function SqlToolbar({
 
       <div className={styles.divider} />
 
-      <button onClick={onSave} className={styles.btn} title="Save (Ctrl+S)">
+      <button onClick={onSave} className={styles.btn} title="Save Query (Ctrl+S)">
         <Save className={styles.btnIcon} />
+      </button>
+      <button onClick={onToggleSaved} className={styles.btn} title="Saved Queries">
+        <Bookmark className={styles.btnIcon} />
       </button>
       <button onClick={onToggleTemplates} className={styles.btn} title="Templates">
         <Code2 className={styles.btnIcon} />
@@ -79,10 +97,33 @@ export const SqlToolbar = memo(function SqlToolbar({
         <button onClick={onToggleHistory} className={styles.btn} title="History">
           <History className={styles.btnIcon} />
         </button>
-        <div className="relative group">
-          <button className={styles.btn} title="Export">
+        <div className="relative" ref={exportRef}>
+          <button
+            onClick={() => setExportOpen(!exportOpen)}
+            className={`${styles.btn} ${exportOpen ? styles.btnActive : ''}`}
+            title="Export"
+          >
             <Download className={styles.btnIcon} />
           </button>
+          {exportOpen && (
+            <div className={styles.exportDropdown}>
+              <button onClick={() => { onExport('csv'); setExportOpen(false); }} className={styles.exportItem}>
+                <Table2 className={styles.exportIcon} /> Export CSV
+              </button>
+              <button onClick={() => { onExport('excel'); setExportOpen(false); }} className={styles.exportItem}>
+                <Table2 className={styles.exportIcon} /> Export Excel
+              </button>
+              <button onClick={() => { onExport('json'); setExportOpen(false); }} className={styles.exportItem}>
+                <FileJson className={styles.exportIcon} /> Export JSON
+              </button>
+              <button onClick={() => { onExport('sql'); setExportOpen(false); }} className={styles.exportItem}>
+                <FileText className={styles.exportIcon} /> Export SQL
+              </button>
+              <button onClick={() => { onExport('clipboard'); setExportOpen(false); }} className={styles.exportItem}>
+                <Download className={styles.exportIcon} /> Copy to Clipboard
+              </button>
+            </div>
+          )}
         </div>
         <button onClick={onToggleShortcuts} className={`${styles.btn} hidden sm:flex`} title="Shortcuts">
           <Keyboard className={styles.btnIcon} />
