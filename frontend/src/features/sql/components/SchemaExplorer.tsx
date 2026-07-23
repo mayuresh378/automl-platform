@@ -127,7 +127,7 @@ export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableCl
                                 <Columns3 className={styles.columnIcon} />
                                 * (all columns)
                               </button>
-                              {(table.columns.length > 0 ? table.columns : []).map((col) => (
+                              {(table.columns.length > 0 ? table.columns : []).map((col: ColumnSchema) => (
                                 <button
                                   key={col.name}
                                   onClick={() => onColumnClick(col.name)}
