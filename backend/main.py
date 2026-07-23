@@ -914,6 +914,205 @@ def training_queue_api(db: Session = Depends(get_db)):
     } for e in experiments if e.status in ("running", "queued")]
     return {"jobs": queued}
 
+
+import threading
+import queue as _queue
+
+training_progress_store: dict[str, dict] = {}
+_training_lock = threading.Lock()
+
+def _update_progress(job_id: str, data: dict):
+    with _training_lock:
+        if job_id not in training_progress_store:
+            training_progress_store[job_id] = {}
+        training_progress_store[job_id].update(data)
+
+@app.get("/api/v1/training/{job_id}/progress", tags=["Training"], summary="Training progress SSE")
+async def training_progress_sse(job_id: str):
+    from fastapi.responses import StreamingResponse
+    import json, time as _time
+
+    async def event_generator():
+        last_data = None
+        for _ in range(600):
+            with _training_lock:
+                data = training_progress_store.get(job_id, {}).copy()
+            if data and data != last_data:
+                last_data = data
+                yield f"data: {json.dumps(data)}\n\n"
+                if data.get("status") in ("completed", "failed", "cancelled"):
+                    break
+            await __import__('asyncio').sleep(0.5)
+        yield f"data: {json.dumps({'status': 'timeout'})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.get("/api/v1/training/algorithms", tags=["Training"], summary="List available algorithms")
+def list_algorithms_api():
+    from train import CLASSIFICATION_MODELS, REGRESSION_MODELS, XGB_AVAILABLE, LGBM_AVAILABLE, CATB_AVAILABLE
+    classification = []
+    for name in CLASSIFICATION_MODELS:
+        info = {"name": name, "available": True}
+        classification.append(info)
+    regression = []
+    for name in REGRESSION_MODELS:
+        info = {"name": name, "available": True}
+        regression.append(info)
+    return {
+        "classification": classification,
+        "regression": regression,
+        "optional": {"XGBoost": XGB_AVAILABLE, "LightGBM": LGBM_AVAILABLE, "CatBoost": CATB_AVAILABLE},
+    }
+
+
+@app.post("/api/v1/training/run", tags=["Training"], summary="Run training with workflow config")
+async def run_training_workflow(
+    background_tasks: BackgroundTasks,
+    file_name: str = Form(...),
+    target_column: str = Form(...),
+    task_type: str = Form("classification"),
+    algorithms: str = Form("all"),
+    cv_folds: int = Form(5),
+    optimize_hyperparameters: bool = Form(True),
+    project_id: str = Form(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_optional_user),
+):
+    import uuid as _uuid
+    job_id = str(_uuid.uuid4())[:8]
+    _update_progress(job_id, {
+        "status": "queued", "progress": 0, "current_step": "preprocessing",
+        "message": "Training job queued", "logs": [], "metrics_history": [],
+        "cpu_percent": 0, "start_time": time.time(),
+    })
+
+    def _run():
+        import psutil
+        logs = []
+        metrics_history = []
+        start = time.time()
+
+        def log(msg):
+            logs.append({"time": time.time() - start, "message": msg})
+            _update_progress(job_id, {"logs": logs[-50:]})
+
+        try:
+            log("Starting preprocessing...")
+            _update_progress(job_id, {"status": "running", "current_step": "preprocessing", "progress": 5, "message": "Preprocessing data"})
+            preprocess_result = auto_preprocess(file_name, target_column, task_type)
+            X = preprocess_result["X"]
+            y = preprocess_result["y"]
+            preprocessor = preprocess_result["preprocessor"]
+            task = preprocess_result["task_type"]
+            log(f"Preprocessing done: {X.shape[0]} rows, {X.shape[1]} features, task={task}")
+            _update_progress(job_id, {"progress": 10, "current_step": "algorithms", "message": f"Data ready: {X.shape[0]} rows × {X.shape[1]} features"})
+
+            from train import CLASSIFICATION_MODELS as CM, REGRESSION_MODELS as RM, _count_params, _default_scoring
+            from sklearn.model_selection import train_test_split, RandomizedSearchCV
+            model_candidates = CM if task == "classification" else RM
+            if algorithms != "all":
+                selected = [a.strip() for a in algorithms.split(",")]
+                model_candidates = {k: v for k, v in model_candidates.items() if k in selected}
+            total_models = len(model_candidates)
+            log(f"Training {total_models} algorithms: {', '.join(model_candidates.keys())}")
+            _update_progress(job_id, {"total_models": total_models, "completed_models": 0, "message": f"Training {total_models} models..."})
+
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42, stratify=y if task == "classification" else None
+            )
+
+            from sklearn.metrics import accuracy_score, f1_score, r2_score, mean_squared_error
+            all_results = []
+            for idx, (name, spec) in enumerate(model_candidates.items()):
+                model_progress = ((idx) / total_models) * 80 + 10
+                _update_progress(job_id, {
+                    "progress": int(model_progress), "current_step": "training",
+                    "current_model": name, "model_index": idx + 1,
+                    "message": f"Training {name} ({idx+1}/{total_models})",
+                })
+                log(f"Training {name}...")
+                try:
+                    mstart = time.time()
+                    base_model = spec["model"]
+                    param_dist = spec["params"]
+
+                    if optimize_hyperparameters:
+                        n_iter = min(5, _count_params(param_dist))
+                        cv = max(2, min(cv_folds, 10))
+                        search = RandomizedSearchCV(
+                            base_model, param_dist, n_iter=n_iter,
+                            cv=cv, scoring=_default_scoring(task),
+                            random_state=42, n_jobs=1, verbose=0,
+                        )
+                        search.fit(X_train, y_train)
+                        best_model = search.best_estimator_
+                        cv_score = search.best_score_
+                    else:
+                        base_model.fit(X_train, y_train)
+                        best_model = base_model
+                        cv_score = 0
+
+                    y_pred = best_model.predict(X_test)
+                    mtime = round(time.time() - mstart, 2)
+
+                    if task == "classification":
+                        acc = round(accuracy_score(y_test, y_pred), 4)
+                        f1 = round(f1_score(y_test, y_pred, average='weighted', zero_division=0), 4)
+                        metrics = {"accuracy": acc, "f1": f1}
+                    else:
+                        r2 = round(r2_score(y_test, y_pred), 4)
+                        rmse = round(mean_squared_error(y_test, y_pred, squared=False), 4)
+                        metrics = {"r2": r2, "rmse": rmse, "accuracy": r2}
+
+                    result = {"name": name, "metrics": metrics, "cv_score": round(cv_score, 4), "time": mtime}
+                    all_results.append(result)
+                    metrics_history.append({"model": name, **metrics, "cv_score": round(cv_score, 4)})
+                    log(f"{name}: accuracy={metrics.get('accuracy', 'N/A')}, cv={cv_score:.4f} ({mtime}s)")
+                    _update_progress(job_id, {
+                        "completed_models": idx + 1, "metrics_history": metrics_history,
+                        "latest_result": result,
+                    })
+
+                    cpu = psutil.cpu_percent(interval=None) if psutil else 0
+                    _update_progress(job_id, {"cpu_percent": cpu})
+                except Exception as e:
+                    log(f"Error training {name}: {str(e)}")
+                    all_results.append({"name": name, "error": str(e)})
+
+            best = max(all_results, key=lambda r: r.get("metrics", {}).get("accuracy", 0))
+            elapsed = round(time.time() - start, 2)
+            log(f"Training complete! Best model: {best['name']} (accuracy={best.get('metrics', {}).get('accuracy', 'N/A')})")
+
+            _update_progress(job_id, {
+                "status": "completed", "progress": 100, "current_step": "complete",
+                "message": f"Best model: {best['name']}",
+                "best_model": best, "all_results": all_results,
+                "elapsed": elapsed,
+            })
+
+            best_model_name = f"{file_name.split('.')[0]}_{best['name']}"
+            exp_data = {
+                "name": f"{file_name.split('.')[0]}-{best['name']}",
+                "model": best["name"], "task_type": task,
+                "cv_score": best.get("cv_score"), "metrics": best.get("metrics"),
+                "dataset": file_name, "target": target_column,
+                "training_time": best.get("time"), "total_time": elapsed,
+                "status": "success", "run_at": datetime.now(timezone.utc),
+                "user_id": current_user.get("id"), "project_id": project_id,
+            }
+            exp = create_experiment(db, exp_data)
+            log_audit(db, current_user.get("name", "User"), "training.completed",
+                      f"{file_name} -> {best['name']}", "experiment", exp.id)
+        except Exception as e:
+            _update_progress(job_id, {"status": "failed", "message": str(e)})
+            log(f"Training failed: {str(e)}")
+
+    background_tasks.add_task(_run)
+    return {"job_id": job_id, "status": "queued", "message": "Training started"}
+
+
 @app.get("/api/v1/models", tags=["Models"], summary="List models", description="List all available models from filesystem and registry.")
 def list_models_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
     db_models = list_models(db)
