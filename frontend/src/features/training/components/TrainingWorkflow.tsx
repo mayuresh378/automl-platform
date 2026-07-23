@@ -292,8 +292,8 @@ export function TrainingWorkflow({ datasets }: TrainingWorkflowProps) {
                           </td>
                           <td>{r.metrics?.accuracy != null ? `${(r.metrics.accuracy * 100).toFixed(1)}%` : '—'}</td>
                           <td>{r.cv_score != null ? `${(r.cv_score * 100).toFixed(1)}%` : '—'}</td>
-                          {progress.all_results[0]?.metrics?.f1 != null && <td>{r.metrics?.f1 != null ? `${(r.metrics.f1 * 100).toFixed(1)}%` : '—'}</td>}
-                          {progress.all_results[0]?.metrics?.rmse != null && <td>{r.metrics?.rmse ?? '—'}</td>}
+                          {progress.all_results?.[0]?.metrics?.f1 != null && <td>{r.metrics?.f1 != null ? `${(r.metrics.f1 * 100).toFixed(1)}%` : '—'}</td>}
+                          {progress.all_results?.[0]?.metrics?.rmse != null && <td>{r.metrics?.rmse ?? '—'}</td>}
                           <td>{r.time}s</td>
                         </tr>
                       ))}

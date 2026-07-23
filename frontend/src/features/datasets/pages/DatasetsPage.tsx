@@ -241,7 +241,7 @@ export default function DatasetsPage() {
                             <span className={styles.statLabel}>Rows</span>
                           </div>
                           <div className={styles.statItem}>
-                            <span className={styles.statValue}>{formatNumber(Array.isArray(dataset.columns) ? dataset.columns.length : dataset.columns)}</span>
+                            <span className={styles.statValue}>{formatNumber(dataset.columns?.length || 0)}</span>
                             <span className={styles.statLabel}>Columns</span>
                           </div>
                           <div className={styles.statItem}>

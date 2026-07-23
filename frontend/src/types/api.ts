@@ -43,7 +43,7 @@ export interface Dataset {
   name: string;
   filename: string;
   rows: number;
-  columns: number;
+  columns: string[];
   size_kb: number;
   status: 'uploaded' | 'processing' | 'ready' | 'error';
   description?: string;
