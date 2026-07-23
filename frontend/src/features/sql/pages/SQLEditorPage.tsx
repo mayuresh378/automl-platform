@@ -112,14 +112,15 @@ export default function SQLEditorPage() {
     updateTabResult(activeTabId, null);
     updateTabError(activeTabId, null);
     try {
+      const resolvedQuery = resolveTable(activeTab.query.trim());
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 60000);
-      const data = await sqlService.executeQuery(activeTab.query.trim(), selectedDataset, controller.signal);
+      const data = await sqlService.executeQuery(resolvedQuery, selectedDataset, controller.signal);
       clearTimeout(timeout);
       updateTabResult(activeTabId, data);
       setBottomPanelOpen(true);
       setBottomPanelTab('results');
-      sqlService.addToHistory({ query: activeTab.query.trim(), dataset: selectedDataset, executionTime: data.executionTime, rowsReturned: data.rows, favorite: false, pinned: false });
+      sqlService.addToHistory({ query: resolvedQuery, dataset: selectedDataset, executionTime: data.executionTime, rowsReturned: data.rows, favorite: false, pinned: false });
       notifySuccess('Query completed', `${data.rows} row(s) returned in ${data.executionTime}ms`);
     } catch (err: any) {
       const msg = err.name === 'AbortError' ? 'Query timed out after 60s' : err.message || String(err);
@@ -128,7 +129,7 @@ export default function SQLEditorPage() {
     } finally {
       updateTabRunning(activeTabId, false);
     }
-  }, [activeTab, activeTabId, selectedDataset, updateTabRunning, updateTabResult, updateTabError, notifySuccess, notifyError]);
+  }, [activeTab, activeTabId, selectedDataset, resolveTable, updateTabRunning, updateTabResult, updateTabError, notifySuccess, notifyError]);
 
   const handleFormat = useCallback(() => {
     if (editorRef.current && monacoRef.current) {
