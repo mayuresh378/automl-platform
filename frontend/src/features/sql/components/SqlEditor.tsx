@@ -1,4 +1,4 @@
-import { memo, useRef, useCallback } from 'react';
+import { memo, useRef, useCallback, useState } from 'react';
 import Editor, { OnMount, OnChange, loader } from '@monaco-editor/react';
 
 loader.config({
@@ -16,11 +16,37 @@ interface SqlEditorProps {
   className?: string;
 }
 
+function FallbackEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        width: '100%',
+        height: '100%',
+        background: '#1e1e1e',
+        color: '#d4d4d4',
+        border: 'none',
+        outline: 'none',
+        resize: 'none',
+        fontFamily: "'JetBrains Mono', 'SFMono-Regular', Menlo, monospace",
+        fontSize: 14,
+        padding: 12,
+        lineHeight: 1.6,
+        tabSize: 2,
+      }}
+      placeholder="Type SQL here... (Monaco editor loading)"
+      spellCheck={false}
+    />
+  );
+}
+
 export const SqlEditor = memo(function SqlEditor({
   value, onChange, onMount, fontSize = 14, minimap = true, className,
 }: SqlEditorProps) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const handleMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
@@ -38,9 +64,6 @@ export const SqlEditor = memo(function SqlEditor({
         const suggestions = [
           ...['SELECT', 'FROM', 'WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'UNION', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'DISTINCT', 'AS', 'ON', 'AND', 'OR', 'IN', 'NOT', 'NULL', 'IS', 'BETWEEN', 'LIKE', 'COUNT', 'AVG', 'SUM', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'INNER', 'OUTER', 'CROSS', 'INDEX', 'TABLE', 'VIEW', 'WITH', 'RECURSIVE', 'CAST', 'COALESCE', 'NULLIF', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE', 'OVER', 'PARTITION BY', 'WINDOW'].map((kw) => ({
             label: kw, kind: monaco.languages.CompletionItemKind.Keyword, insertText: kw, range,
-          })),
-          ...['data', 'customers', 'orders', 'payments', 'products', 'users', 'transactions'].map((t) => ({
-            label: t, kind: monaco.languages.CompletionItemKind.Module, insertText: t, range,
           })),
         ];
         return { suggestions };
@@ -63,8 +86,16 @@ export const SqlEditor = memo(function SqlEditor({
     if (val !== undefined) onChange(val);
   }, [onChange]);
 
+  if (loadError) {
+    return (
+      <div className={className} style={{ height: '100%' }}>
+        <FallbackEditor value={value} onChange={onChange} />
+      </div>
+    );
+  }
+
   return (
-    <div className={className}>
+    <div className={className} style={{ height: '100%' }}>
       <Editor
         height="100%"
         defaultLanguage="sql"
@@ -72,6 +103,17 @@ export const SqlEditor = memo(function SqlEditor({
         value={value}
         onChange={handleChange}
         onMount={handleMount}
+        beforeMount={() => {}}
+        onValidate={() => {}}
+        loading={
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            height: '100%', background: '#1e1e1e', color: '#888', fontSize: 13,
+          }}>
+            Loading editor...
+          </div>
+        }
+        onError={() => setLoadError(true)}
         options={{
           fontSize,
           fontFamily: "'JetBrains Mono', 'SFMono-Regular', Menlo, monospace",

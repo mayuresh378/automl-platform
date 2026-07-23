@@ -362,7 +362,7 @@ export default function SQLEditorPage() {
             </div>
           )}
 
-          {bottomPanelOpen && activeTab?.result && (
+          {bottomPanelOpen && (
             <>
               <div className={styles.resizerHorizontal} onMouseDown={(e) => handleResizeStart(e, 'bottom')} />
               <div className={styles.bottomPanel} style={{ height: bottomPanelHeight }}>
@@ -401,11 +401,17 @@ export default function SQLEditorPage() {
 
                 <div className={styles.bottomTabContent}>
                   {bottomPanelTab === 'results' && result && <ResultsGrid result={result} />}
+                  {bottomPanelTab === 'results' && !result && (
+                    <div className={styles.emptyState}>Run a query to see results</div>
+                  )}
                   {bottomPanelTab === 'profiling' && (
                     <DataProfile query={activeTab?.query || ''} dataset={selectedDataset} />
                   )}
                   {bottomPanelTab === 'charts' && result && (
                     <ChartView result={result} chartConfig={chartConfig} setChartConfig={setChartConfig} />
+                  )}
+                  {bottomPanelTab === 'charts' && !result && (
+                    <div className={styles.emptyState}>Run a query to visualize data</div>
                   )}
                   {bottomPanelTab === 'aiRecs' && (
                     <AiRecommendations profile={profile} onInsertQuery={(q) => handleInsertQuery(resolveTable(q))} />
@@ -413,19 +419,8 @@ export default function SQLEditorPage() {
                   {bottomPanelTab === 'explain' && (
                     <QueryPlanView query={activeTab?.query || ''} dataset={selectedDataset} />
                   )}
-                  {bottomPanelTab === 'history' && result && (
-                    <div className={styles.historyInfo}>
-                      <div className={styles.historyInfoList}>
-                        <div className={styles.historyInfoItem}>
-                          <Timer className={styles.historyInfoIcon} />
-                          <span>Executed in {result.executionTime}ms</span>
-                        </div>
-                        <div className={styles.historyInfoItem}>
-                          <Database className={styles.historyInfoIcon} />
-                          <span>{result.rows} rows returned</span>
-                        </div>
-                      </div>
-                    </div>
+                  {bottomPanelTab === 'history' && (
+                    <QueryHistory onRestoreQuery={handleRestoreQuery} onClose={() => setBottomPanelOpen(false)} />
                   )}
                 </div>
               </div>

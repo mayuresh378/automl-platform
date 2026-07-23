@@ -498,3 +498,13 @@
   flex: 1;
   padding: 12px;
 }
+
+/* ── Empty State ── */
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: var(--text-tiny);
+  color: var(--color-text-tertiary);
+}
