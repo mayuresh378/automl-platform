@@ -24,9 +24,15 @@ export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableCl
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
-  const inferredSchema = datasets.map((d) => ({
-    name: d.name.replace(/\.\w+$/, ''),
-    tables: [{ name: d.name.replace(/\.\w+$/, ''), columns: [] as ColumnSchema[] }],
+  const inferredSchema = datasets.map((d: any) => ({
+    name: (d.name || '').replace(/\.\w+$/, ''),
+    tables: [{
+      name: (d.name || d.filename || '').replace(/\.\w+$/, ''),
+      columns: (d.columns || []).map((c: string) => ({
+        name: c,
+        type: d.dtypes?.[c] || 'unknown',
+      })),
+    }],
   }));
 
   const filtered = inferredSchema.filter((s) =>
@@ -121,12 +127,7 @@ export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableCl
                                 <Columns3 className={styles.columnIcon} />
                                 * (all columns)
                               </button>
-                              {[
-                                { name: 'id', type: 'INTEGER' },
-                                { name: 'name', type: 'VARCHAR' },
-                                { name: 'value', type: 'DOUBLE' },
-                                { name: 'created_at', type: 'TIMESTAMP' },
-                              ].map((col) => (
+                              {(table.columns.length > 0 ? table.columns : []).map((col) => (
                                 <button
                                   key={col.name}
                                   onClick={() => onColumnClick(col.name)}

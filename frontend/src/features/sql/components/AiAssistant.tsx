@@ -6,9 +6,11 @@ import styles from './AiAssistant.module.css';
 interface AiAssistantProps {
   onInsertQuery: (query: string) => void;
   currentQuery?: string;
+  columns?: string[];
+  dtypes?: Record<string, string>;
 }
 
-export const AiAssistant = memo(function AiAssistant({ onInsertQuery, currentQuery }: AiAssistantProps) {
+export const AiAssistant = memo(function AiAssistant({ onInsertQuery, currentQuery, columns = [], dtypes = {} }: AiAssistantProps) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; sql?: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -20,26 +22,39 @@ export const AiAssistant = memo(function AiAssistant({ onInsertQuery, currentQue
     setLoading(true);
     setInput('');
 
+    const firstCol = columns[0] || 'col';
+    const numericCols = columns.filter((c) => {
+      const t = (dtypes[c] || '').toLowerCase();
+      return t.includes('int') || t.includes('float') || t.includes('double');
+    });
+    const numCol = numericCols[0] || firstCol;
+    const strCols = columns.filter((c) => {
+      const t = (dtypes[c] || '').toLowerCase();
+      return t.includes('varchar') || t.includes('str') || t.includes('text');
+    });
+    const strCol = strCols[0] || firstCol;
+
     setTimeout(() => {
       const nl = input.toLowerCase();
       let sql = '';
       let explanation = '';
 
       if (nl.includes('average') || nl.includes('avg')) {
-        sql = 'SELECT column_name,\n  AVG(value) as average\nFROM data\nGROUP BY column_name\nORDER BY average DESC;';
-        explanation = 'This calculates the average value for each group using AVG(), a SQL aggregate function. GROUP BY splits data into groups, and ORDER BY DESC shows highest averages first.';
+        sql = `SELECT ${strCol},\n  AVG(${numCol}) as average\nFROM data\nGROUP BY ${strCol}\nORDER BY average DESC;`;
+        explanation = `This calculates the average ${numCol} for each ${strCol} group using AVG(). GROUP BY splits data into groups, and ORDER BY DESC shows highest averages first.`;
       } else if (nl.includes('count') || nl.includes('how many')) {
-        sql = 'SELECT column_name,\n  COUNT(*) as count\nFROM data\nGROUP BY column_name\nORDER BY count DESC;';
-        explanation = 'COUNT(*) counts rows in each group. GROUP BY column_name creates groups. ORDER BY count DESC shows largest groups first.';
+        sql = `SELECT ${strCol},\n  COUNT(*) as count\nFROM data\nGROUP BY ${strCol}\nORDER BY count DESC;`;
+        explanation = `COUNT(*) counts rows in each ${strCol} group. GROUP BY creates groups. ORDER BY count DESC shows largest groups first.`;
       } else if (nl.includes('top') || nl.includes('highest') || nl.includes('maximum')) {
-        sql = 'SELECT *\nFROM data\nORDER BY column_name DESC\nLIMIT 10;';
-        explanation = 'ORDER BY column_name DESC sorts descending (largest first). LIMIT 10 returns only the first 10 rows — the top 10 records.';
+        sql = `SELECT *\nFROM data\nORDER BY ${numCol} DESC\nLIMIT 10;`;
+        explanation = `ORDER BY ${numCol} DESC sorts descending (largest first). LIMIT 10 returns only the top 10 records.`;
       } else if (nl.includes('sum') || nl.includes('total')) {
-        sql = 'SELECT column_name,\n  SUM(value) as total\nFROM data\nGROUP BY column_name\nORDER BY total DESC;';
-        explanation = 'SUM() adds up all values in each group. GROUP BY aggregates by unique column values. ORDER BY total DESC shows the highest total first.';
+        sql = `SELECT ${strCol},\n  SUM(${numCol}) as total\nFROM data\nGROUP BY ${strCol}\nORDER BY total DESC;`;
+        explanation = `SUM() adds up ${numCol} in each ${strCol} group. GROUP BY aggregates by unique values. ORDER BY total DESC shows highest total first.`;
       } else {
-        sql = `SELECT *\nFROM data\nWHERE column_name LIKE '%${nl.split(' ').slice(0, 3).join('%')}%'\nLIMIT 100;`;
-        explanation = 'This query searches for records matching your description using LIKE with wildcards (%). It returns up to 100 matching rows.';
+        const searchTerms = nl.split(' ').filter((w) => w.length > 2).slice(0, 3);
+        sql = `SELECT *\nFROM data\nWHERE ${strCol} LIKE '%${searchTerms.join('%')}%'\nLIMIT 100;`;
+        explanation = `This query searches for records in ${strCol} matching your description using LIKE with wildcards (%). It returns up to 100 matching rows.`;
       }
 
       setMessages((prev) => [...prev, { role: 'assistant', content: explanation, sql }]);

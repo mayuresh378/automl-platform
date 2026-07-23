@@ -86,19 +86,25 @@ export default function SQLEditorPage() {
   const resolveColumns = useCallback(() => {
     const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset);
     const cols: string[] = ds?.columns || (datasets?.[0] as any)?.columns || [];
-    const firstCol = cols.find((c) => c.toLowerCase() !== 'id') || cols[0] || 'column_name';
-    return firstCol;
+    return cols.filter((c) => c.toLowerCase() !== 'id');
   }, [datasets, selectedDataset]);
 
   const resolveTable = useCallback((query: string) => {
-    const col = resolveColumns();
+    const cols = resolveColumns();
+    const firstCol = cols[0] || 'col';
+    const numericCol = cols.find((c) => {
+      const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset);
+      const dtypes = ds?.dtypes || (datasets?.[0] as any)?.dtypes || {};
+      const t = (dtypes[c] || '').toLowerCase();
+      return t.includes('int') || t.includes('float') || t.includes('double');
+    }) || cols[cols.length - 1] || firstCol;
     return query
       .replace(/\btable_a\b/g, defaultTableName)
       .replace(/\btable_b\b/g, datasets?.[1]?.name?.replace(/\.\w+$/, '') || 'table_b')
       .replace(/\bdata\b/g, defaultTableName)
-      .replace(/\bcolumn_name\b/g, col)
-      .replace(/\bvalue\b/g, col);
-  }, [defaultTableName, datasets, resolveColumns]);
+      .replace(/\bcolumn_name\b/g, firstCol)
+      .replace(/\bvalue\b/g, numericCol);
+  }, [defaultTableName, datasets, selectedDataset, resolveColumns]);
 
   const handleRun = useCallback(async () => {
     if (!activeTab?.query?.trim()) return;
@@ -438,7 +444,18 @@ export default function SQLEditorPage() {
               className={styles.rightPanel}
             >
               <div style={{ width: rightPanelWidth }} className="h-full">
-                <AiAssistant onInsertQuery={(q) => handleInsertQuery(resolveTable(q))} currentQuery={activeTab?.query} />
+                <AiAssistant
+                  onInsertQuery={(q) => handleInsertQuery(resolveTable(q))}
+                  currentQuery={activeTab?.query}
+                  columns={(() => {
+                    const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset) || (datasets as any)?.[0];
+                    return ds?.columns || [];
+                  })()}
+                  dtypes={(() => {
+                    const ds = (datasets || []).find((d: any) => d.name === selectedDataset || d.filename === selectedDataset) || (datasets as any)?.[0];
+                    return ds?.dtypes || {};
+                  })()}
+                />
               </div>
             </motion.div>
           )}
