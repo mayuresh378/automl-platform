@@ -2,7 +2,7 @@ import os
 import time
 import re
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, MetaData, exc
+from sqlalchemy import create_engine, MetaData, exc, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 load_dotenv()
@@ -44,14 +44,44 @@ def get_db():
         db.close()
 
 
+def _migrate_datasets_table():
+    is_pg = "postgresql" in DATABASE_URL
+    try:
+        with engine.connect() as conn:
+            if is_pg:
+                result = conn.execute(text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='datasets'"
+                ))
+            else:
+                result = conn.execute(text("PRAGMA table_info(datasets)"))
+            if is_pg:
+                existing = {row[0] for row in result}
+            else:
+                existing = {row[1] for row in result}
+
+            migrations = [
+                ("tags", "JSON" if is_pg else "TEXT", "'[]'"),
+                ("version", "INTEGER" if is_pg else "INTEGER", "1"),
+                ("source", "VARCHAR" if is_pg else "TEXT", "'upload'"),
+                ("source_url", "VARCHAR" if is_pg else "TEXT", "NULL"),
+            ]
+            for col, col_type, default in migrations:
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE datasets ADD COLUMN {col} {col_type} DEFAULT {default}"))
+                    conn.commit()
+    except Exception:
+        pass
+
+
 def init_db():
     from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
                         Deployment, Pipeline, PipelineRun, Webhook, AuditLog,
-                        Project, MarketplaceItem, Dataset, Notification,
+                        Project, MarketplaceItem, Dataset, DatasetShare, Notification,
                         UserSession, PredictionLog, ActivityLog)
     for attempt in range(30):
         try:
             Base.metadata.create_all(bind=engine)
+            _migrate_datasets_table()
             return
         except (exc.OperationalError, TimeoutError, ConnectionError, OSError):
             if attempt == 29:

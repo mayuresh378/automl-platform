@@ -478,11 +478,14 @@ def list_projects_by_user(db: Session, user_id: str) -> list:
 
 def create_dataset_record(db: Session, filename: str, size_kb: float = None,
                           rows: int = None, columns: list = None,
-                          project_id: str = None, user_id: str = None) -> Dataset:
+                          project_id: str = None, user_id: str = None,
+                          tags: list = None, source: str = "upload",
+                          source_url: str = None, version: int = 1) -> Dataset:
     record = Dataset(
         id=_uid(), filename=filename, file_size_kb=size_kb,
         rows=rows, columns=columns, project_id=project_id,
-        user_id=user_id, created_at=_now()
+        user_id=user_id, created_at=_now(),
+        tags=tags or [], source=source, source_url=source_url, version=version
     )
     db.add(record)
     db.commit()
@@ -511,6 +514,66 @@ def delete_dataset_record(db: Session, name: str, user_id: str = "system") -> bo
         db.delete(record)
         db.commit()
         log_audit(db, user_id, "dataset.deleted", name, "dataset", record.id)
+        return True
+    return False
+
+
+def update_dataset_tags(db: Session, name: str, tags: list) -> Optional[Dataset]:
+    record = get_dataset_record(db, name)
+    if record:
+        record.tags = tags
+        record.updated_at = _now()
+        db.commit()
+        db.refresh(record)
+    return record
+
+
+def update_dataset_description(db: Session, name: str, description: str) -> Optional[Dataset]:
+    record = get_dataset_record(db, name)
+    if record:
+        record.description = description
+        record.updated_at = _now()
+        db.commit()
+        db.refresh(record)
+    return record
+
+
+def bump_dataset_version(db: Session, name: str) -> int:
+    record = get_dataset_record(db, name)
+    if record:
+        record.version = (record.version or 0) + 1
+        record.updated_at = _now()
+        db.commit()
+        db.refresh(record)
+        return record.version
+    return 1
+
+
+def share_dataset(db: Session, dataset_id: str, shared_with_user_id: str = None,
+                  shared_with_email: str = None, permission: str = "view") -> dict:
+    from models import DatasetShare
+    share = DatasetShare(
+        id=_uid(), dataset_id=dataset_id,
+        shared_with_user_id=shared_with_user_id,
+        shared_with_email=shared_with_email,
+        permission=permission, created_at=_now()
+    )
+    db.add(share)
+    db.commit()
+    return {"id": share.id, "permission": permission}
+
+
+def list_dataset_shares(db: Session, dataset_id: str) -> list:
+    from models import DatasetShare
+    return db.query(DatasetShare).filter(DatasetShare.dataset_id == dataset_id).all()
+
+
+def remove_dataset_share(db: Session, share_id: str) -> bool:
+    from models import DatasetShare
+    share = db.query(DatasetShare).filter(DatasetShare.id == share_id).first()
+    if share:
+        db.delete(share)
+        db.commit()
         return True
     return False
 

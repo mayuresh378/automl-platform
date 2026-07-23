@@ -248,6 +248,10 @@ class Dataset(Base):
     columns = Column(JSON, nullable=True)
     status = Column(String, default="uploaded")
     description = Column(Text, nullable=True)
+    tags = Column(JSON, default=list)
+    version = Column(Integer, default=1)
+    source = Column(String, default="upload")
+    source_url = Column(String, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
@@ -256,6 +260,19 @@ class Dataset(Base):
     project = relationship("Project", back_populates="datasets")
     user_id = Column(String, ForeignKey("users.id"), nullable=True)
     user = relationship("User", back_populates="datasets")
+
+
+class DatasetShare(Base):
+    __tablename__ = "dataset_shares"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    dataset_id = Column(String, ForeignKey("datasets.id"), nullable=False)
+    shared_with_user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    shared_with_email = Column(String, nullable=True)
+    permission = Column(String, default="view")
+    created_at = Column(DateTime, default=_now)
+
+    dataset = relationship("Dataset")
 
 
 class PredictionLog(Base):

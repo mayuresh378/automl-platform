@@ -38,6 +38,8 @@ from crud import (
     list_audit_logs, log_audit,
     list_projects, create_project, get_project, update_project, list_projects_by_user,
     create_dataset_record, list_dataset_records, get_dataset_record, delete_dataset_record,
+    update_dataset_tags, update_dataset_description, bump_dataset_version,
+    share_dataset, list_dataset_shares, remove_dataset_share,
     global_search,
     create_prediction_log, list_prediction_logs,
     create_notification, list_notifications, mark_notification_read,
@@ -400,6 +402,12 @@ def list_datasets(db: Session = Depends(get_db), offset: int = Query(0, ge=0), l
                 "uploaded_at": record.created_at.isoformat() if record else datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
                 "project_id": record.project_id if record else None,
                 "status": record.status if record else "ready",
+                "id": record.id if record else None,
+                "description": record.description if record else None,
+                "tags": record.tags if record and record.tags else [],
+                "version": record.version if record else 1,
+                "source": record.source if record else "upload",
+                "source_url": record.source_url if record else None,
             })
         except Exception:
             files.append({"name": f, "size_kb": size_kb, "rows": 0, "columns": [], "uploaded_at": "", "status": "error"})
@@ -469,6 +477,12 @@ def get_dataset_api(name: str, db: Session = Depends(get_db)):
             "uploaded_at": record.created_at.isoformat() if record else datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
             "project_id": record.project_id if record else None,
             "status": record.status if record else "ready",
+            "id": record.id if record else None,
+            "description": record.description if record else None,
+            "tags": record.tags if record and record.tags else [],
+            "version": record.version if record else 1,
+            "source": record.source if record else "upload",
+            "source_url": record.source_url if record else None,
         }
     except Exception:
         return {"name": name, "size_kb": size_kb, "rows": 0, "columns": [], "status": "error"}
@@ -558,6 +572,117 @@ def generate(name: str, operations: str = Form(...), db: Session = Depends(get_d
 @app.get("/api/v1/datasets/{name}/features/suggest", tags=["Datasets"], summary="Suggest features", description="Suggest potential feature engineering operations for a dataset.")
 def suggest(name: str):
     return suggest_features(name)
+
+
+@app.put("/api/v1/datasets/{name}/tags", tags=["Datasets"], summary="Update dataset tags")
+def update_tags_api(name: str, tags: list = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    record = get_dataset_record(db, name)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    update_dataset_tags(db, name, tags)
+    return {"message": "Tags updated", "tags": tags}
+
+
+@app.put("/api/v1/datasets/{name}/description", tags=["Datasets"], summary="Update dataset description")
+def update_desc_api(name: str, description: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    record = get_dataset_record(db, name)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    update_dataset_description(db, name, description)
+    return {"message": "Description updated"}
+
+
+@app.post("/api/v1/datasets/import-url", tags=["Datasets"], summary="Import dataset from URL")
+async def import_from_url(url: str = Form(...), name: str = Form(None), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    import tempfile
+    import urllib.request
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if not parsed.scheme in ("http", "https"):
+            raise HTTPException(status_code=400, detail="Only HTTP/HTTPS URLs are supported")
+        filename = name or os.path.basename(parsed.path) or f"url_import_{int(time.time())}.csv"
+        if "." not in filename:
+            filename += ".csv"
+        filename = sanitize_filename(filename)
+        file_path = os.path.join(DATASET_DIR, filename)
+        urllib.request.urlretrieve(url, file_path)
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            os.remove(file_path)
+            raise HTTPException(status_code=400, detail=f"Unsupported file type {ext}")
+        df = _get_dataset_df(filename)
+        size_kb = round(os.path.getsize(file_path) / 1024, 1)
+        record = create_dataset_record(db, filename, size_kb=size_kb, rows=len(df),
+                                       columns=list(df.columns), source="upload",
+                                       source_url=url, user_id=current_user.get("id"))
+        return {"message": f"Imported from URL", "filename": filename, "rows": len(df), "id": record.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to import: {str(e)}")
+
+
+@app.post("/api/v1/datasets/import-database", tags=["Datasets"], summary="Import from database connection")
+async def import_from_database(
+    connection_string: str = Form(...),
+    query: str = Form(...),
+    name: str = Form(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_optional_user),
+):
+    try:
+        import duckdb
+        conn = duckdb.connect(":memory:")
+        try:
+            conn.execute(f"ATTACH '{connection_string}' AS src (READ_ONLY)")
+            df = conn.execute(f"SELECT * FROM src.main({query})").fetchdf()
+        except Exception:
+            try:
+                df = pd.read_sql(query, con=connection_string)
+            except Exception as e2:
+                raise HTTPException(status_code=400, detail=f"Failed to query database: {str(e2)}")
+        finally:
+            conn.close()
+        filename = name or f"db_import_{int(time.time())}.csv"
+        if "." not in filename:
+            filename += ".csv"
+        filename = sanitize_filename(filename)
+        file_path = os.path.join(DATASET_DIR, filename)
+        df.to_csv(file_path, index=False)
+        size_kb = round(os.path.getsize(file_path) / 1024, 1)
+        record = create_dataset_record(db, filename, size_kb=size_kb, rows=len(df),
+                                       columns=list(df.columns), source="database",
+                                       user_id=current_user.get("id"))
+        return {"message": f"Imported from database", "filename": filename, "rows": len(df), "id": record.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Database import failed: {str(e)}")
+
+
+@app.post("/api/v1/datasets/{name}/share", tags=["Datasets"], summary="Share dataset")
+def share_dataset_api(name: str, email: str = Form(...), permission: str = Form("view"),
+                      db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    record = get_dataset_record(db, name)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    result = share_dataset(db, record.id, shared_with_email=email, permission=permission)
+    return {"message": f"Shared with {email}", "share": result}
+
+
+@app.get("/api/v1/datasets/{name}/shares", tags=["Datasets"], summary="List dataset shares")
+def list_shares_api(name: str, db: Session = Depends(get_db)):
+    record = get_dataset_record(db, name)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    shares = list_dataset_shares(db, record.id)
+    return [{"id": s.id, "email": s.shared_with_email, "permission": s.permission, "created_at": s.created_at.isoformat()} for s in shares]
+
+
+@app.delete("/api/v1/datasets/{name}/shares/{share_id}", tags=["Datasets"], summary="Remove dataset share")
+def remove_share_api(name: str, share_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    remove_dataset_share(db, share_id)
+    return {"message": "Share removed"}
 
 
 # ── Experiments ──────────────────────────────────────────────────────

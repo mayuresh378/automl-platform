@@ -44,8 +44,14 @@ export interface Dataset {
   filename: string;
   rows: number;
   columns: number;
-  size_bytes: number;
+  size_kb: number;
   status: 'uploaded' | 'processing' | 'ready' | 'error';
+  description?: string;
+  tags?: string[];
+  version?: number;
+  source?: 'upload' | 'url' | 'database';
+  source_url?: string;
+  shared_with?: string[];
   created_at: string;
   updated_at: string;
 }
