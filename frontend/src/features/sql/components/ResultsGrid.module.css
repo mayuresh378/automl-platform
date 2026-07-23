@@ -280,3 +280,49 @@
   padding: 0 4px;
   outline: none;
 }
+
+/* ── Column Filters ── */
+.colFilterInput {
+  width: 100%;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.colFilterInput::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.colFilterInput:focus {
+  border-color: var(--color-secondary);
+}
+
+.gridBtnActive {
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--color-secondary);
+}
+
+.clearFiltersBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+
+.clearFiltersBtn:hover {
+  color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.1);
+}

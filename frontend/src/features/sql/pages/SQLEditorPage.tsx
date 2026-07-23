@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Database, X, Plus, AlertCircle, Loader2, FileText, History,
@@ -34,6 +35,7 @@ const CHART_COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#22c55e', '#f59e0b', '#e
 export default function SQLEditorPage() {
   const { notifyError, notifySuccess } = useNotification();
   const { isDark } = useTheme();
+  const navigate = useNavigate();
   const [selectedDataset, setSelectedDataset] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
@@ -260,13 +262,14 @@ export default function SQLEditorPage() {
     setSavingDataset(true);
     try {
       const result = await sqlService.resultToDataset(activeTab.query.trim(), selectedDataset);
-      notifySuccess('Dataset Created', `"${result.dataset}" saved with ${result.rows} rows for training`);
+      notifySuccess('Dataset Created', `"${result.dataset}" saved with ${result.rows} rows`);
+      setTimeout(() => navigate(`/app/training?dataset=${encodeURIComponent(result.dataset)}`), 800);
     } catch (err: any) {
       notifyError('Save Failed', err.message || String(err));
     } finally {
       setSavingDataset(false);
     }
-  }, [activeTab, selectedDataset, notifySuccess, notifyError]);
+  }, [activeTab, selectedDataset, notifySuccess, notifyError, navigate]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent, panel: string) => {
     e.preventDefault();
@@ -454,7 +457,7 @@ export default function SQLEditorPage() {
                     onClick={handleSaveAsDataset}
                     disabled={savingDataset || !activeTab?.query?.trim()}
                     className={styles.trainBtn}
-                    title="Save query result as dataset for training"
+                    title="Save query result as dataset and go to Training"
                   >
                     {savingDataset ? (
                       <Loader2 className={styles.trainBtnIcon} />

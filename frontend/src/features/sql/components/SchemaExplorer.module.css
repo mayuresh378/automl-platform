@@ -195,6 +195,10 @@
   flex-shrink: 0;
 }
 
+.pkIcon {
+  color: #f59e0b;
+}
+
 .columnName {
   flex: 1;
 }

@@ -1,6 +1,6 @@
 import { useState, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Database, Table2, Columns3, ChevronRight, ChevronDown, Eye, Loader2, X } from 'lucide-react';
+import { Search, Database, Table2, Columns3, ChevronRight, ChevronDown, Eye, Loader2, X, Key, Link } from 'lucide-react';
 import styles from './SchemaExplorer.module.css';
 import { sqlService } from '../services/sqlEditor.service';
 import { TablePreviewResult } from '../types';
@@ -14,6 +14,11 @@ interface SchemaExplorerProps {
   onColumnClick: (columnName: string) => void;
   editorRef?: any;
   className?: string;
+}
+
+function isLikelyPK(colName: string): boolean {
+  const lower = colName.toLowerCase();
+  return lower === 'id' || lower.endsWith('_id') && lower.split('_id').length === 2 && lower.split('_id')[0].length <= 3;
 }
 
 export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableClick, onColumnClick }: SchemaExplorerProps) {
@@ -133,7 +138,11 @@ export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableCl
                                   onClick={() => onColumnClick(col.name)}
                                   className={styles.columnNode}
                                 >
-                                  <Columns3 className={styles.columnIcon} />
+                                  {isLikelyPK(col.name) ? (
+                                    <Key className={`${styles.columnIcon} ${styles.pkIcon}`} />
+                                  ) : (
+                                    <Columns3 className={styles.columnIcon} />
+                                  )}
                                   <span className={styles.columnName}>{col.name}</span>
                                   <span className={styles.columnType}>{col.type}</span>
                                 </button>

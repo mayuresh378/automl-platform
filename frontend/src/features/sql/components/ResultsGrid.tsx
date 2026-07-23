@@ -5,7 +5,7 @@ import {
 } from '@tanstack/react-table';
 import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, ArrowUp, ArrowDown,
-  Download, Copy, Check, Search, Table2, Clock,
+  Download, Copy, Check, Search, Table2, Clock, Filter, X,
 } from 'lucide-react';
 import { sqlService } from '../services/sqlEditor.service';
 import { QueryResult } from '../types';
@@ -21,6 +21,7 @@ export const ResultsGrid = memo(function ResultsGrid({ result }: ResultsGridProp
   const [globalFilter, setGlobalFilter] = useState('');
   const [copiedCell, setCopiedCell] = useState<string | null>(null);
   const [rowSize, setRowSize] = useState<'compact' | 'comfortable'>('compact');
+  const [showColFilters, setShowColFilters] = useState(false);
 
   const columns = useMemo(() => {
     return result.columns.map((col) => ({
@@ -79,6 +80,12 @@ export const ResultsGrid = memo(function ResultsGrid({ result }: ResultsGridProp
     sqlService.exportJSON(result.data, `query_export_${Date.now()}`);
   }, [result.data]);
 
+  const handleExportExcel = useCallback(() => {
+    sqlService.exportExcel(result.data, `query_export_${Date.now()}`);
+  }, [result.data]);
+
+  const activeColFilters = columnFilters.length;
+
   return (
     <div className={styles.grid}>
       <div className={styles.header}>
@@ -96,6 +103,15 @@ export const ResultsGrid = memo(function ResultsGrid({ result }: ResultsGridProp
         </div>
 
         <div className={styles.headerRight}>
+          <button
+            onClick={() => setShowColFilters(!showColFilters)}
+            className={`${styles.gridBtn} ${showColFilters || activeColFilters ? styles.gridBtnActive : ''}`}
+            title="Column filters"
+          >
+            <Filter className={styles.gridBtnIcon} />
+            {activeColFilters > 0 && <span>{activeColFilters}</span>}
+          </button>
+
           <div className={styles.filterWrapper}>
             <Search className={styles.filterIcon} />
             <input
@@ -118,6 +134,9 @@ export const ResultsGrid = memo(function ResultsGrid({ result }: ResultsGridProp
             </button>
             <button onClick={handleExportJSON} className={styles.gridBtn} title="Export JSON">
               <Download className={styles.gridBtnIcon} /> JSON
+            </button>
+            <button onClick={handleExportExcel} className={styles.gridBtn} title="Export Excel">
+              <Download className={styles.gridBtnIcon} /> XLS
             </button>
           </div>
         </div>
@@ -148,6 +167,29 @@ export const ResultsGrid = memo(function ResultsGrid({ result }: ResultsGridProp
                 ))}
               </tr>
             ))}
+            {showColFilters && (
+              <tr>
+                <th className={`${styles.th} ${styles.thRowNum}`}>
+                  <button
+                    onClick={() => setColumnFilters([])}
+                    className={styles.clearFiltersBtn}
+                    title="Clear all column filters"
+                  >
+                    <X className={styles.gridBtnIcon} />
+                  </button>
+                </th>
+                {table.getAllLeafColumns().map((col) => (
+                  <th key={col.id} className={styles.th}>
+                    <input
+                      value={(col.getFilterValue() as string) ?? ''}
+                      onChange={(e) => col.setFilterValue(e.target.value || undefined)}
+                      placeholder={`Filter ${col.id}...`}
+                      className={styles.colFilterInput}
+                    />
+                  </th>
+                ))}
+              </tr>
+            )}
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row, idx) => (
