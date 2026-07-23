@@ -1,7 +1,9 @@
-import { useState, memo } from 'react';
+import { useState, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Database, Table2, Columns3, ChevronRight, ChevronDown } from 'lucide-react';
+import { Search, Database, Table2, Columns3, ChevronRight, ChevronDown, Eye, Loader2, X } from 'lucide-react';
 import styles from './SchemaExplorer.module.css';
+import { sqlService } from '../services/sqlEditor.service';
+import { TablePreviewResult } from '../types';
 
 interface ColumnSchema { name: string; type: string; }
 interface TableSchema { name: string; columns: ColumnSchema[]; }
@@ -18,6 +20,9 @@ export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableCl
   const [search, setSearch] = useState('');
   const [expandedDatasets, setExpandedDatasets] = useState<Set<string>>(new Set());
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+  const [previewData, setPreviewData] = useState<TablePreviewResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const inferredSchema = datasets.map((d) => ({
     name: d.name.replace(/\.\w+$/, ''),
@@ -40,6 +45,19 @@ export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableCl
     next.has(name) ? next.delete(name) : next.add(name);
     return next;
   });
+
+  const handlePreview = useCallback(async (tableName: string) => {
+    setPreviewLoading(tableName);
+    setShowPreview(true);
+    try {
+      const data = await sqlService.previewTable(tableName, 20);
+      setPreviewData(data);
+    } catch {
+      setPreviewData(null);
+    } finally {
+      setPreviewLoading(null);
+    }
+  }, []);
 
   return (
     <div className={styles.explorer}>
@@ -85,6 +103,13 @@ export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableCl
                           {expandedTables.has(table.name) ? <ChevronDown className={styles.tableChevron} /> : <ChevronRight className={styles.tableChevron} />}
                           <Table2 className={styles.tableIcon} />
                           <span className={styles.tableName}>{table.name}</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handlePreview(table.name); }}
+                            className={styles.previewBtn}
+                            title="Preview first 20 rows"
+                          >
+                            <Eye className={styles.previewIcon} />
+                          </button>
                         </button>
                         <AnimatePresence>
                           {expandedTables.has(table.name) && (
@@ -124,6 +149,49 @@ export const SchemaExplorer = memo(function SchemaExplorer({ datasets, onTableCl
           ))
         )}
       </div>
+
+      {showPreview && (
+        <div className={styles.previewPanel}>
+          <div className={styles.previewHeader}>
+            <Eye className={styles.previewHeaderIcon} />
+            <span className={styles.previewTitle}>
+              {previewLoading ? 'Loading...' : `Preview: ${previewData?.dataset || ''}`}
+            </span>
+            <button onClick={() => { setShowPreview(false); setPreviewData(null); }} className={styles.previewClose}>
+              <X className={styles.previewCloseIcon} />
+            </button>
+          </div>
+          {previewLoading && (
+            <div className={styles.previewLoading}>
+              <Loader2 className={styles.previewSpinner} />
+            </div>
+          )}
+          {previewData && !previewLoading && (
+            <div className={styles.previewTableWrapper}>
+              <table className={styles.previewTable}>
+                <thead>
+                  <tr>
+                    {previewData.columns.map((col) => (
+                      <th key={col} className={styles.previewTh}>{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.data.map((row, i) => (
+                    <tr key={i} className={i % 2 === 0 ? '' : styles.previewRowOdd}>
+                      {previewData.columns.map((col) => (
+                        <td key={col} className={styles.previewTd}>
+                          {row[col] != null ? String(row[col]) : <span className={styles.previewNull}>NULL</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });

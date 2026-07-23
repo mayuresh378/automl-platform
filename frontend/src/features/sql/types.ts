@@ -113,6 +113,55 @@ export const QUERY_TEMPLATES: QueryTemplate[] = [
   { id: 'distinct', name: 'Distinct Values', description: 'SELECT DISTINCT', query: 'SELECT DISTINCT column_name\nFROM data\nORDER BY column_name;', category: 'Basic' },
 ];
 
+export interface ColumnProfile {
+  name: string;
+  dtype: string;
+  null_count: number;
+  null_pct: number;
+  unique_count: number;
+  unique_pct: number;
+  duplicate_count: number;
+  min_value: string | null;
+  max_value: string | null;
+  mean_value: number | null;
+  median_value: number | null;
+  std_value: number | null;
+  memory_bytes: number;
+  sample_values: string[];
+}
+
+export interface QueryProfile {
+  columns: ColumnProfile[];
+  summary: {
+    total_rows: number;
+    total_columns: number;
+    total_memory_bytes: number;
+    duplicate_rows: number;
+    missing_cells: number;
+    total_cells: number;
+  };
+  query: string;
+}
+
+export interface QueryPlan {
+  plan: string[];
+  query: string;
+}
+
+export interface ResultToDatasetResponse {
+  dataset: string;
+  rows: number;
+  columns: string[];
+  file_size: number;
+}
+
+export interface TablePreviewResult {
+  columns: string[];
+  rows: number;
+  data: Record<string, any>[];
+  dataset: string;
+}
+
 export const KEYBOARD_SHORTCUTS = [
   { key: 'Ctrl + Enter', action: 'Run Query' },
   { key: 'Ctrl + S', action: 'Save Query' },

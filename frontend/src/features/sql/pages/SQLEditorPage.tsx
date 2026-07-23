@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Database, X, Plus, AlertCircle, Loader2, FileText, History,
-  BarChart3, Table2, Timer,
+  BarChart3, Table2, Timer, Sparkles, Activity, Eye, Rocket, Download,
 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import styles from './SQLEditorPage.module.css';
@@ -17,7 +17,10 @@ import { SqlEditor } from '../components/SqlEditor';
 import { AiAssistant } from '../components/AiAssistant';
 import { ResultsGrid } from '../components/ResultsGrid';
 import { QueryHistory } from '../components/QueryHistory';
-import { QUERY_TEMPLATES, KEYBOARD_SHORTCUTS, QueryResult } from '../types';
+import { DataProfile } from '../components/DataProfile';
+import { QueryPlanView } from '../components/QueryPlanView';
+import { AiRecommendations } from '../components/AiRecommendations';
+import { QUERY_TEMPLATES, KEYBOARD_SHORTCUTS, QueryResult, QueryProfile } from '../types';
 import {
   BarChart, PieChart as RePie, LineChart as ReLine, AreaChart, ScatterChart,
   Bar, Pie, Line, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -34,6 +37,8 @@ export default function SQLEditorPage() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [chartConfig, setChartConfig] = useState<{ type: string; xKey: string; yKey: string } | null>(null);
   const [queryTemplates, setQueryTemplates] = useState(QUERY_TEMPLATES);
+  const [profile, setProfile] = useState<QueryProfile | null>(null);
+  const [savingDataset, setSavingDataset] = useState(false);
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const resizerRef = useRef<{ startX?: number; startY?: number; panel?: string }>({});
@@ -179,6 +184,19 @@ export default function SQLEditorPage() {
     else if (format === 'clipboard') sqlService.copyToClipboard(activeTab.query);
   }, [activeTab]);
 
+  const handleSaveAsDataset = useCallback(async () => {
+    if (!activeTab?.query?.trim()) return;
+    setSavingDataset(true);
+    try {
+      const result = await sqlService.resultToDataset(activeTab.query.trim(), selectedDataset);
+      notifySuccess('Dataset Created', `"${result.dataset}" saved with ${result.rows} rows for training`);
+    } catch (err: any) {
+      notifyError('Save Failed', err.message || String(err));
+    } finally {
+      setSavingDataset(false);
+    }
+  }, [activeTab, selectedDataset, notifySuccess, notifyError]);
+
   const handleResizeStart = useCallback((e: React.MouseEvent, panel: string) => {
     e.preventDefault();
     resizerRef.current = { startX: e.clientX, startY: e.clientY, panel };
@@ -207,7 +225,10 @@ export default function SQLEditorPage() {
 
   const bottomTabs = [
     { id: 'results', label: 'Results', icon: Table2 },
+    { id: 'profiling', label: 'Statistics', icon: BarChart3 },
     { id: 'charts', label: 'Charts', icon: BarChart3 },
+    { id: 'aiRecs', label: 'AI Recs', icon: Sparkles },
+    { id: 'explain', label: 'Explain', icon: Activity },
     { id: 'history', label: 'History', icon: History },
   ];
 
@@ -353,6 +374,19 @@ export default function SQLEditorPage() {
                     );
                   })}
                   <div className={styles.bottomTabSpacer} />
+                  <button
+                    onClick={handleSaveAsDataset}
+                    disabled={savingDataset || !activeTab?.query?.trim()}
+                    className={styles.trainBtn}
+                    title="Save query result as dataset for training"
+                  >
+                    {savingDataset ? (
+                      <Loader2 className={styles.trainBtnIcon} />
+                    ) : (
+                      <Rocket className={styles.trainBtnIcon} />
+                    )}
+                    {savingDataset ? 'Saving...' : 'Use for Training'}
+                  </button>
                   <button onClick={toggleBottomPanel} className={styles.bottomTabClose}>
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -360,8 +394,17 @@ export default function SQLEditorPage() {
 
                 <div className={styles.bottomTabContent}>
                   {bottomPanelTab === 'results' && result && <ResultsGrid result={result} />}
+                  {bottomPanelTab === 'profiling' && (
+                    <DataProfile query={activeTab?.query || ''} dataset={selectedDataset} />
+                  )}
                   {bottomPanelTab === 'charts' && result && (
                     <ChartView result={result} chartConfig={chartConfig} setChartConfig={setChartConfig} />
+                  )}
+                  {bottomPanelTab === 'aiRecs' && (
+                    <AiRecommendations profile={profile} onInsertQuery={(q) => handleInsertQuery(resolveTable(q))} />
+                  )}
+                  {bottomPanelTab === 'explain' && (
+                    <QueryPlanView query={activeTab?.query || ''} dataset={selectedDataset} />
                   )}
                   {bottomPanelTab === 'history' && result && (
                     <div className={styles.historyInfo}>

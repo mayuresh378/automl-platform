@@ -1,5 +1,5 @@
 import { http, downloadBlob } from '../../../services/http';
-import { QueryResult, QueryHistoryItem, SavedQuery } from '../types';
+import { QueryResult, QueryHistoryItem, SavedQuery, QueryProfile, QueryPlan, ResultToDatasetResponse, TablePreviewResult } from '../types';
 
 const STORAGE_KEYS = {
   history: 'sql-query-history',
@@ -119,5 +119,31 @@ export const sqlService = {
     });
     const data = await response.json();
     return data.choices?.[0]?.text?.trim() || 'SELECT * FROM data LIMIT 100;';
+  },
+
+  async profileQuery(query: string, dataset?: string): Promise<QueryProfile> {
+    const form = new FormData();
+    form.append('query', query);
+    if (dataset) form.append('dataset', dataset);
+    return http.post('/query/profile', form);
+  },
+
+  async explainQuery(query: string, dataset?: string): Promise<QueryPlan> {
+    const form = new FormData();
+    form.append('query', query);
+    if (dataset) form.append('dataset', dataset);
+    return http.post('/query/explain', form);
+  },
+
+  async resultToDataset(query: string, dataset?: string, outputName?: string): Promise<ResultToDatasetResponse> {
+    const form = new FormData();
+    form.append('query', query);
+    if (dataset) form.append('dataset', dataset);
+    if (outputName) form.append('output_name', outputName);
+    return http.post('/query/result-to-dataset', form);
+  },
+
+  async previewTable(name: string, limit = 20): Promise<TablePreviewResult> {
+    return http.get('/query/preview', { name, limit });
   },
 };

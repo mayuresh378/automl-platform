@@ -208,3 +208,151 @@
 .allColumns {
   font-style: italic;
 }
+
+/* ── Preview Button ── */
+.previewBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-placeholder);
+  transition: all var(--transition-fast);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.tableNode:hover .previewBtn {
+  opacity: 1;
+}
+
+.previewBtn:hover {
+  color: var(--color-secondary);
+  background: rgba(79, 70, 229, 0.15);
+}
+
+.previewIcon {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── Preview Panel ── */
+.previewPanel {
+  border-top: 1px solid var(--color-border);
+  max-height: 200px;
+  display: flex;
+  flex-direction: column;
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.previewHeaderIcon {
+  width: 12px;
+  height: 12px;
+  color: var(--color-secondary);
+}
+
+.previewTitle {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  flex: 1;
+}
+
+.previewClose {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.previewClose:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.previewCloseIcon {
+  width: 12px;
+  height: 12px;
+}
+
+.previewLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.previewSpinner {
+  width: 16px;
+  height: 16px;
+  color: var(--color-secondary);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.previewTableWrapper {
+  flex: 1;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.previewTable {
+  width: 100%;
+  font-size: 10px;
+  border-collapse: collapse;
+}
+
+.previewTh {
+  padding: 4px 8px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+
+.previewTd {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewRowOdd {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme='dark'] .previewRowOdd {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.previewNull {
+  color: var(--color-text-placeholder);
+  font-style: italic;
+}
