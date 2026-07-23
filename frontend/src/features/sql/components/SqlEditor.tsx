@@ -1,4 +1,4 @@
-import { memo, useRef, useCallback, useState } from 'react';
+import { memo, useRef, useCallback } from 'react';
 import Editor, { OnMount, OnChange, loader } from '@monaco-editor/react';
 
 loader.config({
@@ -46,7 +46,6 @@ export const SqlEditor = memo(function SqlEditor({
 }: SqlEditorProps) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
-  const [loadError, setLoadError] = useState(false);
 
   const handleMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
@@ -86,14 +85,6 @@ export const SqlEditor = memo(function SqlEditor({
     if (val !== undefined) onChange(val);
   }, [onChange]);
 
-  if (loadError) {
-    return (
-      <div className={className} style={{ height: '100%' }}>
-        <FallbackEditor value={value} onChange={onChange} />
-      </div>
-    );
-  }
-
   return (
     <div className={className} style={{ height: '100%' }}>
       <Editor
@@ -103,8 +94,6 @@ export const SqlEditor = memo(function SqlEditor({
         value={value}
         onChange={handleChange}
         onMount={handleMount}
-        beforeMount={() => {}}
-        onValidate={() => {}}
         loading={
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -113,7 +102,6 @@ export const SqlEditor = memo(function SqlEditor({
             Loading editor...
           </div>
         }
-        onError={() => setLoadError(true)}
         options={{
           fontSize,
           fontFamily: "'JetBrains Mono', 'SFMono-Regular', Menlo, monospace",
