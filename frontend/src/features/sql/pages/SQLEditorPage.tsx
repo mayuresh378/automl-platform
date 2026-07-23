@@ -43,7 +43,7 @@ export default function SQLEditorPage() {
     leftPanelWidth, rightPanelWidth, bottomPanelHeight,
     addTab, closeTab, setActiveTab, updateTabQuery, updateTabResult, updateTabError, updateTabRunning,
     renameTab, duplicateTab,
-    toggleLeftPanel, toggleRightPanel, toggleBottomPanel, setBottomPanelTab,
+    toggleLeftPanel, toggleRightPanel, toggleBottomPanel, setBottomPanelOpen, setBottomPanelTab,
     setLeftPanelWidth, setRightPanelWidth, setBottomPanelHeight,
   } = useSqlEditorStore(useShallow((s) => ({
     tabs: s.tabs, activeTabId: s.activeTabId, leftPanelOpen: s.leftPanelOpen,
@@ -55,7 +55,8 @@ export default function SQLEditorPage() {
     updateTabError: s.updateTabError, updateTabRunning: s.updateTabRunning,
     renameTab: s.renameTab, duplicateTab: s.duplicateTab,
     toggleLeftPanel: s.toggleLeftPanel, toggleRightPanel: s.toggleRightPanel,
-    toggleBottomPanel: s.toggleBottomPanel, setBottomPanelTab: s.setBottomPanelTab,
+    toggleBottomPanel: s.toggleBottomPanel, setBottomPanelOpen: s.setBottomPanelOpen,
+    setBottomPanelTab: s.setBottomPanelTab,
     setLeftPanelWidth: s.setLeftPanelWidth, setRightPanelWidth: s.setRightPanelWidth,
     setBottomPanelHeight: s.setBottomPanelHeight,
   })));
@@ -105,6 +106,8 @@ export default function SQLEditorPage() {
       const data = await sqlService.executeQuery(activeTab.query.trim(), selectedDataset, controller.signal);
       clearTimeout(timeout);
       updateTabResult(activeTabId, data);
+      setBottomPanelOpen(true);
+      setBottomPanelTab('results');
       sqlService.addToHistory({ query: activeTab.query.trim(), dataset: selectedDataset, executionTime: data.executionTime, rowsReturned: data.rows, favorite: false, pinned: false });
       notifySuccess('Query completed', `${data.rows} row(s) returned in ${data.executionTime}ms`);
     } catch (err: any) {

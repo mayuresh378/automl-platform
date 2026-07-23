@@ -25,6 +25,7 @@ interface SqlEditorState {
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleBottomPanel: () => void;
+  setBottomPanelOpen: (open: boolean) => void;
   setBottomPanelTab: (tab: string) => void;
   setLeftPanelWidth: (w: number) => void;
   setRightPanelWidth: (w: number) => void;
@@ -82,6 +83,7 @@ export const useSqlEditorStore = create<SqlEditorState>()(
       toggleLeftPanel: () => set((s) => ({ leftPanelOpen: !s.leftPanelOpen })),
       toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
       toggleBottomPanel: () => set((s) => ({ bottomPanelOpen: !s.bottomPanelOpen })),
+      setBottomPanelOpen: (open) => set({ bottomPanelOpen: open }),
       setBottomPanelTab: (tab) => set({ bottomPanelTab: tab }),
       setLeftPanelWidth: (w) => set({ leftPanelWidth: w }),
       setRightPanelWidth: (w) => set({ rightPanelWidth: w }),
