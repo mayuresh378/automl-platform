@@ -82,6 +82,14 @@
   background: var(--color-surface-hover);
 }
 
+.suggestionIcon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--color-secondary);
+  opacity: 0.5;
+}
+
 .suggestionQuote {
   color: var(--color-text-tertiary);
 }

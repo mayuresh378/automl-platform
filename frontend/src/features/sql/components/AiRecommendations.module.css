@@ -101,6 +101,59 @@
   height: 12px;
 }
 
+/* ── Expandable "Why?" ── */
+.whyToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.whyToggle:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.whyIcon {
+  width: 10px;
+  height: 10px;
+}
+
+.whyContent {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-hover);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  border-left: 2px solid var(--color-border);
+}
+
+.recCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.15);
+  color: var(--color-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
 .emptyState {
   flex: 1;
   display: flex;

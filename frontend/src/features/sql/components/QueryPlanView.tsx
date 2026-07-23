@@ -8,6 +8,7 @@ import { QueryPlan } from '../types';
 interface QueryPlanViewProps {
   query: string;
   dataset?: string;
+  onPlanReady?: (planLines: string[]) => void;
 }
 
 interface ParsedPlanNode {
@@ -31,7 +32,7 @@ function parsePlan(lines: string[]): ParsedPlanNode[] {
   });
 }
 
-export const QueryPlanView = memo(function QueryPlanView({ query, dataset }: QueryPlanViewProps) {
+export const QueryPlanView = memo(function QueryPlanView({ query, dataset, onPlanReady }: QueryPlanViewProps) {
   const [plan, setPlan] = useState<QueryPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export const QueryPlanView = memo(function QueryPlanView({ query, dataset }: Que
     try {
       const data = await sqlService.explainQuery(query, dataset);
       setPlan(data);
+      onPlanReady?.(data.plan);
     } catch (err: any) {
       setError(err.message || String(err));
     } finally {

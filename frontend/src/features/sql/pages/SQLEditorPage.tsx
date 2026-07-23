@@ -21,7 +21,7 @@ import { ResultsGrid } from '../components/ResultsGrid';
 import { QueryHistory } from '../components/QueryHistory';
 import { SavedQueriesPanel } from '../components/SavedQueriesPanel';
 import { DataProfile } from '../components/DataProfile';
-import { QueryPlanView } from '../components/QueryPlanView';
+import { ExplainTab } from '../components/ExplainTab';
 import { AiRecommendations } from '../components/AiRecommendations';
 import { QUERY_TEMPLATES, KEYBOARD_SHORTCUTS, QueryResult, QueryProfile } from '../types';
 import {
@@ -489,7 +489,7 @@ export default function SQLEditorPage() {
                     <AiRecommendations profile={profile} onInsertQuery={(q) => handleInsertQuery(resolveTable(q))} />
                   )}
                   {bottomPanelTab === 'explain' && (
-                    <QueryPlanView query={activeTab?.query || ''} dataset={selectedDataset} />
+                    <ExplainTab query={activeTab?.query || ''} dataset={selectedDataset} />
                   )}
                   {bottomPanelTab === 'history' && (
                     <QueryHistory onRestoreQuery={handleRestoreQuery} onClose={() => setBottomPanelOpen(false)} />
