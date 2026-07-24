@@ -73,6 +73,42 @@ def _migrate_datasets_table():
         pass
 
 
+def _migrate_deployments_table():
+    is_pg = "postgresql" in DATABASE_URL
+    try:
+        with engine.connect() as conn:
+            if is_pg:
+                result = conn.execute(text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='deployments'"
+                ))
+                existing = {row[0] for row in result}
+            else:
+                result = conn.execute(text("PRAGMA table_info(deployments)"))
+                existing = {row[1] for row in result}
+
+            migrations = [
+                ("deployment_type", "VARCHAR" if is_pg else "TEXT", "'rest_api'"),
+                ("allow_anonymous", "BOOLEAN" if is_pg else "INTEGER", "0"),
+                ("allowed_users", "JSON" if is_pg else "TEXT", "NULL"),
+                ("allowed_ips", "JSON" if is_pg else "TEXT", "NULL"),
+                ("rate_limit", "INTEGER" if is_pg else "INTEGER", "NULL"),
+                ("api_key_required", "BOOLEAN" if is_pg else "INTEGER", "1"),
+                ("docker_image", "VARCHAR" if is_pg else "TEXT", "NULL"),
+                ("docker_port", "INTEGER" if is_pg else "INTEGER", "8080"),
+                ("docker_compose", "TEXT" if is_pg else "TEXT", "NULL"),
+                ("fastapi_code", "TEXT" if is_pg else "TEXT", "NULL"),
+                ("onnx_model_path", "VARCHAR" if is_pg else "TEXT", "NULL"),
+                ("download_url", "VARCHAR" if is_pg else "TEXT", "NULL"),
+                ("health_check_url", "VARCHAR" if is_pg else "TEXT", "NULL"),
+            ]
+            for col, col_type, default in migrations:
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE deployments ADD COLUMN {col} {col_type} DEFAULT {default}"))
+                    conn.commit()
+    except Exception:
+        pass
+
+
 def init_db():
     from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
                         Deployment, DeploymentHistory, Pipeline, PipelineRun, Webhook, AuditLog,
@@ -82,6 +118,7 @@ def init_db():
         try:
             Base.metadata.create_all(bind=engine)
             _migrate_datasets_table()
+            _migrate_deployments_table()
             return
         except (exc.OperationalError, TimeoutError, ConnectionError, OSError):
             if attempt == 29:
