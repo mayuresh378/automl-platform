@@ -2006,6 +2006,28 @@ def explain_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.post("/api/v1/models/{name}/explain", tags=["Models"], summary="Comprehensive model explanation", description="Compute SHAP, LIME, feature importance, global, local, and prediction explanations for a model.")
+def explain_model_comprehensive(
+    name: str,
+    file_name: str = Form(...),
+    target_column: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_optional_user),
+):
+    from explain import compute_comprehensive_explanation
+    fpath = os.path.join(MODELS_DIR, name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    try:
+        result = compute_comprehensive_explanation(name, file_name, target_column)
+        log_audit(db, current_user.get("name", "User"), "model.explained", name, "model")
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/api/v1/predictions", tags=["Predictions"], summary="Make prediction", description="Run a single prediction using a trained model.")
 def predict(model_name: str = Form(...), payload: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
     try:
