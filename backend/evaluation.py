@@ -293,9 +293,15 @@ def evaluate_model_comprehensive(model_name, file_name, target_column):
     y_raw = df[target_column]
     X_raw = df.drop(columns=[target_column])
 
-    datetime_cols = X_raw.select_dtypes(include=["object"]).columns[
-        X_raw.select_dtypes(include=["object"]).apply(lambda c: pd.to_datetime(c, errors="coerce").notna().sum() > len(c) * 0.5)
-    ].tolist()
+    str_cols = X_raw.select_dtypes(include=["object"]).columns.tolist()
+    datetime_cols = []
+    for col in str_cols:
+        try:
+            parsed = pd.to_datetime(X_raw[col], errors="coerce")
+            if parsed.notna().sum() > len(X_raw[col]) * 0.5:
+                datetime_cols.append(col)
+        except Exception:
+            pass
     if datetime_cols:
         X_raw = X_raw.drop(columns=datetime_cols)
 
