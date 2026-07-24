@@ -56,7 +56,7 @@ export default function ModelEvaluationPage() {
   });
 
   const selectedDataset = useMemo(
-    () => datasetsQuery.data?.find((d) => d.filename === fileName || d.name === fileName),
+    () => datasetsQuery.data?.find((d) => d.name === fileName),
     [datasetsQuery.data, fileName],
   );
 
@@ -132,7 +132,7 @@ export default function ModelEvaluationPage() {
                     {datasetsQuery.isLoading ? 'Loading datasets...' : 'Select a dataset'}
                   </option>
                   {datasets.map((d) => (
-                    <option key={d.id || d.filename} value={d.filename}>
+                    <option key={d.name} value={d.name}>
                       {d.name} ({d.rows?.toLocaleString()} rows, {Array.isArray(d.columns) ? d.columns.length : '?'} cols)
                     </option>
                   ))}
