@@ -575,34 +575,76 @@ def compute_comprehensive_explanation(model_name, file_name, target_column):
     model, preprocessor = _extract_model(pipeline)
     task_type = meta.get("task_type", "classification")
 
-    df = _load_dataset(file_name)
-    if target_column not in df.columns:
-        raise ValueError(f"Target column '{target_column}' not in dataset")
+    from preprocess import auto_preprocess, preprocess_target
+    from sklearn.pipeline import Pipeline as SkPipeline
 
-    feature_cols = [c for c in df.columns if c != target_column]
-    feature_names = meta.get("feature_names", feature_cols[:len(feature_cols)])
+    if isinstance(pipeline, SkPipeline):
+        preprocess_result = auto_preprocess(file_name, target_column, task_type)
+        X_all = preprocess_result["X"]
+        y_all = preprocess_result["y"]
+        model_obj = model
+    else:
+        DATASET_DIR = os.path.join(BASE_DIR, "..", "dataset")
+        file_path = os.path.join(DATASET_DIR, file_name)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Dataset '{file_name}' not found")
+        df = pd.read_csv(file_path)
+        if target_column not in df.columns:
+            raise ValueError(f"Target column '{target_column}' not in dataset")
 
-    X = df[feature_cols].values
-    y = df[target_column].values
+        feature_cols = [c for c in df.columns if c != target_column]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_raw = df[feature_cols].copy()
+        y_raw = df[target_column]
+
+        datetime_cols = X_raw.select_dtypes(include=["object"]).columns[
+            X_raw.select_dtypes(include=["object"]).apply(lambda c: pd.to_datetime(c, errors="coerce").notna().sum() > len(c) * 0.5)
+        ].tolist()
+        if datetime_cols:
+            for col in datetime_cols:
+                X_raw[col] = pd.to_datetime(X_raw[col]).astype("int64") / 1e9
+
+        for col in X_raw.select_dtypes(include=["object", "category"]).columns:
+            from sklearn.preprocessing import LabelEncoder
+            le = LabelEncoder()
+            X_raw[col] = le.fit_transform(X_raw[col].astype(str))
+
+        X_all = X_raw.astype(float)
+        if y_raw.dtype == object:
+            from sklearn.preprocessing import LabelEncoder
+            le_y = LabelEncoder()
+            y_all = le_y.fit_transform(y_raw.astype(str))
+        else:
+            y_all = y_raw.values.astype(float)
+        model_obj = pipeline
+
+    feature_names = meta.get("feature_names", X_all.columns.tolist() if hasattr(X_all, 'columns') else [])
+
+    X_train, X_test, y_train, y_test = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
+
+    if hasattr(X_train, "values"):
+        X_train_np = X_train.values
+        X_test_np = X_test.values
+    else:
+        X_train_np = X_train
+        X_test_np = X_test
 
     try:
-        pipeline.fit(X_train, y_train)
+        model_obj.fit(X_train_np, y_train)
     except Exception:
         pass
 
-    feature_imp = compute_feature_importance(pipeline, model, feature_names)
-    shap_all = compute_shap_values(pipeline, model, X_test, feature_names)
-    global_exp = compute_global_explanation(pipeline, model, X_test, feature_names, task_type)
+    feature_imp = compute_feature_importance(model_obj, model, feature_names)
+    shap_all = compute_shap_values(model_obj, model, X_test_np, feature_names)
+    global_exp = compute_global_explanation(model_obj, model, X_test_np, feature_names, task_type)
 
-    sample_indices = list(range(min(5, X_test.shape[0])))
+    sample_indices = list(range(min(5, X_test_np.shape[0])))
     local_explanations = []
     prediction_explanations = []
     for idx in sample_indices:
-        local_exp = compute_local_explanation(pipeline, model, X_test[idx], X_test, feature_names, task_type, idx)
+        local_exp = compute_local_explanation(model_obj, model, X_test_np[idx], X_test_np, feature_names, task_type, idx)
         local_explanations.append(local_exp)
-        pred_exp = compute_prediction_explanation(pipeline, model, X_test[idx], X_test, feature_names, task_type)
+        pred_exp = compute_prediction_explanation(model_obj, model, X_test_np[idx], X_test_np, feature_names, task_type)
         prediction_explanations.append(pred_exp)
 
     return {
@@ -615,10 +657,10 @@ def compute_comprehensive_explanation(model_name, file_name, target_column):
         "local_explanations": local_explanations,
         "prediction_explanations": prediction_explanations,
         "data_summary": {
-            "total_samples": X.shape[0],
-            "train_size": X_train.shape[0],
-            "test_size": X_test.shape[0],
-            "n_features": X.shape[1],
+            "total_samples": X_all.shape[0],
+            "train_size": X_train_np.shape[0],
+            "test_size": X_test_np.shape[0],
+            "n_features": X_all.shape[1],
             "task_type": task_type,
         },
     }

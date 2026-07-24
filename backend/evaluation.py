@@ -293,10 +293,22 @@ def evaluate_model_comprehensive(model_name, file_name, target_column):
     y_raw = df[target_column]
     X_raw = df.drop(columns=[target_column])
 
+    datetime_cols = X_raw.select_dtypes(include=["object"]).columns[
+        X_raw.select_dtypes(include=["object"]).apply(lambda c: pd.to_datetime(c, errors="coerce").notna().sum() > len(c) * 0.5)
+    ].tolist()
+    if datetime_cols:
+        X_raw = X_raw.drop(columns=datetime_cols)
+
     if task_type == "classification":
         y_processed = preprocess_target(y_raw, task_type)
     else:
-        y_processed = y_raw.values.astype(float)
+        try:
+            y_processed = y_raw.values.astype(float)
+        except (ValueError, TypeError):
+            try:
+                y_processed = pd.to_datetime(y_raw).astype(int).values.astype(float)
+            except Exception:
+                raise ValueError(f"Target column '{target_column}' cannot be converted to numeric values for regression")
 
     if isinstance(pipeline, Pipeline):
         model_obj = pipeline

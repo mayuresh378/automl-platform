@@ -32,6 +32,14 @@ def auto_preprocess(file_name: str, target_column: str, task_type: str = None):
     drop_cols = []
     safe_cat_features = []
     for col in categorical_features:
+        try:
+            parsed = pd.to_datetime(X[col], errors="coerce")
+            if parsed.notna().sum() > len(X[col]) * 0.5:
+                X[col] = parsed.astype("int64") / 1e9
+                numeric_features.append(col)
+                continue
+        except Exception:
+            pass
         nunique = X[col].nunique()
         if nunique > 50 or nunique / max(len(X), 1) > 0.5:
             drop_cols.append(col)
