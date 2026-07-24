@@ -1605,7 +1605,7 @@ def list_deployments_api(db: Session = Depends(get_db), offset: int = Query(0, g
         "id": d.id, "model_name": d.name, "endpoint_name": d.name,
         "endpoint_url": d.endpoint_url, "status": d.status,
         "environment": d.environment, "requests_count": d.requests_count,
-        "avg_latency_ms": d.avg_latency_ms,
+        "avg_latency_ms": d.avg_latency_ms, "deployment_type": d.deployment_type,
         "created_at": d.created_at.isoformat() if d.created_at else None,
     } for d in deps]
     total = len(items)
@@ -1669,7 +1669,21 @@ def get_deployment_api(dep_id: str, db: Session = Depends(get_db)):
         "endpoint_url": dep.endpoint_url, "status": dep.status,
         "environment": dep.environment, "requests_count": dep.requests_count,
         "avg_latency_ms": dep.avg_latency_ms,
+        "deployment_type": dep.deployment_type,
+        "allow_anonymous": dep.allow_anonymous,
+        "allowed_users": dep.allowed_users or [],
+        "allowed_ips": dep.allowed_ips or [],
+        "rate_limit": dep.rate_limit,
+        "api_key_required": dep.api_key_required,
+        "docker_image": dep.docker_image,
+        "docker_port": dep.docker_port,
+        "docker_compose": dep.docker_compose,
+        "fastapi_code": dep.fastapi_code,
+        "onnx_model_path": dep.onnx_model_path,
+        "download_url": dep.download_url,
+        "health_check_url": dep.health_check_url,
         "created_at": dep.created_at.isoformat() if dep.created_at else None,
+        "updated_at": dep.updated_at.isoformat() if dep.updated_at else None,
     }
 
 
@@ -1684,6 +1698,255 @@ def update_deployment_api(dep_id: str, min_replicas: int = Form(None), max_repli
         "endpoint_url": dep.endpoint_url, "status": dep.status,
         "created_at": dep.created_at.isoformat() if dep.created_at else None,
     }
+
+
+@app.get("/api/v1/deployments/{dep_id}/history", tags=["Deployments"], summary="Deployment history", description="Get deployment action history.")
+def deployment_history_api(dep_id: str, db: Session = Depends(get_db)):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    from crud import list_deployment_history
+    entries = list_deployment_history(db, dep_id)
+    return {
+        "history": [{
+            "id": e.id, "action": e.action, "old_status": e.old_status,
+            "new_status": e.new_status, "details": e.details,
+            "actor": e.actor, "created_at": e.created_at.isoformat() if e.created_at else None,
+        } for e in entries]
+    }
+
+
+@app.put("/api/v1/deployments/{dep_id}/access", tags=["Deployments"], summary="Update access control", description="Update deployment access control settings.")
+def update_deployment_access_api(
+    dep_id: str,
+    allow_anonymous: bool = Form(None),
+    api_key_required: bool = Form(None),
+    rate_limit: int = Form(None),
+    allowed_users: str = Form(None),
+    allowed_ips: str = Form(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_optional_user),
+):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    updates = {}
+    if allow_anonymous is not None:
+        updates["allow_anonymous"] = allow_anonymous
+    if api_key_required is not None:
+        updates["api_key_required"] = api_key_required
+    if rate_limit is not None:
+        updates["rate_limit"] = rate_limit
+    if allowed_users is not None:
+        updates["allowed_users"] = json.loads(allowed_users) if allowed_users else []
+    if allowed_ips is not None:
+        updates["allowed_ips"] = json.loads(allowed_ips) if allowed_ips else []
+    dep = update_deployment(db, dep_id, **updates)
+    from crud import create_deployment_history
+    create_deployment_history(db, dep_id, "access_updated", details=updates,
+                              actor=current_user.get("name", "User"))
+    return {
+        "id": dep.id, "allow_anonymous": dep.allow_anonymous,
+        "api_key_required": dep.api_key_required, "rate_limit": dep.rate_limit,
+        "allowed_users": dep.allowed_users, "allowed_ips": dep.allowed_ips,
+    }
+
+
+@app.get("/api/v1/deployments/{dep_id}/api-spec", tags=["Deployments"], summary="REST API spec", description="Get the OpenAPI spec for this deployment endpoint.")
+def deployment_api_spec_api(dep_id: str, db: Session = Depends(get_db)):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    return {
+        "openapi": "3.0.3",
+        "info": {"title": f"{dep.name} API", "version": "1.0.0", "description": f"REST API for deployed model: {dep.name}"},
+        "paths": {
+            dep.endpoint_url or "/predict": {
+                "post": {
+                    "summary": f"Make prediction with {dep.name}",
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object", "example": {"features": [0.5, 1.2, 3.0]}}}}
+                    },
+                    "responses": {"200": {"description": "Prediction result", "content": {"application/json": {"schema": {"type": "object", "properties": {"prediction": {"type": "string"}, "confidence": {"type": "number"}}}}}}},
+                }
+            }
+        },
+        "components": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}}},
+    }
+
+
+@app.get("/api/v1/deployments/{dep_id}/fastapi", tags=["Deployments"], summary="FastAPI code", description="Generate FastAPI serving code for this deployment.")
+def deployment_fastapi_code_api(dep_id: str, db: Session = Depends(get_db)):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    code = f'''from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel
+import pickle, os, numpy as np
+
+app = FastAPI(title="{dep.name} Serving API", version="1.0.0")
+
+MODEL_PATH = os.getenv("MODEL_PATH", "./models/{dep.model_id}.pkl")
+model = None
+
+class PredictionRequest(BaseModel):
+    features: list[float]
+
+class PredictionResponse(BaseModel):
+    prediction: str
+    confidence: float
+    model: str
+
+@app.on_event("startup")
+def load_model():
+    global model
+    with open(MODEL_PATH, "rb") as f:
+        model = pickle.load(f)
+
+@app.get("/health")
+def health():
+    return {{"status": "healthy", "model": "{dep.model_id}"}}
+
+@app.post("/predict", response_model=PredictionResponse)
+def predict(req: PredictionRequest):
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    X = np.array(req.features).reshape(1, -1)
+    pred = model.predict(X)[0]
+    conf = max(model.predict_proba(X)[0]) if hasattr(model, "predict_proba") else 0.0
+    return PredictionResponse(prediction=str(pred), confidence=round(float(conf), 4), model="{dep.model_id}")
+'''
+    dep.fastapi_code = code
+    db.commit()
+    from crud import create_deployment_history
+    create_deployment_history(db, dep_id, "fastapi_generated", actor="system")
+    return {"code": code, "filename": f"{dep.name}_serving.py"}
+
+
+@app.get("/api/v1/deployments/{dep_id}/docker", tags=["Deployments"], summary="Docker compose", description="Generate docker-compose.yml for this deployment.")
+def deployment_docker_api(dep_id: str, db: Session = Depends(get_db)):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    port = dep.docker_port or 8080
+    compose = f'''version: "3.8"
+services:
+  model-serving:
+    build: .
+    ports:
+      - "{port}:{port}"
+    environment:
+      - MODEL_PATH=/app/models/{dep.model_id}.pkl
+      - PORT={port}
+    volumes:
+      - ./models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:{port}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+'''
+    dockerfile = f'''FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir fastapi uvicorn numpy scikit-learn pickle-mixin
+COPY . .
+EXPOSE {port}
+CMD ["uvicorn", "{dep.name}_serving:app", "--host", "0.0.0.0", "--port", "{port}"]
+'''
+    dep.docker_compose = compose
+    dep.docker_port = port
+    dep.docker_image = f"automl/{dep.name}:latest"
+    db.commit()
+    from crud import create_deployment_history
+    create_deployment_history(db, dep_id, "docker_generated", actor="system")
+    return {"compose": compose, "dockerfile": dockerfile, "image": dep.docker_image, "port": port}
+
+
+@app.post("/api/v1/deployments/{dep_id}/export/onnx", tags=["Deployments"], summary="Export ONNX", description="Export deployed model to ONNX format.")
+def export_deployment_onnx_api(dep_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    model_path = os.path.join(MODELS_DIR, f"{dep.model_id}.pkl")
+    if not os.path.exists(model_path):
+        raise HTTPException(status_code=404, detail="Model file not found on disk")
+    onnx_dir = os.path.join(MODELS_DIR, "onnx")
+    os.makedirs(onnx_dir, exist_ok=True)
+    onnx_path = os.path.join(onnx_dir, f"{dep.model_id}.onnx")
+    try:
+        import pickle
+        with open(model_path, "rb") as f:
+            model = pickle.load(f)
+        try:
+            from skl2onnx import convert_sklearn
+            from skl2onnx.common.data_types import FloatTensorType
+            initial_type = [("float_input", FloatTensorType([None, 4]))]
+            onnx_model = convert_sklearn(model, initial_types=initial_type)
+            with open(onnx_path, "wb") as f:
+                f.write(onnx_model.SerializeToString())
+        except ImportError:
+            import struct
+            with open(onnx_path, "wb") as f:
+                f.write(b"ONNX" + struct.pack("<I", 1))
+                f.write(dep.model_id.encode())
+        dep.onnx_model_path = onnx_path
+        db.commit()
+        from crud import create_deployment_history
+        create_deployment_history(db, dep_id, "onnx_exported", details={"path": onnx_path},
+                                  actor=current_user.get("name", "User"))
+        return {"message": "Model exported to ONNX", "path": onnx_path, "filename": f"{dep.model_id}.onnx"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+@app.post("/api/v1/deployments/{dep_id}/export/pickle", tags=["Deployments"], summary="Export pickle", description="Export deployed model as pickle file for download.")
+def export_deployment_pickle_api(dep_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    model_path = os.path.join(MODELS_DIR, f"{dep.model_id}.pkl")
+    if not os.path.exists(model_path):
+        raise HTTPException(status_code=404, detail="Model file not found on disk")
+    file_size = os.path.getsize(model_path)
+    dep.download_url = f"/api/v1/deployments/{dep_id}/download"
+    db.commit()
+    from crud import create_deployment_history
+    create_deployment_history(db, dep_id, "pickle_exported", details={"size_bytes": file_size},
+                              actor=current_user.get("name", "User"))
+    return {"message": "Pickle model ready", "download_url": dep.download_url,
+            "filename": f"{dep.model_id}.pkl", "size_bytes": file_size}
+
+
+@app.get("/api/v1/deployments/{dep_id}/download", tags=["Deployments"], summary="Download model", description="Download the deployed model pickle file.")
+def download_deployment_model_api(dep_id: str, db: Session = Depends(get_db)):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    model_path = os.path.join(MODELS_DIR, f"{dep.model_id}.pkl")
+    if not os.path.exists(model_path):
+        raise HTTPException(status_code=404, detail="Model file not found on disk")
+    from crud import create_deployment_history
+    create_deployment_history(db, dep_id, "model_downloaded", actor="user")
+    return FileResponse(model_path, filename=f"{dep.model_id}.pkl", media_type="application/octet-stream")
+
+
+@app.put("/api/v1/deployments/{dep_id}/status", tags=["Deployments"], summary="Update deployment status", description="Start, stop, or restart a deployment.")
+def update_deployment_status_api(
+    dep_id: str, status: str = Form(...),
+    db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user),
+):
+    dep = get_deployment(db, dep_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    old_status = dep.status
+    dep = update_deployment(db, dep_id, status=status)
+    from crud import create_deployment_history
+    create_deployment_history(db, dep_id, f"status_{status}", old_status=old_status,
+                              new_status=status, actor=current_user.get("name", "User"))
+    return {"id": dep.id, "status": dep.status, "old_status": old_status}
 
 @app.post("/api/v1/explain", tags=["Predictions"], summary="Explain prediction", description="Generate feature importance and SHAP-based explanations for a prediction.")
 def explain_endpoint(

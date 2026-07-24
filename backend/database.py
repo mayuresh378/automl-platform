@@ -75,7 +75,7 @@ def _migrate_datasets_table():
 
 def init_db():
     from models import (User, Team, TeamMember, ApiKey, Experiment, ModelRegistry,
-                        Deployment, Pipeline, PipelineRun, Webhook, AuditLog,
+                        Deployment, DeploymentHistory, Pipeline, PipelineRun, Webhook, AuditLog,
                         Project, MarketplaceItem, Dataset, DatasetShare, Notification,
                         UserSession, PredictionLog, ActivityLog)
     for attempt in range(30):

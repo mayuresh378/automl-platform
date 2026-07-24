@@ -194,12 +194,27 @@ class Deployment(Base):
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 
+    deployment_type = Column(String, default="rest_api")
+    allow_anonymous = Column(Boolean, default=False)
+    allowed_users = Column(JSON, nullable=True)
+    allowed_ips = Column(JSON, nullable=True)
+    rate_limit = Column(Integer, nullable=True)
+    api_key_required = Column(Boolean, default=True)
+    docker_image = Column(String, nullable=True)
+    docker_port = Column(Integer, default=8080)
+    docker_compose = Column(Text, nullable=True)
+    fastapi_code = Column(Text, nullable=True)
+    onnx_model_path = Column(String, nullable=True)
+    download_url = Column(String, nullable=True)
+    health_check_url = Column(String, nullable=True)
+
     model_id = Column(String, ForeignKey("model_registry.id"), nullable=True)
     model = relationship("ModelRegistry", back_populates="deployments")
     user_id = Column(String, ForeignKey("users.id"), nullable=True)
     user = relationship("User", back_populates="deployments")
     project_id = Column(String, ForeignKey("projects.id"), nullable=True)
     project = relationship("Project", back_populates="deployments")
+    history = relationship("DeploymentHistory", back_populates="deployment", order_by="desc(DeploymentHistory.created_at)")
 
 
 class Pipeline(Base):
@@ -393,3 +408,18 @@ class ActivityLog(Base):
 
     user_id = Column(String, ForeignKey("users.id"), nullable=True)
     user = relationship("User", back_populates="activity_logs")
+
+
+class DeploymentHistory(Base):
+    __tablename__ = "deployment_history"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    deployment_id = Column(String, ForeignKey("deployments.id"), nullable=False)
+    action = Column(String, nullable=False)
+    old_status = Column(String, nullable=True)
+    new_status = Column(String, nullable=True)
+    details = Column(JSON, nullable=True)
+    actor = Column(String, nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+    deployment = relationship("Deployment", back_populates="history")

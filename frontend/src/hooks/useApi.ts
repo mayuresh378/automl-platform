@@ -66,6 +66,42 @@ export function useDeleteDeployment() {
   });
 }
 
+export function useDeploymentDetail(id: string | null) {
+  return useQuery({
+    queryKey: ['deployments', id],
+    queryFn: () => deploymentsService.get(id!),
+    enabled: !!id,
+    staleTime: 10_000,
+  });
+}
+
+export function useDeploymentHistory(id: string | null) {
+  return useQuery({
+    queryKey: ['deployments', id, 'history'],
+    queryFn: () => deploymentsService.history(id!),
+    select: (data) => data.history,
+    enabled: !!id,
+    staleTime: 10_000,
+  });
+}
+
+export function useUpdateDeploymentStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => deploymentsService.updateStatus(id, status),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['deployments'] }); },
+  });
+}
+
+export function useUpdateDeploymentAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; allow_anonymous?: boolean; api_key_required?: boolean; rate_limit?: number | null; allowed_users?: string[]; allowed_ips?: string[] }) =>
+      deploymentsService.updateAccess(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['deployments'] }); },
+  });
+}
+
 export function useDatasets() {
   return useQuery({
     queryKey: ['datasets'],

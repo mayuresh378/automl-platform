@@ -272,7 +272,7 @@ export interface Deployment {
   name?: string;
   endpoint_name?: string;
   endpoint_url: string;
-  status: 'creating' | 'running' | 'stopped' | 'failed';
+  status: 'creating' | 'running' | 'stopped' | 'failed' | 'active' | 'draining';
   model_id: string;
   version?: number;
   user_id?: string;
@@ -281,8 +281,31 @@ export interface Deployment {
   requests_count?: number;
   avg_latency_ms: number;
   config?: Record<string, any>;
+  deployment_type?: string;
+  allow_anonymous?: boolean;
+  allowed_users?: string[];
+  allowed_ips?: string[];
+  rate_limit?: number | null;
+  api_key_required?: boolean;
+  docker_image?: string;
+  docker_port?: number;
+  docker_compose?: string;
+  fastapi_code?: string;
+  onnx_model_path?: string;
+  download_url?: string;
+  health_check_url?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
+}
+
+export interface DeploymentHistoryEntry {
+  id: string;
+  action: string;
+  old_status?: string;
+  new_status?: string;
+  details?: Record<string, any>;
+  actor?: string;
+  created_at: string;
 }
 
 export interface Project {

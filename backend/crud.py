@@ -735,6 +735,27 @@ def update_deployment(db: Session, dep_id: str, **kwargs) -> Optional[Deployment
     return dep
 
 
+def create_deployment_history(db: Session, deployment_id: str, action: str,
+                               old_status: str = None, new_status: str = None,
+                               details: dict = None, actor: str = None):
+    from models import DeploymentHistory
+    entry = DeploymentHistory(
+        id=_uid(), deployment_id=deployment_id, action=action,
+        old_status=old_status, new_status=new_status,
+        details=details, actor=actor, created_at=_now(),
+    )
+    db.add(entry)
+    db.commit()
+    return entry
+
+
+def list_deployment_history(db: Session, deployment_id: str, limit: int = 50):
+    from models import DeploymentHistory
+    return db.query(DeploymentHistory).filter(
+        DeploymentHistory.deployment_id == deployment_id
+    ).order_by(desc(DeploymentHistory.created_at)).limit(limit).all()
+
+
 def count_unread_notifications(db: Session, user_id: str = None) -> int:
     q = db.query(Notification).filter(Notification.read == False)
     if user_id:
