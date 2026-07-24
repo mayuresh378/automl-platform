@@ -1117,17 +1117,28 @@ async def run_training_workflow(
 @app.get("/api/v1/models", tags=["Models"], summary="List models", description="List all available models from filesystem and registry.")
 def list_models_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_optional_user)):
     db_models = list_models(db)
+    active_deployments = {}
+    try:
+        deps = list_deployments(db)
+        for d in deps:
+            if d.status in ("active", "running") and d.model_id:
+                active_deployments[d.model_id] = {"id": d.id, "name": d.name, "status": d.status, "endpoint_url": d.endpoint_url}
+    except Exception:
+        pass
     fs_models = []
     for f in os.listdir(MODELS_DIR):
         if f.endswith(".pkl"):
             fpath = os.path.join(MODELS_DIR, f)
             size_kb = round(os.path.getsize(fpath) / 1024, 1)
             meta = _load_model_meta(f)
+            deploy_info = active_deployments.get(f)
             fs_models.append({
                 "name": f, "size_kb": size_kb,
                 "task_type": meta.get("task_type"),
                 "best_score": meta.get("cv_score"),
                 "metrics": meta.get("metrics"),
+                "deployment_status": "deployed" if deploy_info else "not_deployed",
+                "deployment": deploy_info,
                 "created_at": datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat(),
             })
     registered = [{
@@ -1137,6 +1148,11 @@ def list_models_api(db: Session = Depends(get_db), offset: int = Query(0, ge=0),
         "cv_score": m.cv_score, "status": m.status,
         "tags": m.tags, "description": m.description,
         "experiment_id": m.experiment_id,
+        "dataset_name": m.experiment.dataset if m.experiment else None,
+        "deployment_status": "deployed" if active_deployments.get(m.name) else "not_deployed",
+        "deployment": active_deployments.get(m.name),
+        "owner": m.user.email if m.user else None,
+        "owner_email": m.user.email if m.user else None,
         "created_at": m.created_at.isoformat() if m.created_at else None,
     } for m in db_models]
     all_models = fs_models + registered
@@ -1341,6 +1357,32 @@ def delete_model(name: str, db: Session = Depends(get_db), current_user: dict = 
         raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
     log_audit(db, current_user.get("name", "User"), "model.deleted", name, "model")
     return {"message": f"Deleted model '{name}'"}
+
+
+@app.put("/api/v1/models/{name}/promote", tags=["Models"], summary="Promote model", description="Promote a model to production status.")
+def promote_model(name: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    updated = update_model_meta(db, name, status="production")
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    return {"message": f"Model '{name}' promoted to production", "status": "production"}
+
+
+@app.put("/api/v1/models/{name}/archive", tags=["Models"], summary="Archive model", description="Archive a model.")
+def archive_model(name: str, db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    updated = update_model_meta(db, name, status="archived")
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    return {"message": f"Model '{name}' archived", "status": "archived"}
+
+
+@app.put("/api/v1/models/{name}/tags", tags=["Models"], summary="Update model tags", description="Set tags on a model.")
+def update_model_tags(name: str, tags: str = Form(...), db: Session = Depends(get_db), current_user: dict = Depends(get_optional_user)):
+    import json as _json
+    tag_list = _json.loads(tags) if tags else []
+    updated = update_model_meta(db, name, tags=tag_list)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    return {"message": f"Tags updated for '{name}'", "tags": tag_list}
 
 
 @app.post("/api/v1/models/compare", tags=["Models"], summary="Compare models", description="Compare multiple models by name.")

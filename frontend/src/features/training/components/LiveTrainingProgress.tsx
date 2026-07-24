@@ -114,7 +114,7 @@ export const LiveTrainingProgress = memo(function LiveTrainingProgress({ progres
             <div className={styles.bestLabel}>Best Model</div>
             <div className={styles.bestName}>{progress.best_model.name}</div>
             <div className={styles.bestMetrics}>
-              Accuracy: {(progress.best_model.metrics.accuracy * 100).toFixed(1)}% · CV: {(progress.best_model.cv_score * 100).toFixed(1)}%
+              Accuracy: {progress.best_model.metrics?.accuracy != null ? (progress.best_model.metrics.accuracy * 100).toFixed(1) + '%' : '—'} · CV: {progress.best_model.cv_score != null ? (progress.best_model.cv_score * 100).toFixed(1) + '%' : '—'}
             </div>
           </div>
         </motion.div>

@@ -39,6 +39,38 @@ export function useModels() {
   });
 }
 
+export function usePromoteModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => modelsService.promote(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['models'] }),
+  });
+}
+
+export function useArchiveModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => modelsService.archive(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['models'] }),
+  });
+}
+
+export function useDeleteModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => modelsService.remove(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['models'] }),
+  });
+}
+
+export function useUpdateModelTags() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, tags }: { name: string; tags: string[] }) => modelsService.updateTags(name, tags),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['models'] }),
+  });
+}
+
 export function useDeployments() {
   return useQuery({
     queryKey: ['deployments'],

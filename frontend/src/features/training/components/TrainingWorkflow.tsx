@@ -322,8 +322,8 @@ export function TrainingWorkflow({ datasets }: TrainingWorkflowProps) {
                     <div className={styles.deployLabel}>Model</div>
                     <div className={styles.deployValue}>{progress.best_model.name}</div>
                     <div className={styles.deployMetrics}>
-                      Accuracy: {(progress.best_model.metrics.accuracy * 100).toFixed(1)}% ·
-                      CV: {(progress.best_model.cv_score * 100).toFixed(1)}%
+                      Accuracy: {progress.best_model.metrics?.accuracy != null ? (progress.best_model.metrics.accuracy * 100).toFixed(1) + '%' : '—'} ·
+                      CV: {progress.best_model.cv_score != null ? (progress.best_model.cv_score * 100).toFixed(1) + '%' : '—'}
                     </div>
                   </div>
                   <button

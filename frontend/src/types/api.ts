@@ -245,12 +245,13 @@ export interface Model {
   algorithm: string;
   model_type?: string;
   task_type?: string;
-  dataset_name: string;
+  dataset_name?: string;
   target_column: string;
-  status: 'training' | 'ready' | 'failed' | 'archived';
+  status: 'training' | 'ready' | 'failed' | 'archived' | 'staging' | 'production' | 'registered';
   metrics?: ModelMetrics;
   version: number;
   size_bytes?: number;
+  size_kb?: number;
   file_path?: string;
   file_size_kb?: number;
   cv_score?: number;
@@ -262,6 +263,8 @@ export interface Model {
   description?: string;
   owner?: string;
   owner_email?: string;
+  deployment_status?: string;
+  deployment?: { id: string; name: string; status: string; endpoint_url: string } | null;
   created_at: string;
   updated_at: string;
 }
