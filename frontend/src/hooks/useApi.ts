@@ -335,6 +335,15 @@ export function useMonitoringStats() {
   });
 }
 
+export function useMonitoringDashboard() {
+  return useQuery({
+    queryKey: ['monitoring', 'dashboard'],
+    queryFn: () => monitoringService.dashboard(),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
 export function useAISuggestions() {
   return useQuery({
     queryKey: ['ai', 'suggestions'],

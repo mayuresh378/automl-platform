@@ -1,145 +1,87 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { AnimatedNumber, ScrollReveal, TiltCard } from '../../../components/motion';
-import Card from '../../../components/ui/Card';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
+import {
+  Activity, Cpu, HardDrive, Wifi, AlertTriangle, Clock, BarChart3,
+  TrendingUp, Server, RefreshCw, ChevronDown, Zap, Brain,
+} from 'lucide-react';
+import { useMonitoringDashboard } from '../../../hooks/useApi';
+import type { MonitoringDashboard } from '../../../services/monitoring.service';
 import styles from './MonitoringPage.module.css';
-import { useMonitoringMetrics, useMonitoringStats } from '../../../hooks/useApi';
-import type { MonitoringMetrics } from '../../../types/api';
 
 const TIME_RANGES = ['1h', '6h', '24h', '7d'] as const;
 
-function ArrowIcon({ direction }: { direction: 'up' | 'down' }) {
+function StatusDot({ status }: { status: string }) {
+  const color = status === 'healthy' ? '#22c55e' : status === 'warning' ? '#f59e0b' : '#ef4444';
+  return <span className={styles.statusDot} style={{ background: color }} />;
+}
+
+function MetricCard({ icon, label, value, sub, color, barPct }: {
+  icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string; barPct?: number;
+}) {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      {direction === 'up' ? (
-        <path d="M6 2.5V9.5M6 2.5L3 5.5M6 2.5L9 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        <path d="M6 9.5V2.5M6 9.5L3 6.5M6 9.5L9 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <motion.div className={styles.metricCard} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <div className={styles.metricTop}>
+        <span className={styles.metricLabel}>{label}</span>
+        <div className={styles.metricIcon} style={{ background: `${color}15`, color }}>{icon}</div>
+      </div>
+      <div className={styles.metricValue}>{value}</div>
+      {sub && <div className={styles.metricSub}>{sub}</div>}
+      {barPct != null && (
+        <div className={styles.barTrack}>
+          <motion.div className={styles.barFill} style={{ background: color }}
+            initial={{ width: 0 }} animate={{ width: `${Math.min(barPct, 100)}%` }}
+            transition={{ duration: 0.8, delay: 0.2 }} />
+        </div>
       )}
-    </svg>
+    </motion.div>
   );
 }
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
-};
-
-interface MetricCardDef {
-  label: string;
-  value: string;
-  subtext: string;
-  trend: 'up' | 'down';
-  trendValue: string;
-  color: string;
-  bg: string;
-  barPercent: number;
-  barColor: string;
-  iconPath: string;
+function ChartCard({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`${styles.chartCard} ${className || ''}`}>
+      <div className={styles.chartHeader}>
+        <span className={styles.chartTitle}>{title}</span>
+      </div>
+      <div className={styles.chartBody}>{children}</div>
+    </div>
+  );
 }
 
-function buildMetricCards(metrics: MonitoringMetrics | undefined): MetricCardDef[] {
-  const cpu = metrics?.cpu_percent ?? 0;
-  const mem = metrics?.memory_percent ?? 0;
-  const disk = metrics?.disk_percent ?? 0;
-  const gpu = metrics?.gpu_utilization ?? 0;
-
-  return [
-    {
-      label: 'CPU Usage',
-      value: `${cpu.toFixed(1)}%`,
-      subtext: `${metrics?.requests_per_minute ?? 0} req/min`,
-      trend: cpu > 80 ? 'up' : 'down',
-      trendValue: cpu > 80 ? 'high' : 'normal',
-      color: 'var(--color-secondary)',
-      bg: 'rgba(79, 70, 229, 0.08)',
-      barPercent: cpu,
-      barColor: 'var(--color-secondary)',
-      iconPath: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
-    },
-    {
-      label: 'Memory Usage',
-      value: `${mem.toFixed(1)}%`,
-      subtext: `${metrics?.active_deployments ?? 0} active deployments`,
-      trend: mem > 85 ? 'up' : 'down',
-      trendValue: mem > 85 ? 'high' : 'normal',
-      color: 'var(--color-accent)',
-      bg: 'rgba(6, 182, 212, 0.08)',
-      barPercent: mem,
-      barColor: 'var(--color-accent)',
-      iconPath: 'M22 12h-4l-3 9L9 3l-3 9H2',
-    },
-    {
-      label: 'Disk Usage',
-      value: `${disk.toFixed(1)}%`,
-      subtext: `GPU utilization: ${gpu.toFixed(1)}%`,
-      trend: disk > 90 ? 'up' : 'down',
-      trendValue: disk > 90 ? 'critical' : 'normal',
-      color: 'var(--color-success)',
-      bg: 'rgba(34, 197, 94, 0.08)',
-      barPercent: disk,
-      barColor: 'var(--color-success)',
-      iconPath: 'M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z',
-    },
-    {
-      label: 'Requests/min',
-      value: `${metrics?.requests_per_minute ?? 0}`,
-      subtext: `GPU: ${gpu.toFixed(1)}% · Deployments: ${metrics?.active_deployments ?? 0}`,
-      trend: (metrics?.requests_per_minute ?? 0) > 50 ? 'up' : 'down',
-      trendValue: (metrics?.requests_per_minute ?? 0) > 50 ? 'active' : 'low',
-      color: 'var(--color-warning)',
-      bg: 'rgba(245, 158, 11, 0.08)',
-      barPercent: Math.min((metrics?.requests_per_minute ?? 0), 100),
-      barColor: 'var(--color-warning)',
-      iconPath: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z',
-    },
-  ];
-}
-
-interface Alert {
-  title: string;
-  description: string;
-  time: string;
-  severity: 'critical' | 'warning' | 'info' | 'success';
-}
-
-const defaultAlerts: Alert[] = [
-  { title: 'System metrics collected', description: 'Monitoring service is active and collecting data', time: 'just now', severity: 'success' },
-];
+const DRIFT_COLORS = ['#6366f1', '#f59e0b'];
+const PIE_COLORS = ['#22c55e', '#ef4444'];
 
 export default function MonitoringPage() {
   const [timeRange, setTimeRange] = useState<string>('24h');
-  const { data: metrics, isLoading: metricsLoading } = useMonitoringMetrics();
-  const { data: stats, isLoading: statsLoading } = useMonitoringStats();
+  const { data: dash, isLoading } = useMonitoringDashboard();
 
-  const metricCards = buildMetricCards(metrics);
-
-  const summaryStats = [
-    { label: 'Experiments', value: stats?.total_experiments ?? 0 },
-    { label: 'Models', value: stats?.total_models ?? 0 },
-    { label: 'Datasets', value: stats?.total_datasets ?? 0 },
-    { label: 'Predictions', value: stats?.total_predictions ?? 0 },
-    { label: 'Success Rate', value: stats?.success_rate ?? 0 },
-  ];
-
-  const latencyBars = Array.from({ length: 24 }, () => Math.random() * 60 + 30);
-  const errorBars = Array.from({ length: 24 }, () => Math.random() * 12 + 2);
-  const driftBars = Array.from({ length: 24 }, () => Math.random() * 30 + 10);
-
-  if (metricsLoading || statsLoading) {
+  if (isLoading) {
     return (
       <div className={styles.page}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: 'var(--color-text-secondary)' }}>
-          Loading monitoring data...
+        <div className={styles.loadingState}>
+          <RefreshCw size={24} className={styles.spin} />
+          <span>Loading monitoring data...</span>
         </div>
       </div>
     );
   }
+
+  if (!dash) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loadingState}>
+          <AlertTriangle size={24} />
+          <span>Failed to load monitoring data</span>
+        </div>
+      </div>
+    );
+  }
+
+  const d = dash as MonitoringDashboard;
 
   return (
     <div className={styles.page}>
@@ -147,230 +89,170 @@ export default function MonitoringPage() {
         <div className={styles.header}>
           <div className={styles.headerLeft}>
             <h1 className={styles.title}>Monitoring</h1>
-            <p className={styles.description}>System health, performance metrics, and alerts</p>
+            <p className={styles.subtitle}>Production health, performance, and drift</p>
           </div>
           <div className={styles.timeRange}>
-            {TIME_RANGES.map((range) => (
-              <button
-                key={range}
-                className={`${styles.timeRangeBtn} ${timeRange === range ? styles.timeRangeBtnActive : ''}`}
-                onClick={() => setTimeRange(range)}
-              >
-                {range}
-              </button>
+            {TIME_RANGES.map((r) => (
+              <button key={r} className={`${styles.timeBtn} ${timeRange === r ? styles.timeBtnActive : ''}`}
+                onClick={() => setTimeRange(r)}>{r}</button>
             ))}
           </div>
         </div>
 
-        <motion.div className={styles.metricsGrid} variants={container} initial="hidden" animate="show">
-          {metricCards.map((card) => (
-            <motion.div key={card.label} variants={item}>
-              <div className={styles.metricCard}>
-                <div className={styles.metricTop}>
-                  <span className={styles.metricLabel}>{card.label}</span>
-                  <div className={styles.metricIcon} style={{ background: card.bg, color: card.color }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d={card.iconPath} />
-                    </svg>
-                  </div>
-                </div>
-                <div className={styles.metricValue}>{card.value}</div>
-                <div className={styles.metricSubtext}>{card.subtext}</div>
-                <div className={`${styles.metricTrend} ${card.trend === 'up' ? styles.trendUp : styles.trendDown}`}>
-                  <ArrowIcon direction={card.trend} />
-                  {card.trendValue}
-                </div>
-                <div className={styles.metricBarTrack}>
-                  <motion.div
-                    className={styles.metricBarFill}
-                    style={{ background: card.barColor }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${card.barPercent}%` }}
-                    transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+        {/* Row 1: Key metrics */}
+        <div className={styles.metricsRow}>
+          <MetricCard icon={<Activity size={18} />} label="Total Predictions" value={d.predictions.total} sub={`${d.predictions.today} today · ${d.predictions.last_hour} last hour`} color="#6366f1" />
+          <MetricCard icon={<Zap size={18} />} label="Avg Latency" value={`${d.latency.avg}ms`} sub={`p50: ${d.latency.p50}ms · p95: ${d.latency.p95}ms`} color="#06b6d4" barPct={Math.min(d.latency.avg / 5, 100)} />
+          <MetricCard icon={<Cpu size={18} />} label="CPU" value={`${d.cpu.toFixed(1)}%`} sub={`${d.cpu_cores} cores · load ${d.load_avg}`} color="#8b5cf6" barPct={d.cpu} />
+          <MetricCard icon={<HardDrive size={18} />} label="RAM" value={`${d.ram.toFixed(1)}%`} sub={`${d.ram_used_gb}GB / ${d.ram_total_gb}GB`} color="#f59e0b" barPct={d.ram} />
+          <MetricCard icon={<Wifi size={18} />} label="Traffic" value={`${d.traffic.requests_per_minute}`} sub="requests/min" color="#10b981" barPct={Math.min(d.traffic.requests_per_minute * 10, 100)} />
+          <MetricCard icon={<BarChart3 size={18} />} label="Error Rate" value={`${d.error_rate}%`} sub={`${d.success_rate}% success rate`} color={d.error_rate > 10 ? '#ef4444' : '#22c55e'} barPct={d.error_rate} />
+        </div>
 
-        <motion.div
-          className={styles.statsRow || styles.metricsGrid}
-          variants={container}
-          initial="hidden"
-          animate="show"
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}
-        >
-          {summaryStats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              variants={item}
-              whileHover={{ y: -3, boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 12px 40px rgba(0,0,0,0.12)' }}
-              style={{
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 12,
-                padding: 16,
-                textAlign: 'center',
-                cursor: 'default',
-              }}
-            >
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{stat.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text)' }}>
-                <AnimatedNumber value={stat.value} />
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+        {/* Row 2: Charts */}
+        <div className={styles.chartsRow}>
+          <ChartCard title="Traffic Over Time">
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={d.traffic.per_hour}>
+                <defs>
+                  <linearGradient id="trafficGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} />
+                <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} />
+                <Area type="monotone" dataKey="count" stroke="#6366f1" fill="url(#trafficGrad)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
 
-        <div className={styles.twoCol}>
-          <motion.div
-            className={styles.chartSection}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-          >
-            <div className={styles.chartHeader}>
-              <span className={styles.chartTitle}>Performance Over Time</span>
-              <span className={styles.chartPeriod}>Last {timeRange}</span>
-            </div>
-            <div className={styles.chartBody}>
-              <div className={styles.chartBars}>
-                {latencyBars.map((h, i) => (
-                  <motion.div
-                    key={i}
-                    className={`${styles.chartBar} ${styles.chartBarLatency}`}
-                    style={{ opacity: 0.7 }}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${h}%` }}
-                    transition={{ delay: 0.3 + i * 0.02, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                ))}
+          <ChartCard title="Latency Distribution">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={d.latency.histogram}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} />
+                <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {d.latency.histogram.map((_, i) => (
+                    <Cell key={i} fill={['#22c55e', '#86efac', '#fbbf24', '#f97316', '#ef4444'][i] || '#6366f1'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+
+        {/* Row 3: Drift + Confidence */}
+        <div className={styles.chartsRow}>
+          <ChartCard title="Drift Monitor">
+            <div className={styles.driftBadges}>
+              <div className={styles.driftBadge}>
+                <Brain size={14} />
+                <span>Model Drift</span>
+                <StatusDot status={d.model_drift.status} />
+                <span className={styles.driftScore}>{d.model_drift.score}%</span>
               </div>
-              <div className={styles.chartBars} style={{ height: 60, borderBottom: 'none', paddingTop: 'var(--space-3)' }}>
-                {driftBars.map((h, i) => (
-                  <motion.div
-                    key={i}
-                    className={`${styles.chartBar} ${styles.chartBarDrift}`}
-                    style={{ opacity: 0.6 }}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${h}%` }}
-                    transition={{ delay: 0.5 + i * 0.02, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                ))}
-              </div>
-              <div className={styles.chartBars} style={{ height: 40, borderTop: 'none', paddingTop: 0 }}>
-                {errorBars.map((h, i) => (
-                  <motion.div
-                    key={i}
-                    className={`${styles.chartBar} ${styles.chartBarError}`}
-                    style={{ opacity: 0.6 }}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${h}%` }}
-                    transition={{ delay: 0.7 + i * 0.02, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                ))}
-              </div>
-              <div className={styles.chartLegend}>
-                <div className={styles.legendItem}>
-                  <div className={styles.legendDot} style={{ background: 'var(--color-secondary)' }} />
-                  CPU / Memory
-                </div>
-                <div className={styles.legendItem}>
-                  <div className={styles.legendDot} style={{ background: 'var(--color-warning)' }} />
-                  Network
-                </div>
-                <div className={styles.legendItem}>
-                  <div className={styles.legendDot} style={{ background: 'var(--color-danger)' }} />
-                  Disk
-                </div>
+              <div className={styles.driftBadge}>
+                <Activity size={14} />
+                <span>Data Drift</span>
+                <StatusDot status={d.data_drift.status} />
+                <span className={styles.driftScore}>{d.data_drift.score}</span>
               </div>
             </div>
-          </motion.div>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={d.drift_timeline}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} />
+                <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} />
+                <Line type="monotone" dataKey="model_drift" stroke="#6366f1" strokeWidth={2} dot={false} name="Model Drift" />
+                <Line type="monotone" dataKey="data_drift" stroke="#f59e0b" strokeWidth={2} dot={false} name="Data Drift" />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
 
-          <motion.div
-            className={styles.alertsSection}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.25 }}
-          >
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>System Info</span>
-              <span className={styles.badgeCount}>{summaryStats.length}</span>
+          <ChartCard title="Confidence Distribution">
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={d.confidence_distribution}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} />
+                <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#8b5cf6" />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className={styles.pieRow}>
+              <div className={styles.pieItem}>
+                <ResponsiveContainer width={100} height={100}>
+                  <PieChart>
+                    <Pie data={[{ name: 'Success', value: d.success_rate }, { name: 'Error', value: d.error_rate }]}
+                      cx="50%" cy="50%" innerRadius={25} outerRadius={40} paddingAngle={3} dataKey="value">
+                      {PIE_COLORS.map((c, i) => <Cell key={i} fill={c} />)}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className={styles.pieLabel}>
+                  <span style={{ color: '#22c55e' }}>{d.success_rate}% success</span>
+                  <span style={{ color: '#ef4444' }}>{d.error_rate}% error</span>
+                </div>
+              </div>
+              <div className={styles.latencyStats}>
+                <div className={styles.latStat}><span>p50</span><strong>{d.latency.p50}ms</strong></div>
+                <div className={styles.latStat}><span>p95</span><strong>{d.latency.p95}ms</strong></div>
+                <div className={styles.latStat}><span>p99</span><strong>{d.latency.p99}ms</strong></div>
+              </div>
             </div>
+          </ChartCard>
+        </div>
+
+        {/* Row 4: Alerts + Logs */}
+        <div className={styles.chartsRow}>
+          <ChartCard title="Alerts">
             <div className={styles.alertList}>
-              {summaryStats.map((stat, i) => (
-                <motion.div
-                  key={stat.label}
-                  className={styles.alertItem}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + i * 0.05, duration: 0.3 }}
-                >
-                  <div className={`${styles.alertDot} ${styles.alertDotInfo}`} />
+              {d.alerts.map((a, i) => (
+                <motion.div key={i} className={styles.alertItem}
+                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
+                  <span className={`${styles.alertDot} ${styles[`alertDot${a.severity}`] || styles.alertDotInfo}`} />
                   <div className={styles.alertContent}>
-                    <div className={styles.alertTitle}>{stat.label}</div>
-                    <div className={styles.alertDescription}>Total: {stat.value}</div>
+                    <div className={styles.alertTitle}>{a.title}</div>
+                    <div className={styles.alertMsg}>{a.message}</div>
                   </div>
+                  <span className={styles.alertTime}>{a.time}</span>
                 </motion.div>
               ))}
-              {metrics && (
-                <motion.div
-                  className={styles.alertItem}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5, duration: 0.3 }}
-                >
-                  <div className={`${styles.alertDot} ${styles.alertDotSuccess}`} />
-                  <div className={styles.alertContent}>
-                    <div className={styles.alertTitle}>GPU Utilization</div>
-                    <div className={styles.alertDescription}>{(metrics.gpu_utilization ?? 0).toFixed(1)}%</div>
-                  </div>
+            </div>
+          </ChartCard>
+
+          <ChartCard title="Recent Predictions">
+            <div className={styles.logsTable}>
+              <div className={styles.logsHeader}>
+                <span>Model</span><span>Prediction</span><span>Confidence</span><span>Latency</span><span>Time</span>
+              </div>
+              {d.logs.slice(0, 10).map((log, i) => (
+                <motion.div key={i} className={styles.logRow}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}>
+                  <span className={styles.logModel}>{log.model}</span>
+                  <span className={styles.logPred}>{log.prediction}</span>
+                  <span className={styles.logConf}>
+                    {log.confidence != null ? `${(log.confidence * 100).toFixed(1)}%` : '—'}
+                  </span>
+                  <span className={styles.logLatency}>{log.latency_ms != null ? `${log.latency_ms}ms` : '—'}</span>
+                  <span className={styles.logTime}>
+                    {log.time ? new Date(log.time).toLocaleTimeString() : '—'}
+                  </span>
                 </motion.div>
+              ))}
+              {d.logs.length === 0 && (
+                <div className={styles.emptyLogs}>No prediction logs yet</div>
               )}
             </div>
-          </motion.div>
+          </ChartCard>
         </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3 }}
-        >
-          <div className={styles.sectionHeader}>
-            <span className={styles.sectionTitle}>System Resources</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-            {[
-              { label: 'CPU', percent: metrics?.cpu_percent ?? 0, color: 'var(--color-secondary)', detail: `${metrics?.active_deployments ?? 0} active deployments` },
-              { label: 'Memory', percent: metrics?.memory_percent ?? 0, color: 'var(--color-accent)', detail: `${metrics?.requests_per_minute ?? 0} req/min` },
-              { label: 'Disk', percent: metrics?.disk_percent ?? 0, color: 'var(--color-success)', detail: `GPU: ${(metrics?.gpu_utilization ?? 0).toFixed(1)}%` },
-            ].map((res) => (
-              <TiltCard key={res.label} glareColor={`${res.color}33`} maxTilt={3} scale={1.01}>
-                <div style={{
-                  background: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 12,
-                  padding: 20,
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)' }}>{res.label}</span>
-                    <span style={{ fontSize: 20, fontWeight: 700, color: res.color }}>{res.percent.toFixed(1)}%</span>
-                  </div>
-                  <div style={{ width: '100%', height: 6, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
-                    <motion.div
-                      style={{ height: '100%', borderRadius: 3, background: res.color }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${res.percent}%` }}
-                      transition={{ duration: 1, delay: 0.3, type: 'spring', stiffness: 50, damping: 15 }}
-                    />
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>{res.detail}</div>
-                </div>
-              </TiltCard>
-            ))}
-          </div>
-        </motion.div>
       </motion.div>
     </div>
   );

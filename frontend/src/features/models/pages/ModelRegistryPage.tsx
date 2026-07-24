@@ -15,6 +15,8 @@ import {
   Layers,
   BarChart3,
   AlertCircle,
+  User,
+  HardDrive,
 } from 'lucide-react';
 import { useModels } from '../../../hooks/useApi';
 import { modelsService } from '../../../services/models.service';
@@ -337,6 +339,12 @@ export default function ModelRegistryPage() {
                   <div className={styles.modelMeta}>
                     <span className={styles.algorithmBadge}>{model.model_type}</span>
                     <span className={styles.versionText}>v{model.version}</span>
+                    {model.owner && (
+                      <span className={styles.ownerBadge}>
+                        <User size={10} />
+                        {model.owner}
+                      </span>
+                    )}
                   </div>
 
                   <div className={styles.metricsRow}>
@@ -348,6 +356,30 @@ export default function ModelRegistryPage() {
                           : 'N/A'}
                       </span>
                     </div>
+                    {model.file_size_kb != null && (
+                      <>
+                        <div className={styles.metricDivider} />
+                        <div className={styles.metric}>
+                          <span className={styles.metricLabel}>Size</span>
+                          <span className={styles.metricValue}>
+                            {model.file_size_kb >= 1024
+                              ? `${(model.file_size_kb / 1024).toFixed(1)} MB`
+                              : `${model.file_size_kb} KB`}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {model.description && (
+                      <>
+                        <div className={styles.metricDivider} />
+                        <div className={styles.metric} style={{ maxWidth: 140 }}>
+                          <span className={styles.metricLabel}>Description</span>
+                          <span className={styles.metricValue} style={{ fontSize: 'var(--text-tiny)', fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {model.description}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div className={styles.tagsRow}>

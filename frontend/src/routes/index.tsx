@@ -14,6 +14,8 @@ const Deployments = lazy(() => import('../features/deployments/pages/Deployments
 const Monitoring = lazy(() => import('../features/monitoring/pages/MonitoringPage'));
 const Settings = lazy(() => import('../features/settings/pages/SettingsPage'));
 const SQLEditor = lazy(() => import('../features/sql/pages/SQLEditorPage'));
+const Explain = lazy(() => import('../features/explain/pages/ExplainPage'));
+const AIAssistant = lazy(() => import('../features/ai/pages/AIAssistantPage'));
 
 export const router = createBrowserRouter([
   {
@@ -34,6 +36,8 @@ export const router = createBrowserRouter([
       { path: 'monitoring', element: <Monitoring /> },
       { path: 'settings', element: <Settings /> },
       { path: 'sql', element: <SQLEditor /> },
+      { path: 'explain', element: <Explain /> },
+      { path: 'ai', element: <AIAssistant /> },
       { path: '*', element: <NotFound /> },
     ],
   },

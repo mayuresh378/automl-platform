@@ -106,7 +106,8 @@ CSRF_SKIP_PREFIXES = {"/api/v1/datasets", "/api/v1/query", "/api/v1/cleaning",
                       "/api/v1/explain", "/api/v1/deployments", "/api/v1/projects",
                       "/api/v1/experiments", "/api/v1/pipelines", "/api/v1/marketplace",
                       "/api/v1/monitoring", "/api/v1/admin", "/api/v1/profile",
-                      "/api/v1/notifications", "/api/v1/automations", "/api/v1/search"}
+                      "/api/v1/notifications", "/api/v1/automations", "/api/v1/search",
+                      "/api/v1/ai"}
 
 CSRF_SKIP_METHODS = {"GET", "HEAD", "OPTIONS"}
 

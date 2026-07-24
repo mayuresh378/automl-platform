@@ -317,6 +317,19 @@
   font-family: var(--font-mono);
 }
 
+.ownerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+  font-size: var(--text-tiny);
+  font-weight: 500;
+}
+
 /* ── Metrics ── */
 
 .metricsRow {

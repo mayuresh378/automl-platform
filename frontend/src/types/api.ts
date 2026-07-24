@@ -260,6 +260,8 @@ export interface Model {
   params?: Record<string, any>;
   tags?: string[];
   description?: string;
+  owner?: string;
+  owner_email?: string;
   created_at: string;
   updated_at: string;
 }
