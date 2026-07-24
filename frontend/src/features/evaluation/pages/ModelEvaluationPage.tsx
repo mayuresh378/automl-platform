@@ -9,14 +9,14 @@ import {
   evaluationService,
   type ComprehensiveEvaluation,
 } from '../services/evaluation.service';
-import { ConfusionMatrix } from '../explain/components/ConfusionMatrix';
-import { RocCurve } from '../explain/components/RocCurve';
-import { PrecisionRecallCurve } from '../explain/components/PrecisionRecallCurve';
-import { FeatureImportanceChart } from '../explain/components/FeatureImportanceChart';
-import { LearningCurve } from './components/LearningCurve';
-import { ValidationCurve } from './components/ValidationCurve';
-import { ResidualPlot } from './components/ResidualPlot';
-import { PredictionDistribution } from './components/PredictionDistribution';
+import { ConfusionMatrix } from '../../explain/components/ConfusionMatrix';
+import { RocCurve } from '../../explain/components/RocCurve';
+import { PrecisionRecallCurve } from '../../explain/components/PrecisionRecallCurve';
+import { FeatureImportanceChart } from '../../explain/components/FeatureImportanceChart';
+import { LearningCurve } from '../components/LearningCurve';
+import { ValidationCurve } from '../components/ValidationCurve';
+import { ResidualPlot } from '../components/ResidualPlot';
+import { PredictionDistribution } from '../components/PredictionDistribution';
 import styles from './ModelEvaluationPage.module.css';
 
 type TabId = 'confusion' | 'roc' | 'pr' | 'learning' | 'validation' | 'importance' | 'residual' | 'distribution';
