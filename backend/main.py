@@ -2526,11 +2526,28 @@ def live_stats(db: Session = Depends(get_db)):
     exps = list_experiments(db)
     models = [f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]
     today_prefix = datetime.now().strftime("%Y-%m-%d")
+    today_exps = [e for e in exps if e.run_at and e.run_at.strftime("%Y-%m-%d") == today_prefix]
+    success_exps = [e for e in exps if e.status == "success"]
+    from crud import list_dataset_records
+    datasets = list_dataset_records(db)
+    pred_count = 0
+    try:
+        from models import PredictionLog
+        pred_count = db.query(PredictionLog).count()
+    except Exception:
+        pass
+    avg_train_time = round(sum((e.training_time or 0) for e in exps) / max(len(exps), 1), 1)
     return {
         "modelsTrained": len(exps),
         "activeDeployments": len(models),
-        "inferenceRequestsToday": sum(1 for e in exps if e.run_at and e.run_at.strftime("%Y-%m-%d") == today_prefix),
-        "avgLatencyMs": round(sum((e.training_time or 0) for e in exps) / max(len(exps), 1) * 1000, 1),
+        "inferenceRequestsToday": sum(1 for e in today_exps),
+        "avgLatencyMs": round(avg_train_time * 1000, 1),
+        "total_models": len(models),
+        "total_datasets": len(datasets),
+        "total_experiments": len(exps),
+        "total_predictions": pred_count,
+        "avg_training_time": avg_train_time,
+        "success_rate": round(len(success_exps) / max(len(exps), 1), 2),
     }
 
 

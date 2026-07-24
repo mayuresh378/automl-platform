@@ -9,6 +9,12 @@ export const monitoringService = {
     activeDeployments: number;
     inferenceRequestsToday: number;
     avgLatencyMs: number;
+    total_models: number;
+    total_datasets: number;
+    total_experiments: number;
+    total_predictions: number;
+    avg_training_time: number;
+    success_rate: number;
   }>('/monitoring/stats'),
 
   dashboard: () => http.get<MonitoringDashboard>('/monitoring/dashboard'),
