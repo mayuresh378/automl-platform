@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split, learning_curve, validation_curve
 from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve, average_precision_score
 from sklearn.pipeline import Pipeline
-from preprocess import auto_preprocess
+from preprocess import auto_preprocess, preprocess_target
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "..", "models")
@@ -57,7 +57,7 @@ def compute_confusion_matrix(model_obj, X_test, y_test, task_type, meta):
     y_pred = model_obj.predict(X_test)
     y_pred_list = y_pred.tolist() if hasattr(y_pred, "tolist") else list(y_pred)
     labels = sorted(list(set(y_test_list + y_pred_list)))
-    label_map = meta.get("label_map", {})
+    label_map = meta.get("label_map") or {}
     str_labels = [label_map.get(str(l), str(l)) for l in labels]
     cm = confusion_matrix(y_test_list, y_pred_list, labels=labels)
     return {"matrix": cm.tolist(), "labels": str_labels}
@@ -68,7 +68,7 @@ def compute_roc_curve(model_obj, X_test, y_test, task_type, meta):
     y_pred = model_obj.predict(X_test)
     y_pred_list = y_pred.tolist() if hasattr(y_pred, "tolist") else list(y_pred)
     labels = sorted(list(set(y_test_list + y_pred_list)))
-    label_map = meta.get("label_map", {})
+    label_map = meta.get("label_map") or {}
     str_labels = [label_map.get(str(l), str(l)) for l in labels]
 
     if task_type != "classification" or not hasattr(model_obj, "predict_proba"):
@@ -106,7 +106,7 @@ def compute_pr_curve(model_obj, X_test, y_test, task_type, meta):
     y_pred = model_obj.predict(X_test)
     y_pred_list = y_pred.tolist() if hasattr(y_pred, "tolist") else list(y_pred)
     labels = sorted(list(set(y_test_list + y_pred_list)))
-    label_map = meta.get("label_map", {})
+    label_map = meta.get("label_map") or {}
     str_labels = [label_map.get(str(l), str(l)) for l in labels]
 
     if task_type != "classification" or not hasattr(model_obj, "predict_proba"):
@@ -165,21 +165,26 @@ def compute_validation_curve(pipeline, X, y, task_type, estimator):
     param_name = None
     param_range = None
 
+    inner_model = estimator
+
     if hasattr(estimator, "n_estimators"):
-        param_name = "n_estimators"
+        param_name = "model__n_estimators"
         param_range = [10, 25, 50, 75, 100, 150, 200]
     elif hasattr(estimator, "C"):
-        param_name = "estimator__C" if hasattr(pipeline, "named_steps") else "C"
+        param_name = "model__C"
         param_range = [0.01, 0.1, 1, 10, 100]
     elif hasattr(estimator, "max_depth"):
-        param_name = "estimator__max_depth" if hasattr(pipeline, "named_steps") else "max_depth"
-        param_range = [2, 3, 5, 7, 10, 15, None]
+        param_name = "model__max_depth"
+        param_range = [2, 3, 5, 7, 10, 15]
     elif hasattr(estimator, "n_neighbors"):
-        param_name = "estimator__n_neighbors" if hasattr(pipeline, "named_steps") else "n_neighbors"
+        param_name = "model__n_neighbors"
         param_range = [3, 5, 7, 9, 11, 15, 21]
 
     if param_name is None:
         return {"error": "No tunable hyperparameter found for validation curve"}
+
+    if not isinstance(pipeline, Pipeline):
+        param_name = param_name.replace("model__", "")
 
     try:
         # Filter out None values for param_range
@@ -275,30 +280,37 @@ def compute_feature_importance(model, feature_names):
 
 
 def evaluate_model_comprehensive(model_name, file_name, target_column):
+    import os as _os
     pipeline = _load_model(model_name)
     meta = _load_meta(model_name)
     model, preprocessor = _extract_model(pipeline)
     task_type = meta.get("task_type", "classification")
     feature_names = meta.get("feature_names", [])
 
-    preprocess_result = auto_preprocess(file_name, target_column, task_type)
-    X = preprocess_result["X"]
-    y = preprocess_result["y"]
-    preprocessor_from_data = preprocess_result["preprocessor"]
+    DATASET_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "dataset")
+    file_path = _os.path.join(DATASET_DIR, file_name)
+    df = pd.read_csv(file_path)
+    y_raw = df[target_column]
+    X_raw = df.drop(columns=[target_column])
+
+    if task_type == "classification":
+        y_processed = preprocess_target(y_raw, task_type)
+    else:
+        y_processed = y_raw.values.astype(float)
+
+    if isinstance(pipeline, Pipeline):
+        model_obj = pipeline
+        X_for_split = X_raw
+    else:
+        preprocess_result = auto_preprocess(file_name, target_column, task_type)
+        X_for_split = preprocess_result["X"]
+        y_processed = preprocess_result["y"]
+        model_obj = Pipeline([("preprocessor", preprocess_result["preprocessor"]), ("model", pipeline)])
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42,
-        stratify=y if task_type == "classification" else None,
+        X_for_split, y_processed, test_size=0.2, random_state=42,
+        stratify=y_processed if task_type == "classification" else None,
     )
-
-    model_obj = pipeline
-    if not isinstance(pipeline, Pipeline):
-        model_obj = Pipeline([("preprocessor", preprocessor_from_data), ("model", pipeline)])
-
-    try:
-        model_obj.fit(X_train, y_train)
-    except Exception:
-        pass
 
     y_pred = model_obj.predict(X_test)
 
@@ -312,8 +324,8 @@ def evaluate_model_comprehensive(model_name, file_name, target_column):
         "roc_curve": compute_roc_curve(model_obj, X_test, y_test, task_type, meta),
         "pr_curve": compute_pr_curve(model_obj, X_test, y_test, task_type, meta),
         "feature_importance": compute_feature_importance(model, feature_names),
-        "learning_curve": compute_learning_curve(model_obj, X, y, task_type),
-        "validation_curve": compute_validation_curve(model_obj, X, y, task_type, model),
+        "learning_curve": compute_learning_curve(model_obj, X_for_split, y_processed, task_type),
+        "validation_curve": compute_validation_curve(model_obj, X_for_split, y_processed, task_type, model),
         "residual_plot": compute_residual_plot(model_obj, X_test, y_test, task_type),
         "prediction_distribution": compute_prediction_distribution(y_test, y_pred, task_type),
     }
