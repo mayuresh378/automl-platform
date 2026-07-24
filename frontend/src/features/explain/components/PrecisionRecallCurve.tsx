@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { PrCurveData } from '../services/explain.service';
-import styles from './PrCurve.module.css';
+import styles from './PrecisionRecallCurve.module.css';
 
 interface Props {
   data: PrCurveData;
