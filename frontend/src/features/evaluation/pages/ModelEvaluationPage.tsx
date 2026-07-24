@@ -1,14 +1,16 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertCircle, Loader2, BarChart3, Target, TrendingUp,
-  GitBranch, Sliders, Lightbulb, Activity, PieChart,
+  GitBranch, Sliders, Lightbulb, Activity, PieChart, ChevronDown,
 } from 'lucide-react';
 import {
   evaluationService,
   type ComprehensiveEvaluation,
 } from '../services/evaluation.service';
+import { http } from '../../../services/http';
+import type { Model, Dataset } from '../../../types/api';
 import { ConfusionMatrix } from '../../explain/components/ConfusionMatrix';
 import { RocCurve } from '../../explain/components/RocCurve';
 import { PrecisionRecallCurve } from '../../explain/components/PrecisionRecallCurve';
@@ -39,6 +41,37 @@ export default function ModelEvaluationPage() {
   const [result, setResult] = useState<ComprehensiveEvaluation | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('confusion');
 
+  const modelsQuery = useQuery({
+    queryKey: ['models'],
+    queryFn: () => http.get<{ models: Model[] }>('/models'),
+    select: (data) => data.models ?? [],
+    staleTime: 30_000,
+  });
+
+  const datasetsQuery = useQuery({
+    queryKey: ['datasets'],
+    queryFn: () => http.get<{ datasets: Dataset[] }>('/datasets'),
+    select: (data) => data.datasets ?? [],
+    staleTime: 30_000,
+  });
+
+  const selectedDataset = useMemo(
+    () => datasetsQuery.data?.find((d) => d.filename === fileName || d.name === fileName),
+    [datasetsQuery.data, fileName],
+  );
+
+  const columns = useMemo(() => {
+    if (selectedDataset?.columns) return selectedDataset.columns;
+    if (selectedDataset?.name) {
+      const name = selectedDataset.name.toLowerCase();
+      if (name.includes('iris')) return ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'species'];
+    }
+    return [];
+  }, [selectedDataset]);
+
+  const models = modelsQuery.data ?? [];
+  const datasets = datasetsQuery.data ?? [];
+
   const evaluateMutation = useMutation({
     mutationFn: () => evaluationService.comprehensive(modelName, fileName, targetColumn),
     onSuccess: (data) => setResult(data),
@@ -56,7 +89,7 @@ export default function ModelEvaluationPage() {
           <div>
             <h1 className={styles.title}>Model Evaluation</h1>
             <p className={styles.subtitle}>
-              Comprehensive model evaluation with 8 visualizations — confusion matrix, ROC, PR, learning curve, validation curve, feature importance, residual plot, and prediction distribution
+              Comprehensive model evaluation with 8 visualizations
             </p>
           </div>
         </div>
@@ -64,39 +97,74 @@ export default function ModelEvaluationPage() {
         <div className={styles.inputCard}>
           <div className={styles.inputRow}>
             <div className={styles.inputGroup}>
-              <label className={styles.label}>Model File (.pkl)</label>
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="e.g. iris_SVR.pkl"
-                value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
-              />
+              <label className={styles.label}>Model</label>
+              <div className={styles.selectWrapper}>
+                <select
+                  className={styles.select}
+                  value={modelName}
+                  onChange={(e) => setModelName(e.target.value)}
+                >
+                  <option value="">
+                    {modelsQuery.isLoading ? 'Loading models...' : 'Select a model'}
+                  </option>
+                  {models.map((m) => (
+                    <option key={m.name} value={m.name}>
+                      {m.name} ({m.task_type || m.algorithm || 'unknown'})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className={styles.selectIcon} />
+              </div>
             </div>
+
             <div className={styles.inputGroup}>
-              <label className={styles.label}>Dataset File</label>
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="e.g. iris.csv"
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-              />
+              <label className={styles.label}>Dataset</label>
+              <div className={styles.selectWrapper}>
+                <select
+                  className={styles.select}
+                  value={fileName}
+                  onChange={(e) => {
+                    setFileName(e.target.value);
+                    setTargetColumn('');
+                  }}
+                >
+                  <option value="">
+                    {datasetsQuery.isLoading ? 'Loading datasets...' : 'Select a dataset'}
+                  </option>
+                  {datasets.map((d) => (
+                    <option key={d.id || d.filename} value={d.filename}>
+                      {d.name} ({d.rows?.toLocaleString()} rows, {Array.isArray(d.columns) ? d.columns.length : '?'} cols)
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className={styles.selectIcon} />
+              </div>
             </div>
+
             <div className={styles.inputGroup}>
               <label className={styles.label}>Target Column</label>
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="e.g. sepal_length"
-                value={targetColumn}
-                onChange={(e) => setTargetColumn(e.target.value)}
-              />
+              <div className={styles.selectWrapper}>
+                <select
+                  className={styles.select}
+                  value={targetColumn}
+                  onChange={(e) => setTargetColumn(e.target.value)}
+                  disabled={!fileName}
+                >
+                  <option value="">
+                    {!fileName ? 'Select dataset first' : 'Select target column'}
+                  </option>
+                  {columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className={styles.selectIcon} />
+              </div>
             </div>
+
             <button
               className={styles.evalBtn}
               onClick={handleEvaluate}
-              disabled={evaluateMutation.isPending || !modelName.trim() || !fileName.trim() || !targetColumn.trim()}
+              disabled={evaluateMutation.isPending || !modelName || !fileName || !targetColumn}
             >
               {evaluateMutation.isPending ? (
                 <Loader2 size={16} className={styles.spin} />
@@ -181,12 +249,12 @@ export default function ModelEvaluationPage() {
                 {activeTab === 'roc' && (
                   result.roc_curve
                     ? <RocCurve data={result.roc_curve} />
-                    : <div className={styles.emptyTab}>ROC curve not available — model needs predict_proba support</div>
+                    : <div className={styles.emptyTab}>ROC curve not available</div>
                 )}
                 {activeTab === 'pr' && (
                   result.pr_curve
                     ? <PrecisionRecallCurve data={result.pr_curve} />
-                    : <div className={styles.emptyTab}>PR curve not available — model needs predict_proba support</div>
+                    : <div className={styles.emptyTab}>PR curve not available</div>
                 )}
                 {activeTab === 'learning' && <LearningCurve data={result.learning_curve} />}
                 {activeTab === 'validation' && <ValidationCurve data={result.validation_curve} />}
@@ -211,9 +279,9 @@ export default function ModelEvaluationPage() {
             <div className={styles.emptyIcon}>
               <BarChart3 size={32} />
             </div>
-            <h3 className={styles.emptyTitle}>Enter a model and dataset to evaluate</h3>
+            <h3 className={styles.emptyTitle}>Select a model and dataset to evaluate</h3>
             <p className={styles.emptyDesc}>
-              Provide a trained model file, dataset, and target column to generate comprehensive evaluation visualizations
+              Choose from your trained models and uploaded datasets to generate comprehensive evaluation visualizations
             </p>
             <div className={styles.vizGrid}>
               <div className={styles.vizCard}><Target size={16} /><span>Confusion Matrix</span></div>
