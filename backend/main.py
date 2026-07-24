@@ -20,6 +20,7 @@ import pandas as pd
 from logging_config import setup_logging, RequestLogMiddleware
 from config import settings
 from monitoring import collect_system_metrics
+from models import PredictionLog
 import logging
 
 from database import get_db, init_db
