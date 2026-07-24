@@ -1,15 +1,17 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, AlertCircle, Loader2, Sparkles, Globe, BarChart3,
-  TrendingUp, MapPin, MessageSquare, Activity, ChevronRight,
+  TrendingUp, MapPin, MessageSquare, Activity, ChevronRight, ChevronDown,
 } from 'lucide-react';
 import {
   explainService,
   type ComprehensiveExplanation,
   type ModelEvaluation,
 } from '../services/explain.service';
+import { http } from '../../../services/http';
+import type { Model, Dataset } from '../../../types/api';
 import { FeatureImportanceChart } from '../components/FeatureImportanceChart';
 import { ShapWaterfall } from '../components/ShapWaterfall';
 import { ConfusionMatrix } from '../components/ConfusionMatrix';
@@ -39,6 +41,33 @@ export default function ExplainPage() {
   const [result, setResult] = useState<ComprehensiveExplanation | null>(null);
   const [evalResult, setEvalResult] = useState<ModelEvaluation | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('global');
+
+  const modelsQuery = useQuery({
+    queryKey: ['models'],
+    queryFn: () => http.get<{ models: Model[] }>('/models'),
+    select: (data) => data.models ?? [],
+    staleTime: 30_000,
+  });
+
+  const datasetsQuery = useQuery({
+    queryKey: ['datasets'],
+    queryFn: () => http.get<{ datasets: Dataset[] }>('/datasets'),
+    select: (data) => data.datasets ?? [],
+    staleTime: 30_000,
+  });
+
+  const selectedDataset = useMemo(
+    () => datasetsQuery.data?.find((d) => d.name === fileName),
+    [datasetsQuery.data, fileName],
+  );
+
+  const columns = useMemo(() => {
+    if (selectedDataset?.columns) return selectedDataset.columns;
+    return [];
+  }, [selectedDataset]);
+
+  const models = modelsQuery.data ?? [];
+  const datasets = datasetsQuery.data ?? [];
 
   const comprehensiveMutation = useMutation({
     mutationFn: () => explainService.comprehensive(modelName, fileName, targetColumn),
@@ -78,40 +107,72 @@ export default function ExplainPage() {
         <div className={styles.inputCard}>
           <div className={styles.inputRow}>
             <div className={styles.inputGroup}>
-              <label className={styles.label}>Model File (.pkl)</label>
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="e.g. annual-enterprise-survey-2025_RandomForest.pkl"
-                value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
-              />
+              <label className={styles.label}>Model</label>
+              <div className={styles.selectWrapper}>
+                <select
+                  className={styles.select}
+                  value={modelName}
+                  onChange={(e) => setModelName(e.target.value)}
+                >
+                  <option value="">
+                    {modelsQuery.isLoading ? 'Loading models...' : 'Select a model'}
+                  </option>
+                  {models.map((m) => (
+                    <option key={m.name} value={m.name}>
+                      {m.name} ({m.task_type || 'unknown'})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className={styles.selectIcon} />
+              </div>
             </div>
             <div className={styles.inputGroup}>
-              <label className={styles.label}>Dataset File</label>
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="e.g. annual-enterprise-survey-2025.csv"
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-              />
+              <label className={styles.label}>Dataset</label>
+              <div className={styles.selectWrapper}>
+                <select
+                  className={styles.select}
+                  value={fileName}
+                  onChange={(e) => {
+                    setFileName(e.target.value);
+                    setTargetColumn('');
+                  }}
+                >
+                  <option value="">
+                    {datasetsQuery.isLoading ? 'Loading datasets...' : 'Select a dataset'}
+                  </option>
+                  {datasets.map((d) => (
+                    <option key={d.name} value={d.name}>
+                      {d.name} ({d.rows?.toLocaleString()} rows, {Array.isArray(d.columns) ? d.columns.length : '?'} cols)
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className={styles.selectIcon} />
+              </div>
             </div>
             <div className={styles.inputGroup}>
               <label className={styles.label}>Target Column</label>
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="e.g. cogs_usd"
-                value={targetColumn}
-                onChange={(e) => setTargetColumn(e.target.value)}
-              />
+              <div className={styles.selectWrapper}>
+                <select
+                  className={styles.select}
+                  value={targetColumn}
+                  onChange={(e) => setTargetColumn(e.target.value)}
+                  disabled={!fileName}
+                >
+                  <option value="">
+                    {!fileName ? 'Select dataset first' : 'Select target column'}
+                  </option>
+                  {columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className={styles.selectIcon} />
+              </div>
             </div>
             <div className={styles.buttonGroup}>
               <button
                 className={styles.evalBtn}
                 onClick={handleComprehensive}
-                disabled={isLoading || !modelName.trim() || !fileName.trim() || !targetColumn.trim()}
+                disabled={isLoading || !modelName || !fileName || !targetColumn}
               >
                 {comprehensiveMutation.isPending ? (
                   <Loader2 size={16} className={styles.spin} />
@@ -123,7 +184,7 @@ export default function ExplainPage() {
               <button
                 className={styles.evalBtnSecondary}
                 onClick={handleEvaluate}
-                disabled={isLoading || !modelName.trim() || !fileName.trim() || !targetColumn.trim()}
+                disabled={isLoading || !modelName || !fileName || !targetColumn}
               >
                 {evaluateMutation.isPending ? (
                   <Loader2 size={16} className={styles.spin} />
