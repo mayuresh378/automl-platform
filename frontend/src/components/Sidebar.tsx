@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: 'AI Assistant', path: '/app/ai', icon: 'MessageSquare' },
   { label: 'Experiments', path: '/app/experiments', icon: 'FlaskConical' },
   { label: 'Explain', path: '/app/explain', icon: 'Sparkles' },
+  { label: 'Evaluation', path: '/app/evaluation', icon: 'BarChart3' },
   { label: 'Models', path: '/app/models', icon: 'Layers' },
   { label: 'Deployments', path: '/app/deployments', icon: 'Rocket' },
   { label: 'Monitoring', path: '/app/monitoring', icon: 'Activity' },
@@ -27,6 +28,7 @@ const iconComponents: Record<string, string> = {
   Rocket: 'M15.59 14.37a6 6 0 01-5.84 4.63 6 6 0 01-5.84-4.63M15.59 14.37a22 22 0 014.78-5.65A8.01 8.01 0 0014 2a22 22 0 00-5.65 4.78M15.59 14.37a6 6 0 01-.82 2.52 6 6 0 01-2 2 6 6 0 01-2.52.82m0 0a6 6 0 01-2.52-.82 6 6 0 01-2-2 6 6 0 01-.82-2.52M9 12a3 3 0 113 3 3 3 0 01-3-3z',
   Activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
   Sparkles: 'M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3zM5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5L5 17zM17 17l.5 1.5L19 19l-1.5.5L17 21l-.5-1.5L15 19l1.5-.5L17 17z',
+  BarChart3: 'M18 20V10M12 20V4M6 20v-6',
   MessageSquare: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z',
   Settings: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
 };

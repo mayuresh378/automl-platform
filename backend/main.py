@@ -1333,6 +1333,29 @@ def evaluate_model_api(
     log_audit(db, current_user.get("name", "User"), "model.evaluated", name, "model")
     return result
 
+
+@app.post("/api/v1/models/{name}/evaluate-all", tags=["Models"], summary="Comprehensive model evaluation", description="Compute all 8 evaluation visualizations: confusion matrix, ROC, PR curve, learning curve, validation curve, feature importance, residual plot, prediction distribution.")
+def evaluate_model_all(
+    name: str,
+    file_name: str = Form(...),
+    target_column: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_optional_user),
+):
+    from evaluation import evaluate_model_comprehensive
+    fpath = os.path.join(MODELS_DIR, name)
+    if not os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail=f"Model '{name}' not found")
+    try:
+        result = evaluate_model_comprehensive(name, file_name, target_column)
+        log_audit(db, current_user.get("name", "User"), "model.evaluated_all", name, "model")
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/api/v1/models/{name}/meta", tags=["Models"], summary="Get model metadata", description="Return file stats and metadata JSON for a model.")
 def get_model_meta(name: str):
     fpath = os.path.join(MODELS_DIR, name)

@@ -12,6 +12,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/app/training': 'Training',
   '/app/ai': 'AI Assistant',
   '/app/explain': 'Explainable AI',
+  '/app/evaluation': 'Model Evaluation',
   '/app/experiments': 'Experiments',
   '/app/models': 'Model Registry',
   '/app/deployments': 'Deployments',
